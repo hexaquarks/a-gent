@@ -1,0 +1,12 @@
+# Go build and test output
+/a-gent
+*.test
+*.out
+
+# Local environment values and secrets
+.env
+.env.*
+!.env.example
+
+# macOS metadata
+.DS_Store

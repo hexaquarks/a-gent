@@ -9,14 +9,14 @@ import (
 
 const popupEnvironmentVariable = "A_GENT_TMUX_POPUP"
 
-// OpenPopup opens the current program in a centered tmux popup.
+// OpenPopupInTmux opens the current program in a centered tmux popup.
 // It returns false when a-gent is not running inside tmux or is already in a popup.
-func OpenPopup() (bool, error) {
+func OpenPopupInTmux() (bool, error) {
 	if os.Getenv("TMUX") == "" || os.Getenv(popupEnvironmentVariable) == "1" {
 		return false, nil
 	}
 
-	executable, err := os.Executable()
+	executablePath, err := os.Executable()
 	if err != nil {
 		return false, err
 	}
@@ -26,15 +26,18 @@ func OpenPopup() (bool, error) {
 		return false, err
 	}
 
-	command := popupCommand(executable, os.Args[1:])
+	command := popupCommand(executablePath, os.Args[1:])
 	popup := exec.Command(
 		"tmux",
 		"display-popup",
+		"-B",
 		"-E",
+		"-s",
+		"bg=#0a0a0a,fg=#d0d0d0",
 		"-w",
-		"80%",
+		"70%",
 		"-h",
-		"80%",
+		"58%",
 		"-d",
 		workingDirectory,
 		"-T",
@@ -48,6 +51,7 @@ func OpenPopup() (bool, error) {
 	return true, popup.Run()
 }
 
+// popupCommand preserves arguments when the popup relaunches the current executable.
 func popupCommand(executable string, arguments []string) string {
 	commandParts := []string{
 		popupEnvironmentVariable + "=1",
