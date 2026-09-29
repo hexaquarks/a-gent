@@ -47,6 +47,8 @@ type agent struct {
 type Model struct {
 	table  table.Model
 	agents []agent
+	width  int
+	height int
 }
 
 // NewModel creates the initial mock interface.
@@ -90,6 +92,11 @@ func (m Model) Init() tea.Cmd {
 
 // Update handles keyboard input and forwards navigation to the table.
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	if windowSize, ok := message.(tea.WindowSizeMsg); ok {
+		m.width = windowSize.Width
+		m.height = windowSize.Height
+	}
+
 	if keyMessage, ok := message.(tea.KeyMsg); ok {
 		switch keyMessage.String() {
 		case "q", "ctrl+c":
@@ -111,26 +118,32 @@ func (m Model) View() string {
 		"› Agents",
 		"  Activity",
 		"  Settings",
-	}, "\\n"))
+	}, "\n"))
 
-	main := panelStyle.Render("AGENTS\\n\\n" + m.table.View())
+	main := panelStyle.Render("AGENTS\n\n" + m.table.View())
 	top := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, "  ", main)
 
 	detail := m.detailView()
 	footer := mutedStyle.Render("j/k or ↑/↓: navigate  •  q: quit")
 
-	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, "", top, "", detail, "", footer))
+	dashboard := appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, "", top, "", detail, "", footer))
+
+	if m.width == 0 || m.height == 0 {
+		return dashboard
+	}
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dashboard)
 }
 
 func (m Model) detailView() string {
 	selectedIndex := m.table.Cursor()
 	if selectedIndex < 0 || selectedIndex >= len(m.agents) {
-		return detailStyle.Render("DETAILS\\nNo agent selected")
+		return detailStyle.Render("DETAILS\nNo agent selected")
 	}
 
 	selectedAgent := m.agents[selectedIndex]
 	content := fmt.Sprintf(
-		"DETAILS\\n%s  •  %s\\n%s\\n%s",
+		"DETAILS\n%s  •  %s\n%s\n%s",
 		selectedAgent.name,
 		selectedAgent.status,
 		selectedAgent.project,

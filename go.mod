@@ -1,4 +1,4 @@
-module github.com/mihailanghelici/a-gent
+module a-gent
 
 go 1.24.0
 
