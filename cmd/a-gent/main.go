@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"a-gent/internal/agent"
+	"a-gent/internal/codex"
 	"a-gent/internal/tmux"
 	"a-gent/internal/ui"
 
@@ -21,7 +23,8 @@ func main() {
 		return
 	}
 
-	program := tea.NewProgram(ui.NewModel(), tea.WithAltScreen())
+	adapters := []agent.Adapter{codex.NewAdapter()}
+	program := tea.NewProgram(ui.NewModel(adapters), tea.WithAltScreen())
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "a-gent stopped unexpectedly: %v\n", err)
 		os.Exit(1)

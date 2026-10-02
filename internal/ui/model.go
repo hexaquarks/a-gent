@@ -1,12 +1,27 @@
+// Package ui renders the a-gent dashboard.
 package ui
 
 import (
+	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
+
+	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+)
+
+const (
+	defaultTableWidth   = 70
+	minimumTableWidth   = 34
+	sidebarContentWidth = 18
+	refreshInterval     = time.Second
+	requestTimeout      = 2 * time.Second
+	maximumSessionRows  = 6
 )
 
 var (
@@ -28,7 +43,7 @@ var (
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("#3A3A3A")).
 			Padding(1, 1, 0, 1).
-			Width(18)
+			Width(sidebarContentWidth)
 	panelStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("#0A0A0A")).
 			Padding(0, 1)
@@ -46,13 +61,12 @@ var (
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#E6E6E6"))
-	overviewValueStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#E6E6E6"))
-	workingStyle = lipgloss.NewStyle().
+	runningStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#3FB950"))
 	waitingStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#D29922"))
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#F85149"))
 	footerStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("#0A0A0A")).
 			BorderTop(true).
@@ -62,60 +76,37 @@ var (
 			Padding(0, 1)
 )
 
-const (
-	sidebarContentWidth = 18
-	minimumTableWidth   = 34
-	defaultTableWidth   = 70
-)
-
-// agent represents one mock coding agent shown in the interface.
-type agent struct {
-	agentType  string
-	tmuxTarget string
-	status     string
-	age        string
-	repository string
-}
-
-// agentSummary contains the counts displayed in the overview panel.
-type agentSummary struct {
-	total        int
-	active       int
-	waiting      int
-	paused       int
-	repositories int
-}
-
 // Model holds the UI state for the application.
 type Model struct {
-	table  table.Model
-	agents []agent
-	width  int
-	height int
+	table     table.Model
+	adapters  []agent.Adapter
+	sessions  []agent.Session
+	lastError error
+	width     int
+	height    int
 }
 
-// NewModel creates the initial mock interface.
-func NewModel() Model {
-	agents := []agent{
-		{agentType: "codex", tmuxTarget: "dev:1.2", status: "Working", age: "8m", repository: "a-gent"},
-		{agentType: "claude-code", tmuxTarget: "api:3.1", status: "Working", age: "14m", repository: "api"},
-		{agentType: "cursor", tmuxTarget: "web:2.3", status: "Waiting", age: "21m", repository: "website"},
-		{agentType: "aider", tmuxTarget: "docs:1.1", status: "Running", age: "32m", repository: "docs"},
-		{agentType: "opencode", tmuxTarget: "cli:4.2", status: "Working", age: "47m", repository: "cli"},
-		{agentType: "goose", tmuxTarget: "mobile:1.3", status: "Waiting", age: "1h", repository: "mobile"},
-		{agentType: "continue", tmuxTarget: "api:2.1", status: "Paused", age: "1h", repository: "api"},
-		{agentType: "copilot", tmuxTarget: "web:4.1", status: "Running", age: "2h", repository: "website"},
-		{agentType: "gemini-cli", tmuxTarget: "sync:2.2", status: "Working", age: "2h", repository: "sync"},
-		{agentType: "roo-code", tmuxTarget: "cli:2.4", status: "Waiting", age: "3h", repository: "cli"},
-		{agentType: "amp", tmuxTarget: "dev:3.2", status: "Working", age: "3h", repository: "a-gent"},
-		{agentType: "devin", tmuxTarget: "docs:2.1", status: "Paused", age: "4h", repository: "docs"},
-	}
+type sessionsUpdatedMessage struct {
+	sessions []agent.Session
+	err      error
+}
 
+type refreshMessage time.Time
+
+type sessionSummary struct {
+	total   int
+	running int
+	waiting int
+	idle    int
+	errors  int
+}
+
+// NewModel creates the dashboard for the supplied provider adapters.
+func NewModel(adapters []agent.Adapter) Model {
 	agentTable := table.New(
 		table.WithColumns(tableColumns(defaultTableWidth)),
-		table.WithRows(agentRows(agents, len(tableColumns(defaultTableWidth)))),
 		table.WithFocused(true),
-		table.WithHeight(7),
+		table.WithHeight(maximumSessionRows+1),
 		table.WithWidth(defaultTableWidth),
 	)
 
@@ -129,28 +120,36 @@ func NewModel() Model {
 		Background(lipgloss.Color("#292929"))
 	agentTable.SetStyles(styles)
 
-	return Model{table: agentTable, agents: agents}
+	return Model{table: agentTable, adapters: adapters}
 }
 
-// Init starts the Bubble Tea program with no initial command.
+// Init starts the live provider refresh loop.
 func (model Model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(model.fetchSessions(), scheduleRefresh())
 }
 
 // Update receives events and returns the next UI state for Bubble Tea to render.
 func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
-	if windowSize, ok := message.(tea.WindowSizeMsg); ok {
-		model.width = windowSize.Width
-		model.height = windowSize.Height
+	switch message := message.(type) {
+	case tea.WindowSizeMsg:
+		model.width = message.Width
+		model.height = message.Height
 		model.resizeTable()
 		return model, nil
-	}
-
-	if keyMessage, ok := message.(tea.KeyMsg); ok {
-		switch keyMessage.String() {
+	case tea.KeyMsg:
+		switch message.String() {
 		case "q", "ctrl+c":
 			return model, tea.Quit
 		}
+	case sessionsUpdatedMessage:
+		if message.err == nil {
+			model.sessions = message.sessions
+		}
+		model.lastError = message.err
+		model.updateTableRows()
+		return model, nil
+	case refreshMessage:
+		return model, tea.Batch(model.fetchSessions(), scheduleRefresh())
 	}
 
 	var command tea.Cmd
@@ -160,8 +159,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the current UI state after Bubble Tea calls Update.
 func (model Model) View() string {
-	summary := summarizeAgents(model.agents)
-	main := panelStyle.Width(model.table.Width()).Render(accentStyle.Render("AGENTS") + "\n" + model.agentTableView())
+	summary := summarizeSessions(model.sessions)
+	main := panelStyle.Width(model.table.Width()).Render(accentStyle.Render(model.sessionTitle()) + "\n" + model.sessionTableView())
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)
 	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.sidebarView(summary))
@@ -170,96 +169,124 @@ func (model Model) View() string {
 	headerText := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		accentStyle.Render("a-gent"),
-		fmt.Sprintf("  /  %d agents  /  %d active  /  mock data", summary.total, summary.active),
+		fmt.Sprintf("  /  %d sessions  /  %d running  /  live data", summary.total, summary.running),
 	)
 	contentWidth := lipgloss.Width(body)
 	header := headerStyle.Width(contentWidth).Render(headerText)
-	footer := footerStyle.Width(contentWidth).Render("j/k or ↑/↓: navigate  •  q: quit")
+	footer := footerStyle.Width(contentWidth).Render("j/k or ↑/↓: browse sessions  •  q: quit")
 
-	dashboard := appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
-
-	return dashboard
+	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
 }
 
-func (model Model) sidebarView(summary agentSummary) string {
-	return strings.Join([]string{
+func (model Model) fetchSessions() tea.Cmd {
+	adapters := model.adapters
+	return func() tea.Msg {
+		requestContext, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		defer cancel()
+
+		var sessions []agent.Session
+		for _, adapter := range adapters {
+			providerSessions, err := adapter.Sessions(requestContext)
+			if err != nil {
+				return sessionsUpdatedMessage{err: fmt.Errorf("read %s sessions: %w", adapter.Provider(), err)}
+			}
+			sessions = append(sessions, providerSessions...)
+		}
+
+		return sessionsUpdatedMessage{sessions: sessions}
+	}
+}
+
+func scheduleRefresh() tea.Cmd {
+	return tea.Tick(refreshInterval, func(time.Time) tea.Msg {
+		return refreshMessage(time.Now())
+	})
+}
+
+func (model Model) sidebarView(summary sessionSummary) string {
+	lines := []string{
 		sectionStyle.Render("OVERVIEW"),
 		"",
-		accentStyle.Render(fmt.Sprintf("Agents       %d", summary.total)),
-		workingStyle.Render(fmt.Sprintf("Active       %d", summary.active)),
+		accentStyle.Render(fmt.Sprintf("Sessions     %d", summary.total)),
+		runningStyle.Render(fmt.Sprintf("Running      %d", summary.running)),
 		waitingStyle.Render(fmt.Sprintf("Waiting      %d", summary.waiting)),
-		mutedStyle.Render(fmt.Sprintf("Paused       %d", summary.paused)),
-		"",
-		mutedStyle.Render(fmt.Sprintf("Tmux targets %d", summary.total)),
-		mutedStyle.Render(fmt.Sprintf("Repositories %d", summary.repositories)),
-		mutedStyle.Render("● Mock data"),
-	}, "\n")
+		mutedStyle.Render(fmt.Sprintf("Idle         %d", summary.idle)),
+		errorStyle.Render(fmt.Sprintf("Errors       %d", summary.errors)),
+	}
+
+	if model.lastError != nil {
+		lines = append(lines, "", errorStyle.Render("● Unable to refresh"), mutedStyle.Render(model.lastError.Error()))
+	} else {
+		lines = append(lines, "", mutedStyle.Render("● Refreshes every 1s"))
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (model Model) detailView() string {
 	selectedIndex := model.table.Cursor()
-	if selectedIndex < 0 || selectedIndex >= len(model.agents) {
-		return "SELECTED AGENT\nNo agent selected"
+	if selectedIndex < 0 || selectedIndex >= len(model.sessions) {
+		if model.lastError != nil {
+			return "SELECTED SESSION\nCould not read live sessions."
+		}
+		return "SELECTED SESSION\nNo live sessions found."
 	}
 
-	selectedAgent := model.agents[selectedIndex]
-	status := selectedAgent.status
-	if status == "Working" || status == "Running" {
-		status = workingStyle.Render("● " + status)
-	} else {
-		status = waitingStyle.Render("● " + status)
-	}
-
+	selectedSession := model.sessions[selectedIndex]
 	return fmt.Sprintf(
-		"%s\n%s  %s  %s\nRepository: %s\nTmux: %s",
-		sectionStyle.Render("SELECTED AGENT"),
-		selectedAgent.agentType,
-		status,
-		mutedStyle.Render(selectedAgent.age),
-		selectedAgent.repository,
-		selectedAgent.tmuxTarget,
+		"%s\n%s  %s\n%s\nDirectory: %s\nSession: %s",
+		sectionStyle.Render("SELECTED SESSION"),
+		selectedSession.Provider,
+		statusStyle(selectedSession.State).Render("● "+displayState(selectedSession.State)),
+		selectedSession.Name,
+		selectedSession.WorkingDirectory,
+		selectedSession.ID,
 	)
 }
 
-func (model Model) agentTableView() string {
+func (model Model) sessionTableView() string {
 	columns := model.table.Columns()
 	headerCells := make([]string, len(columns))
-
 	for index, column := range columns {
 		headerCells[index] = renderTableCell(column.Title, column.Width, sectionStyle, lipgloss.Color("#202020"))
 	}
 
 	rows := []string{lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
-	start, end := model.visibleAgentRange()
+	if len(model.sessions) == 0 {
+		rows = append(rows, mutedStyle.Render("No live sessions found."))
+		return strings.Join(rows, "\n")
+	}
 
+	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
-		rows = append(rows, model.agentRowView(index, columns))
+		rows = append(rows, model.sessionRowView(index, columns))
 	}
 
 	return strings.Join(rows, "\n")
 }
 
-func (model Model) visibleAgentRange() (int, int) {
-	visibleRows := model.table.Height()
-	if visibleRows > len(model.agents) {
-		visibleRows = len(model.agents)
+func (model Model) sessionTitle() string {
+	if len(model.sessions) == 0 {
+		return "SESSIONS"
 	}
 
+	start, end := model.visibleSessionRange()
+	return fmt.Sprintf("SESSIONS (%d-%d of %d)", start+1, end, len(model.sessions))
+}
+
+func (model Model) visibleSessionRange() (int, int) {
+	visibleRows := min(model.table.Height(), len(model.sessions))
 	selectedIndex := model.table.Cursor()
 	start := 0
 	if selectedIndex >= visibleRows {
 		start = selectedIndex - visibleRows + 1
 	}
 
-	end := start + visibleRows
-	if end > len(model.agents) {
-		end = len(model.agents)
-	}
-
+	end := min(start+visibleRows, len(model.sessions))
 	return start, end
 }
 
-func (model Model) agentRowView(index int, columns []table.Column) string {
+func (model Model) sessionRowView(index int, columns []table.Column) string {
 	selected := index == model.table.Cursor()
 	background := lipgloss.Color("")
 	if selected {
@@ -268,36 +295,30 @@ func (model Model) agentRowView(index int, columns []table.Column) string {
 
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
-		value, style := agentColumnValue(model.agents[index], column.Title)
+		value, style := sessionColumnValue(model.sessions[index], column.Title)
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 }
 
-func agentColumnValue(agent agent, columnTitle string) (string, lipgloss.Style) {
+func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
-		return agent.agentType, lipgloss.NewStyle()
-	case "Tmux":
-		return agent.tmuxTarget, mutedStyle
-	case "Repo":
-		return agent.repository, lipgloss.NewStyle()
+		return session.Provider, lipgloss.NewStyle()
+	case "Session":
+		return session.Name, lipgloss.NewStyle()
+	case "Directory":
+		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
-		return agent.status, statusStyle(agent.status)
-	case "Age":
-		return agent.age, ageStyle(agent.age)
+		return displayState(session.State), statusStyle(session.State)
 	default:
 		return "", lipgloss.NewStyle()
 	}
 }
 
 func renderTableCell(value string, width int, textStyle lipgloss.Style, background lipgloss.Color) string {
-	cellStyle := textStyle.
-		Width(width).
-		MaxWidth(width).
-		Padding(0, 1)
-
+	cellStyle := textStyle.Width(width).MaxWidth(width).Padding(0, 1)
 	if background != "" {
 		cellStyle = cellStyle.Background(background)
 	}
@@ -305,23 +326,25 @@ func renderTableCell(value string, width int, textStyle lipgloss.Style, backgrou
 	return cellStyle.Render(value)
 }
 
-func statusStyle(status string) lipgloss.Style {
-	switch status {
-	case "Working", "Running":
-		return workingStyle
-	case "Waiting":
+func statusStyle(state agent.State) lipgloss.Style {
+	switch state {
+	case agent.StateRunning:
+		return runningStyle
+	case agent.StateWaiting:
 		return waitingStyle
+	case agent.StateError, agent.StateUnavailable:
+		return errorStyle
 	default:
 		return mutedStyle
 	}
 }
 
-func ageStyle(age string) lipgloss.Style {
-	if strings.HasSuffix(age, "h") {
-		return waitingStyle
+func displayState(state agent.State) string {
+	if state == "" {
+		return "Unavailable"
 	}
 
-	return mutedStyle
+	return strings.ToUpper(string(state[:1])) + string(state[1:])
 }
 
 func (model *Model) resizeTable() {
@@ -329,101 +352,68 @@ func (model *Model) resizeTable() {
 	if model.width > 0 {
 		tableWidth = model.width - sidebarContentWidth - 6
 	}
-
-	if tableWidth < minimumTableWidth {
-		tableWidth = minimumTableWidth
-	}
+	tableWidth = max(tableWidth, minimumTableWidth)
 
 	columns := tableColumns(tableWidth)
 	model.table.SetWidth(tableWidth)
-	model.table.SetRows(agentRows(model.agents, len(columns)))
 	model.table.SetColumns(columns)
+	model.updateTableRows()
 
-	tableHeight := len(model.agents) + 2
+	tableHeight := min(maximumSessionRows, max(3, len(model.sessions)))
 	if model.height > 0 {
-		availableHeight := model.height - 10
-		if tableHeight > availableHeight {
-			tableHeight = availableHeight
+		tableHeight = min(tableHeight, max(3, model.height-10))
+	}
+	model.table.SetHeight(tableHeight + 1)
+}
+
+func (model *Model) updateTableRows() {
+	columns := model.table.Columns()
+	rows := make([]table.Row, len(model.sessions))
+	for index, session := range model.sessions {
+		values := make([]string, len(columns))
+		for columnIndex, column := range columns {
+			values[columnIndex], _ = sessionColumnValue(session, column.Title)
 		}
+		rows[index] = table.Row(values)
 	}
 
-	if tableHeight < 5 {
-		tableHeight = 5
-	}
-
-	model.table.SetHeight(tableHeight)
+	model.table.SetRows(rows)
 }
 
 func tableColumns(tableWidth int) []table.Column {
-	if tableWidth < 42 {
+	if tableWidth < 48 {
+		return []table.Column{{Title: "Agent", Width: 12}, {Title: "Status", Width: tableWidth - 15}}
+	}
+	if tableWidth < 72 {
 		return []table.Column{
-			{Title: "Agent", Width: 14},
-			{Title: "Tmux", Width: tableWidth - 17},
+			{Title: "Agent", Width: 12},
+			{Title: "Session", Width: tableWidth - 29},
+			{Title: "Status", Width: 12},
 		}
 	}
-
-	if tableWidth < 56 {
-		return []table.Column{
-			{Title: "Agent", Width: 14},
-			{Title: "Tmux", Width: tableWidth - 29},
-			{Title: "Age", Width: 6},
-		}
-	}
-
-	if tableWidth < 82 {
-		return []table.Column{
-			{Title: "Agent", Width: 16},
-			{Title: "Tmux", Width: tableWidth - 58},
-			{Title: "Repo", Width: 14},
-			{Title: "Status", Width: 10},
-			{Title: "Age", Width: 6},
-		}
-	}
-
-	contentWidth := tableWidth - 10
-	agentWidth := contentWidth / 5
-	tmuxWidth := contentWidth * 35 / 100
-	repositoryWidth := contentWidth / 5
-	statusWidth := contentWidth * 15 / 100
-	ageWidth := contentWidth - agentWidth - tmuxWidth - repositoryWidth - statusWidth
 
 	return []table.Column{
-		{Title: "Agent", Width: agentWidth},
-		{Title: "Tmux", Width: tmuxWidth},
-		{Title: "Repo", Width: repositoryWidth},
-		{Title: "Status", Width: statusWidth},
-		{Title: "Age", Width: ageWidth},
+		{Title: "Agent", Width: 12},
+		{Title: "Session", Width: tableWidth / 3},
+		{Title: "Directory", Width: tableWidth/3 - 3},
+		{Title: "Status", Width: 12},
 	}
 }
 
-func agentRows(agents []agent, columnCount int) []table.Row {
-	rows := make([]table.Row, len(agents))
-
-	for index, agent := range agents {
-		values := []string{agent.agentType, agent.tmuxTarget, agent.repository, agent.status, agent.age}
-		rows[index] = table.Row(values[:columnCount])
-	}
-
-	return rows
-}
-
-func summarizeAgents(agents []agent) agentSummary {
-	repositories := make(map[string]struct{})
-	summary := agentSummary{total: len(agents)}
-
-	for _, agent := range agents {
-		repositories[agent.repository] = struct{}{}
-
-		switch agent.status {
-		case "Working", "Running":
-			summary.active++
-		case "Waiting":
+func summarizeSessions(sessions []agent.Session) sessionSummary {
+	summary := sessionSummary{total: len(sessions)}
+	for _, session := range sessions {
+		switch session.State {
+		case agent.StateRunning:
+			summary.running++
+		case agent.StateWaiting:
 			summary.waiting++
-		case "Paused":
-			summary.paused++
+		case agent.StateIdle:
+			summary.idle++
+		case agent.StateError, agent.StateUnavailable:
+			summary.errors++
 		}
 	}
 
-	summary.repositories = len(repositories)
 	return summary
 }
