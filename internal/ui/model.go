@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 const (
 	defaultTableWidth   = 70
 	minimumTableWidth   = 34
-	sidebarContentWidth = 18
+	sidebarContentWidth = 22
 	refreshInterval     = time.Second
 	requestTimeout      = 2 * time.Second
 	minimumSessionRows  = 3
@@ -80,12 +81,16 @@ var (
 
 // Model holds the UI state for the application.
 type Model struct {
-	table     table.Model
-	adapters  []agent.Adapter
-	sessions  []agent.Session
-	lastError error
-	width     int
-	height    int
+	table           table.Model
+	adapters        []agent.Adapter
+	sessions        []agent.Session
+	selectedView    sidebarView
+	selectedProject string
+	sidebarFocus    bool
+	sidebarCursor   int
+	lastError       error
+	width           int
+	height          int
 }
 
 type sessionsUpdatedMessage struct {
@@ -101,6 +106,25 @@ type sessionSummary struct {
 	waiting int
 	idle    int
 	errors  int
+}
+
+// sidebarView identifies a predefined session filter in the sidebar.
+type sidebarView string
+
+const (
+	attentionView sidebarView = "Attention"
+	activeView    sidebarView = "Active"
+	recentView    sidebarView = "Recent"
+	allView       sidebarView = "All"
+)
+
+type sidebarItem struct {
+	// label is the user-visible name of the view or project.
+	label string
+	// view is set for a VIEWS item.
+	view sidebarView
+	// project is set for a PROJECTS item.
+	project string
 }
 
 // NewModel creates the dashboard for the supplied provider adapters.
@@ -122,7 +146,7 @@ func NewModel(adapters []agent.Adapter) Model {
 		Background(lipgloss.Color("#292929"))
 	agentTable.SetStyles(styles)
 
-	return Model{table: agentTable, adapters: adapters}
+	return Model{table: agentTable, adapters: adapters, selectedView: allView}
 }
 
 // Init starts the live provider refresh loop.
@@ -142,10 +166,24 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		switch message.String() {
 		case "q", "ctrl+c":
 			return model, tea.Quit
+		case "tab":
+			model.sidebarFocus = !model.sidebarFocus
+			return model, nil
+		case "j", "down":
+			if model.sidebarFocus {
+				model.moveSidebarCursor(1)
+				return model, nil
+			}
+		case "k", "up":
+			if model.sidebarFocus {
+				model.moveSidebarCursor(-1)
+				return model, nil
+			}
 		}
 	case sessionsUpdatedMessage:
 		if message.err == nil {
 			model.sessions = message.sessions
+			model.clearMissingProjectFilter()
 		}
 		model.lastError = message.err
 		model.updateTableRows()
@@ -165,7 +203,7 @@ func (model Model) View() string {
 	main := panelStyle.Width(model.table.Width()).Render(accentStyle.Render(model.sessionTitle()) + "\n" + model.sessionTableView())
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)
-	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.sidebarView(summary))
+	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
 
 	headerText := lipgloss.JoinHorizontal(
@@ -175,7 +213,7 @@ func (model Model) View() string {
 	)
 	contentWidth := lipgloss.Width(body)
 	header := headerStyle.Width(contentWidth).Render(headerText)
-	footer := footerStyle.Width(contentWidth).Render("j/k or ↑/↓: browse sessions  •  q: quit")
+	footer := footerStyle.Width(contentWidth).Render("tab: switch focus  •  j/k or ↑/↓: browse  •  q: quit")
 
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
 }
@@ -205,36 +243,36 @@ func scheduleRefresh() tea.Cmd {
 	})
 }
 
-func (model Model) sidebarView(summary sessionSummary) string {
-	lines := []string{
-		sectionStyle.Render("OVERVIEW"),
-		"",
-		accentStyle.Render(fmt.Sprintf("Sessions     %d", summary.total)),
-		runningStyle.Render(fmt.Sprintf("Running      %d", summary.running)),
-		waitingStyle.Render(fmt.Sprintf("Waiting      %d", summary.waiting)),
-		mutedStyle.Render(fmt.Sprintf("Idle         %d", summary.idle)),
-		errorStyle.Render(fmt.Sprintf("Errors       %d", summary.errors)),
+func (model Model) renderSidebar(summary sessionSummary) string {
+	items := model.sidebarItems()
+	lines := []string{sectionStyle.Render("VIEWS")}
+	for index, item := range items[:len(sidebarViews())] {
+		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
+	}
+
+	lines = append(lines, "", sectionStyle.Render("PROJECTS"))
+	for index, item := range items[len(sidebarViews()):] {
+		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, model.projectCount(item.project)))
 	}
 
 	if model.lastError != nil {
-		lines = append(lines, "", errorStyle.Render("● Unable to refresh"), mutedStyle.Render(model.lastError.Error()))
-	} else {
-		lines = append(lines, "", mutedStyle.Render("● Refreshes every 1s"))
+		lines = append(lines, "", errorStyle.Render("● Unable to refresh"))
 	}
 
 	return strings.Join(lines, "\n")
 }
 
 func (model Model) detailView() string {
+	sessions := model.filteredSessions()
 	selectedIndex := model.table.Cursor()
-	if selectedIndex < 0 || selectedIndex >= len(model.sessions) {
+	if selectedIndex < 0 || selectedIndex >= len(sessions) {
 		if model.lastError != nil {
 			return "SELECTED SESSION\nCould not read live sessions."
 		}
 		return "SELECTED SESSION\nNo live sessions found."
 	}
 
-	selectedSession := model.sessions[selectedIndex]
+	selectedSession := sessions[selectedIndex]
 	return fmt.Sprintf(
 		"%s\n%s  %s\n%s\nDirectory: %s\nSession: %s",
 		sectionStyle.Render("SELECTED SESSION"),
@@ -267,27 +305,29 @@ func (model Model) sessionTableView() string {
 }
 
 func (model Model) sessionTitle() string {
-	if len(model.sessions) == 0 {
+	sessions := model.filteredSessions()
+	if len(sessions) == 0 {
 		return "SESSIONS"
 	}
 
 	start, end := model.visibleSessionRange()
-	return fmt.Sprintf("SESSIONS (%d-%d of %d)", start+1, end, len(model.sessions))
+	return fmt.Sprintf("SESSIONS (%d-%d of %d)", start+1, end, len(sessions))
 }
 
 func (model Model) visibleSessionRange() (int, int) {
-	if len(model.sessions) == 0 {
+	sessions := model.filteredSessions()
+	if len(sessions) == 0 {
 		return 0, 0
 	}
 
-	visibleRows := min(model.table.Height(), len(model.sessions))
+	visibleRows := min(model.table.Height(), len(sessions))
 	selectedIndex := model.table.Cursor()
 	start := 0
 	if selectedIndex >= visibleRows {
 		start = selectedIndex - visibleRows + 1
 	}
 
-	end := min(start+visibleRows, len(model.sessions))
+	end := min(start+visibleRows, len(model.filteredSessions()))
 	return start, end
 }
 
@@ -300,7 +340,7 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
-		value, style := sessionColumnValue(model.sessions[index], column.Title)
+		value, style := sessionColumnValue(model.filteredSessions()[index], column.Title)
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
 
@@ -314,7 +354,7 @@ func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage 
 	for columnIndex, column := range columns {
 		if column.Title == "Session" {
 			emptyMessageColumn = columnIndex
-			emptyMessage = "No live sessions found."
+			emptyMessage = model.emptySessionMessage()
 			break
 		}
 	}
@@ -331,6 +371,148 @@ func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage 
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+}
+
+func (model Model) emptySessionMessage() string {
+	if len(model.sessions) == 0 {
+		return "No live sessions found."
+	}
+
+	return "No sessions match this filter."
+}
+
+func sidebarViews() []sidebarView {
+	return []sidebarView{attentionView, activeView, recentView, allView}
+}
+
+func (model Model) sidebarItems() []sidebarItem {
+	views := sidebarViews()
+	items := make([]sidebarItem, 0, len(views)+len(model.projects()))
+	for _, view := range views {
+		items = append(items, sidebarItem{label: string(view), view: view})
+	}
+	for _, project := range model.projects() {
+		items = append(items, sidebarItem{label: projectName(project), project: project})
+	}
+	return items
+}
+
+func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
+	label := fmt.Sprintf("%-14s %d", item.label, count)
+	selected := (item.view != "" && item.view == model.selectedView) ||
+		(item.project != "" && item.project == model.selectedProject)
+	focused := model.sidebarFocus && index == model.sidebarCursor
+
+	if focused {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#292929")).Render("› " + label)
+	}
+	if selected {
+		return accentStyle.Render("• " + label)
+	}
+	return mutedStyle.Render("  " + label)
+}
+
+func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
+	switch view {
+	case attentionView:
+		return summary.waiting + summary.errors
+	case activeView:
+		return summary.running
+	case recentView:
+		return summary.idle
+	default:
+		return summary.total
+	}
+}
+
+func (model Model) projects() []string {
+	projects := make(map[string]struct{})
+	for _, session := range model.sessions {
+		projects[session.WorkingDirectory] = struct{}{}
+	}
+
+	projectNames := make([]string, 0, len(projects))
+	for project := range projects {
+		projectNames = append(projectNames, project)
+	}
+	slices.Sort(projectNames)
+	return projectNames
+}
+
+func projectName(project string) string {
+	if project == "" {
+		return "Unknown"
+	}
+	return filepath.Base(project)
+}
+
+func (model Model) projectCount(project string) int {
+	count := 0
+	for _, session := range model.sessions {
+		if session.WorkingDirectory == project {
+			count++
+		}
+	}
+	return count
+}
+
+func (model *Model) moveSidebarCursor(offset int) {
+	items := model.sidebarItems()
+	if len(items) == 0 {
+		return
+	}
+
+	model.sidebarCursor = (model.sidebarCursor + offset + len(items)) % len(items)
+	selectedItem := items[model.sidebarCursor]
+	if selectedItem.view != "" {
+		model.selectedView = selectedItem.view
+		model.selectedProject = ""
+	} else {
+		model.selectedProject = selectedItem.project
+	}
+	model.updateTableRows()
+}
+
+func (model *Model) clearMissingProjectFilter() {
+	if model.selectedProject == "" {
+		return
+	}
+	for _, project := range model.projects() {
+		if project == model.selectedProject {
+			return
+		}
+	}
+	model.selectedProject = ""
+	model.selectedView = allView
+}
+
+func (model Model) filteredSessions() []agent.Session {
+	filteredSessions := make([]agent.Session, 0, len(model.sessions))
+	for _, session := range model.sessions {
+		if model.selectedProject != "" && session.WorkingDirectory != model.selectedProject {
+			continue
+		}
+		if model.selectedProject == "" && !matchesView(session, model.selectedView) {
+			continue
+		}
+		filteredSessions = append(filteredSessions, session)
+	}
+	return filteredSessions
+}
+
+func matchesView(session agent.Session, view sidebarView) bool {
+	switch view {
+	case attentionView:
+		return session.State == agent.StateWaiting || session.State == agent.StateError || session.State == agent.StateUnavailable
+	case activeView:
+		return session.State == agent.StateRunning
+	case recentView:
+		// The provider has no activity timestamp. Idle sessions are the completed
+		// sessions available to represent the recent view.
+		return session.State == agent.StateIdle
+	default:
+		return true
+	}
 }
 
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
@@ -401,8 +583,9 @@ func (model *Model) resizeTable() {
 
 func (model *Model) updateTableRows() {
 	columns := model.table.Columns()
-	rows := make([]table.Row, len(model.sessions))
-	for index, session := range model.sessions {
+	sessions := model.filteredSessions()
+	rows := make([]table.Row, len(sessions))
+	for index, session := range sessions {
 		values := make([]string, len(columns))
 		for columnIndex, column := range columns {
 			values[columnIndex], _ = sessionColumnValue(session, column.Title)
@@ -411,6 +594,11 @@ func (model *Model) updateTableRows() {
 	}
 
 	model.table.SetRows(rows)
+	if len(rows) == 0 {
+		model.table.SetCursor(0)
+		return
+	}
+	model.table.SetCursor(min(model.table.Cursor(), len(rows)-1))
 }
 
 func tableColumns(tableWidth int) []table.Column {

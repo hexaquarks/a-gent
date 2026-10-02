@@ -106,3 +106,78 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
+
+func TestSidebarRendersViewsAndProjects(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{WorkingDirectory: "/projects/a-gent", State: agent.StateRunning},
+		{WorkingDirectory: "/projects/a-gent", State: agent.StateIdle},
+		{WorkingDirectory: "/projects/other", State: agent.StateWaiting},
+	}
+
+	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
+	for _, expected := range []string{"VIEWS", "Attention", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
+		if !strings.Contains(sidebar, expected) {
+			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
+		}
+	}
+	if !strings.Contains(sidebar, "a-gent         2") {
+		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
+	}
+}
+
+func TestViewsFilterSessions(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{ID: "running", State: agent.StateRunning},
+		{ID: "waiting", State: agent.StateWaiting},
+		{ID: "failed", State: agent.StateError},
+		{ID: "finished", State: agent.StateIdle},
+	}
+
+	testCases := []struct {
+		view    sidebarView
+		wantIDs []string
+	}{
+		{view: attentionView, wantIDs: []string{"waiting", "failed"}},
+		{view: activeView, wantIDs: []string{"running"}},
+		{view: recentView, wantIDs: []string{"finished"}},
+		{view: allView, wantIDs: []string{"running", "waiting", "failed", "finished"}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(string(testCase.view), func(t *testing.T) {
+			model.selectedView = testCase.view
+			model.selectedProject = ""
+			sessions := model.filteredSessions()
+			if len(sessions) != len(testCase.wantIDs) {
+				t.Fatalf("filtered sessions = %d, want %d", len(sessions), len(testCase.wantIDs))
+			}
+			for index, session := range sessions {
+				if session.ID != testCase.wantIDs[index] {
+					t.Errorf("session %d = %q, want %q", index, session.ID, testCase.wantIDs[index])
+				}
+			}
+		})
+	}
+}
+
+func TestSelectingProjectFiltersTableAndDetails(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{ID: "a-gent", Name: "a-gent session", WorkingDirectory: "/projects/a-gent", State: agent.StateRunning},
+		{ID: "other", Name: "other session", WorkingDirectory: "/projects/other", State: agent.StateIdle},
+	}
+	model.sidebarCursor = len(sidebarViews())
+	model.moveSidebarCursor(1)
+
+	if got := len(model.table.Rows()); got != 1 {
+		t.Fatalf("table rows = %d, want 1", got)
+	}
+	if model.selectedProject != "/projects/other" {
+		t.Fatalf("selected project = %q, want /projects/other", model.selectedProject)
+	}
+	if detail := model.detailView(); !strings.Contains(detail, "other session") {
+		t.Fatalf("details do not use the project-filtered session:\n%s", detail)
+	}
+}
