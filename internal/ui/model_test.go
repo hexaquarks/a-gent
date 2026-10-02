@@ -72,3 +72,37 @@ func TestSessionListCapsVisibleRowsAndScrolls(t *testing.T) {
 		t.Fatalf("visible range = %d-%d, want 1-%d", start, end, maximumSessionRows+1)
 	}
 }
+
+func TestSessionListRendersEmptyRowPlaceholders(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{Name: "First session"},
+		{Name: "Second session"},
+		{Name: "Third session"},
+	}
+	model.height = 80
+	model.resizeTable()
+
+	if model.table.Height() != maximumSessionRows {
+		t.Fatalf("table height = %d, want %d", model.table.Height(), maximumSessionRows)
+	}
+
+	tableView := model.sessionTableView()
+	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
+	}
+}
+
+func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
+	model := NewModel(nil)
+	model.height = 80
+	model.resizeTable()
+
+	tableView := model.sessionTableView()
+	if !strings.Contains(tableView, "No live sessions found.") {
+		t.Fatal("empty session list does not explain that no sessions were found")
+	}
+	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
+	}
+}

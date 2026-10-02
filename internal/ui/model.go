@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -21,7 +22,8 @@ const (
 	sidebarContentWidth = 18
 	refreshInterval     = time.Second
 	requestTimeout      = 2 * time.Second
-	maximumSessionRows  = 6
+	minimumSessionRows  = 3
+	maximumSessionRows  = 8
 )
 
 var (
@@ -252,14 +254,13 @@ func (model Model) sessionTableView() string {
 	}
 
 	rows := []string{lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
-	if len(model.sessions) == 0 {
-		rows = append(rows, mutedStyle.Render("No live sessions found."))
-		return strings.Join(rows, "\n")
-	}
-
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
 		rows = append(rows, model.sessionRowView(index, columns))
+	}
+
+	for placeholderIndex := end - start; placeholderIndex < model.table.Height(); placeholderIndex++ {
+		rows = append(rows, model.emptySessionRowView(columns, placeholderIndex == 0))
 	}
 
 	return strings.Join(rows, "\n")
@@ -275,6 +276,10 @@ func (model Model) sessionTitle() string {
 }
 
 func (model Model) visibleSessionRange() (int, int) {
+	if len(model.sessions) == 0 {
+		return 0, 0
+	}
+
 	visibleRows := min(model.table.Height(), len(model.sessions))
 	selectedIndex := model.table.Cursor()
 	start := 0
@@ -302,6 +307,32 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 }
 
+func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage bool) string {
+	cells := make([]string, len(columns))
+	emptyMessageColumn := 0
+	emptyMessage := "No live"
+	for columnIndex, column := range columns {
+		if column.Title == "Session" {
+			emptyMessageColumn = columnIndex
+			emptyMessage = "No live sessions found."
+			break
+		}
+	}
+
+	for columnIndex, column := range columns {
+		value := ""
+		style := lipgloss.NewStyle()
+		if showEmptyMessage && columnIndex == emptyMessageColumn {
+			value = emptyMessage
+			style = mutedStyle
+		}
+
+		cells[columnIndex] = renderTableCell(value, column.Width, style, lipgloss.Color(""))
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+}
+
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
@@ -318,12 +349,14 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 }
 
 func renderTableCell(value string, width int, textStyle lipgloss.Style, background lipgloss.Color) string {
+	contentWidth := max(0, width-2)
+	truncatedValue := runewidth.Truncate(value, contentWidth, "…")
 	cellStyle := textStyle.Width(width).MaxWidth(width).Padding(0, 1)
 	if background != "" {
 		cellStyle = cellStyle.Background(background)
 	}
 
-	return cellStyle.Render(value)
+	return cellStyle.Render(truncatedValue)
 }
 
 func statusStyle(state agent.State) lipgloss.Style {
@@ -359,9 +392,9 @@ func (model *Model) resizeTable() {
 	model.table.SetColumns(columns)
 	model.updateTableRows()
 
-	tableHeight := min(maximumSessionRows, max(3, len(model.sessions)))
+	tableHeight := maximumSessionRows
 	if model.height > 0 {
-		tableHeight = min(tableHeight, max(3, model.height-10))
+		tableHeight = min(tableHeight, max(minimumSessionRows, model.height-10))
 	}
 	model.table.SetHeight(tableHeight + 1)
 }
