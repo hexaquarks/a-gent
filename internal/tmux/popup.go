@@ -4,14 +4,16 @@ package tmux
 import (
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
 const popupEnvironmentVariable = "A_GENT_TMUX_POPUP"
 
-// OpenPopupInTmux opens the current program in a centered tmux popup.
+// OpenPopupInTmux opens the current program in a centered tmux popup sized for
+// the supplied number of terminal rows.
 // It returns false when a-gent is not running inside tmux or is already in a popup.
-func OpenPopupInTmux() (bool, error) {
+func OpenPopupInTmux(popupHeight int) (bool, error) {
 	if os.Getenv("TMUX") == "" || os.Getenv(popupEnvironmentVariable) == "1" {
 		return false, nil
 	}
@@ -37,7 +39,7 @@ func OpenPopupInTmux() (bool, error) {
 		"-w",
 		"70%",
 		"-h",
-		"58%",
+		strconv.Itoa(popupHeight),
 		"-d",
 		workingDirectory,
 		"-T",

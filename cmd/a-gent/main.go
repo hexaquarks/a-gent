@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	popupOpened, err := tmux.OpenPopupInTmux()
+	popupOpened, err := tmux.OpenPopupInTmux(ui.PopupHeight)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "a-gent could not open the tmux popup: %v\n", err)
 		os.Exit(1)

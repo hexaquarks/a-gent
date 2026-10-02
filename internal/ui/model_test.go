@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"a-gent/internal/agent"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type fakeAdapter struct {
@@ -104,6 +107,22 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 	}
 	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
+	}
+}
+
+func TestPopupHeightFitsTheReservedSessionRows(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{{
+		Name:             "Example session",
+		Provider:         "codex",
+		WorkingDirectory: "/projects/a-gent",
+		State:            agent.StateIdle,
+	}}
+
+	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: PopupHeight})
+	view := updatedModel.(Model).View()
+	if got := lipgloss.Height(view); got != PopupHeight {
+		t.Fatalf("popup height = %d, want %d", got, PopupHeight)
 	}
 }
 

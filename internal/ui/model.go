@@ -25,6 +25,13 @@ const (
 	requestTimeout      = 2 * time.Second
 	minimumSessionRows  = 3
 	maximumSessionRows  = 8
+
+	// popupChromeRows covers the header, table title and header, selected-session
+	// panel, and footer around the reserved session rows.
+	popupChromeRows = 13
+	// PopupHeight is the terminal-row height needed to render all reserved rows
+	// without unused space below the footer.
+	PopupHeight = maximumSessionRows + popupChromeRows
 )
 
 var (
