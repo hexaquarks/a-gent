@@ -53,7 +53,7 @@ func TestLastActiveColumnAcrossTableWidths(t *testing.T) {
 		model.updateTableRows()
 
 		columns := model.table.Columns()
-		if columns[len(columns)-1].Title != "Last active at" {
+		if columns[len(columns)-1].Title != "Last active" {
 			t.Fatalf("width %d: activity column is not last", width)
 		}
 		if actual := model.table.Rows()[0][len(columns)-1]; actual != "2h ago" {
@@ -61,7 +61,7 @@ func TestLastActiveColumnAcrossTableWidths(t *testing.T) {
 		}
 
 		header := strings.Split(model.sessionTableView(), "\n")[0]
-		if !strings.Contains(header, "Last active at") {
+		if !strings.Contains(header, "Last active") {
 			t.Fatalf("width %d: activity header is truncated: %q", width, header)
 		}
 		row := model.sessionRowView(0, columns)
