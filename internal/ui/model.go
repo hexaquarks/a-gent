@@ -43,9 +43,13 @@ const (
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
 	popupChromeRows = 15
-	// PopupHeight is the terminal-row height needed to render all reserved rows
-	// without unused space below the footer.
-	PopupHeight = maximumSessionRows + popupChromeRows
+	// popupBorderRows are drawn by tmux and are not available to the program.
+	popupBorderRows = 2
+	// PopupContentHeight is the terminal-row height needed by the dashboard.
+	PopupContentHeight = maximumSessionRows + popupChromeRows
+	// PopupHeight includes the tmux border so the dashboard header is never
+	// clipped by the popup's interior height.
+	PopupHeight = PopupContentHeight + popupBorderRows
 )
 
 var (
