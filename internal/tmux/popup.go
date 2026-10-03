@@ -28,7 +28,7 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 		return false, err
 	}
 
-	command := popupCommand(executablePath, os.Args[1:])
+	command := popupCommand(executablePath, os.Args[1:], activeClientName())
 	popup := exec.Command(
 		"tmux",
 		"display-popup",
@@ -54,11 +54,23 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 }
 
 // popupCommand preserves arguments when the popup relaunches the current executable.
-func popupCommand(executable string, arguments []string) string {
+func activeClientName() string {
+	output, err := exec.Command("tmux", "display-message", "-p", "#{client_name}").Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(output))
+}
+
+func popupCommand(executable string, arguments []string, clientName string) string {
 	commandParts := []string{
 		popupEnvironmentVariable + "=1",
-		shellQuote(executable),
 	}
+	if clientName != "" {
+		commandParts = append(commandParts, tmuxClientEnvironmentVariable+"="+shellQuote(clientName))
+	}
+	commandParts = append(commandParts, shellQuote(executable))
 
 	for _, argument := range arguments {
 		commandParts = append(commandParts, shellQuote(argument))

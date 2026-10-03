@@ -10,3 +10,6 @@
 
 # macOS metadata
 .DS_Store
+
+# Local Codex instructions
+AGENTS.md
