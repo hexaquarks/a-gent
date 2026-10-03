@@ -25,7 +25,7 @@ func (Adapter) Provider() string {
 	return providerName
 }
 
-// Sessions returns the live Codex sessions currently loaded in memory.
+// Sessions returns loaded Codex conversations, excluding delegated workers.
 func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	socketPath, err := daemonSocketPath(context)
 	if err != nil {
@@ -54,6 +54,11 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 			return nil, err
 		}
 
+		// Workers share their parent's directory but have no separate workspace.
+		if thread.isSubagent() {
+			continue
+		}
+
 		sessions = append(sessions, agent.Session{
 			ID:               thread.ID,
 			Provider:         providerName,
@@ -65,6 +70,23 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	}
 
 	return sessions, nil
+}
+
+func (thread thread) isSubagent() bool {
+	if thread.ParentThreadID != "" {
+		return true
+	}
+
+	// Top-level sources are strings (cli, vscode, etc.); worker sources are
+	// tagged objects. Keep unfamiliar top-level sources visible.
+	var source struct {
+		SubAgent json.RawMessage `json:"subAgent"`
+	}
+	if err := json.Unmarshal(thread.Source, &source); err != nil {
+		return false
+	}
+
+	return len(source.SubAgent) > 0 && string(source.SubAgent) != "null"
 }
 
 type daemonVersion struct {
