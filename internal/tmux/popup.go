@@ -10,8 +10,6 @@ import (
 
 const popupEnvironmentVariable = "A_GENT_TMUX_POPUP"
 
-const popupTitle = "#[fg=#69D3E7,bold] a-gent "
-
 // OpenPopupInTmux opens the current program in a centered tmux popup sized for
 // the supplied number of terminal rows.
 // It returns false when a-gent is not running inside tmux or is already in a popup.
@@ -56,7 +54,7 @@ func popupArguments(popupHeight int, workingDirectory, command string) []string 
 		"-d",
 		workingDirectory,
 		"-T",
-		popupTitle,
+		"",
 		command,
 	}
 }
