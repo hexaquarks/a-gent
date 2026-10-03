@@ -63,3 +63,37 @@ func TestStateFromStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestThreadSessionActivityTimestamp(t *testing.T) {
+	testCases := []struct {
+		name    string
+		payload string
+		seconds int64
+	}{
+		{name: "Unix seconds", payload: `{"updatedAt":1791028800}`, seconds: 1791028800},
+		{name: "missing", payload: `{}`},
+		{name: "null", payload: `{"updatedAt":null}`},
+		{name: "zero", payload: `{"updatedAt":0}`},
+		{name: "negative", payload: `{"updatedAt":-1}`},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var loadedThread thread
+			if err := json.Unmarshal([]byte(testCase.payload), &loadedThread); err != nil {
+				t.Fatal(err)
+			}
+
+			session := loadedThread.session()
+			if testCase.seconds == 0 {
+				if !session.LastActiveAt.IsZero() {
+					t.Fatalf("unknown timestamp = %v, want zero", session.LastActiveAt)
+				}
+				return
+			}
+			if actual := session.LastActiveAt.Unix(); actual != testCase.seconds {
+				t.Fatalf("activity timestamp = %d, want %d Unix seconds", actual, testCase.seconds)
+			}
+		})
+	}
+}

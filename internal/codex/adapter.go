@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"a-gent/internal/agent"
 )
@@ -59,17 +60,27 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 			continue
 		}
 
-		sessions = append(sessions, agent.Session{
-			ID:               thread.ID,
-			Provider:         providerName,
-			Name:             thread.Name,
-			Preview:          thread.Preview,
-			WorkingDirectory: thread.WorkingDirectory,
-			State:            stateFromStatus(thread.Status),
-		})
+		sessions = append(sessions, thread.session())
 	}
 
 	return sessions, nil
+}
+
+func (thread thread) session() agent.Session {
+	var lastActiveAt time.Time
+	if thread.UpdatedAt > 0 {
+		lastActiveAt = time.Unix(thread.UpdatedAt, 0)
+	}
+
+	return agent.Session{
+		ID:               thread.ID,
+		Provider:         providerName,
+		Name:             thread.Name,
+		Preview:          thread.Preview,
+		WorkingDirectory: thread.WorkingDirectory,
+		State:            stateFromStatus(thread.Status),
+		LastActiveAt:     lastActiveAt,
+	}
 }
 
 func (thread thread) isSubagent() bool {

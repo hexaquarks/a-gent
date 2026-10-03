@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"a-gent/internal/agent"
 
@@ -123,6 +124,8 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
 		return "● " + displayState(session.State), statusStyle(session.State)
+	case "Last active at":
+		return formatLastActiveAt(session.LastActiveAt, time.Now()), mutedStyle
 	default:
 		return "", lipgloss.NewStyle()
 	}
