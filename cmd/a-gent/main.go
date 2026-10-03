@@ -24,7 +24,12 @@ func main() {
 	}
 
 	adapters := []agent.Adapter{codex.NewAdapter()}
-	program := tea.NewProgram(ui.NewModel(adapters), tea.WithAltScreen())
+	modelOptions := []ui.ModelOption{}
+	if navigator := tmux.NewNavigator(); navigator != nil {
+		modelOptions = append(modelOptions, ui.WithSessionNavigator(navigator))
+	}
+
+	program := tea.NewProgram(ui.NewModel(adapters, modelOptions...), tea.WithAltScreen())
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "a-gent stopped unexpectedly: %v\n", err)
 		os.Exit(1)

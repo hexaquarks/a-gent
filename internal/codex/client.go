@@ -35,11 +35,13 @@ type rpcError struct {
 }
 
 type thread struct {
-	ID               string       `json:"id"`
-	Name             string       `json:"name"`
-	Preview          string       `json:"preview"`
-	WorkingDirectory string       `json:"cwd"`
-	Status           threadStatus `json:"status"`
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
+	Preview          string          `json:"preview"`
+	WorkingDirectory string          `json:"cwd"`
+	Status           threadStatus    `json:"status"`
+	ParentThreadID   string          `json:"parentThreadId"`
+	Source           json.RawMessage `json:"source"`
 }
 
 func connect(context context.Context, socketPath string) (*client, error) {

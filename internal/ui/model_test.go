@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -13,6 +14,16 @@ import (
 
 type fakeAdapter struct {
 	sessions []agent.Session
+}
+
+type fakeNavigator struct {
+	session agent.Session
+	err     error
+}
+
+func (navigator *fakeNavigator) Navigate(_ context.Context, session agent.Session) error {
+	navigator.session = session
+	return navigator.err
 }
 
 func (adapter fakeAdapter) Provider() string {
@@ -44,6 +55,59 @@ func TestFetchSessionsUpdatesTheDashboard(t *testing.T) {
 	}
 }
 
+func TestEnterNavigatesTheSelectedSessionWhenSupported(t *testing.T) {
+	navigator := &fakeNavigator{}
+	model := NewModel(nil, WithSessionNavigator(navigator))
+	model.sessions = []agent.Session{{ID: "session-1", WorkingDirectory: "/projects/a-gent"}}
+
+	updatedModel, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	navigationMessage := command()
+	_, quitCommand := updatedModel.(Model).Update(navigationMessage)
+
+	if navigator.session.ID != "session-1" {
+		t.Fatalf("navigated session = %q, want %q", navigator.session.ID, "session-1")
+	}
+	if quitCommand == nil {
+		t.Fatal("successful navigation does not close the dashboard")
+	}
+}
+
+func TestEnterDoesNothingWhenNavigationIsUnsupported(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{{ID: "session-1", WorkingDirectory: "/projects/a-gent"}}
+
+	_, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if command != nil {
+		t.Fatal("unsupported navigation returned a command")
+	}
+	if strings.Contains(model.footerText(), "enter:") {
+		t.Fatal("footer advertises navigation outside a supported terminal")
+	}
+}
+
+func TestNavigationErrorUsesAVisibleTemporaryNotice(t *testing.T) {
+	navigator := &fakeNavigator{err: errors.New("no tmux codex pane found for this project")}
+	model := NewModel(nil, WithSessionNavigator(navigator))
+	model.sessions = []agent.Session{{ID: "session-1", WorkingDirectory: "/projects/a-gent"}}
+
+	updatedModel, navigationCommand := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	navigationMessage := navigationCommand()
+	noticeModel, clearCommand := updatedModel.(Model).Update(navigationMessage)
+	modelWithNotice := noticeModel.(Model)
+
+	if clearCommand == nil {
+		t.Fatal("navigation error does not schedule notice dismissal")
+	}
+	if footer := modelWithNotice.footerView(100); !strings.Contains(footer, "Could not open workspace") {
+		t.Fatalf("navigation error is not visible in the footer: %q", footer)
+	}
+
+	expiredModel, _ := modelWithNotice.Update(noticeExpiredMessage{revision: modelWithNotice.noticeRevision})
+	if footer := expiredModel.(Model).footerView(100); strings.Contains(footer, "Could not open workspace") {
+		t.Fatalf("expired navigation error remains visible in the footer: %q", footer)
+	}
+}
+
 func TestSessionSummary(t *testing.T) {
 	summary := summarizeSessions([]agent.Session{
 		{State: agent.StateRunning},
@@ -55,6 +119,41 @@ func TestSessionSummary(t *testing.T) {
 
 	if summary.total != 5 || summary.running != 1 || summary.waiting != 1 || summary.idle != 1 || summary.errors != 2 {
 		t.Fatalf("unexpected summary: %+v", summary)
+	}
+}
+
+func TestOlderNoticeTimerDoesNotDismissNewError(t *testing.T) {
+	model := NewModel(nil)
+	firstModel, _ := model.Update(sessionNavigationMessage{err: errors.New("first error")})
+	firstNotice := firstModel.(Model)
+	secondModel, _ := firstNotice.Update(sessionNavigationMessage{err: errors.New("second error")})
+	updatedModel, _ := secondModel.(Model).Update(noticeExpiredMessage{revision: firstNotice.noticeRevision})
+	if !strings.Contains(updatedModel.(Model).notice, "second error") {
+		t.Fatal("old timer dismissed the newer notice")
+	}
+}
+
+func TestNavigationNoticeRemovesTerminalControls(t *testing.T) {
+	model := NewModel(nil)
+	updatedModel, _ := model.Update(sessionNavigationMessage{err: errors.New("bad\npath\x1b[31mred\x1b[0m\x1b]52;c;Y2xpcGJvYXJk\a")})
+	notice := updatedModel.(Model).notice
+	if strings.ContainsAny(notice, "\x1b\n\r\a") || strings.Contains(notice, "Y2xpcGJvYXJk") {
+		t.Fatalf("unsafe control text remained in notice: %q", notice)
+	}
+	if !strings.Contains(notice, "bad pathred") {
+		t.Fatalf("readable error details were lost: %q", notice)
+	}
+}
+
+func TestEnterDoesNotNavigateSidebarOrEmptyTable(t *testing.T) {
+	model := NewModel(nil, WithSessionNavigator(&fakeNavigator{}))
+	if _, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter}); command != nil {
+		t.Fatal("empty table attempted navigation")
+	}
+	model.sessions = []agent.Session{{ID: "main"}}
+	model.sidebarFocus = true
+	if _, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter}); command != nil {
+		t.Fatal("sidebar attempted navigation")
 	}
 }
 
@@ -111,7 +210,7 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 }
 
 func TestPopupHeightFitsTheReservedSessionRows(t *testing.T) {
-	model := NewModel(nil)
+	model := NewModel(nil, WithSessionNavigator(&fakeNavigator{}))
 	model.sessions = []agent.Session{{
 		Name:             "Example session",
 		Provider:         "codex",

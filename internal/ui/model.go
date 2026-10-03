@@ -8,12 +8,14 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -25,6 +27,7 @@ const (
 	requestTimeout      = 2 * time.Second
 	minimumSessionRows  = 3
 	maximumSessionRows  = 8
+	noticeDuration      = 3 * time.Second
 
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
@@ -91,11 +94,14 @@ type Model struct {
 	table           table.Model
 	adapters        []agent.Adapter
 	sessions        []agent.Session
+	navigator       SessionNavigator
 	selectedView    sidebarView
 	selectedProject string
 	sidebarFocus    bool
 	sidebarCursor   int
 	lastError       error
+	notice          string
+	noticeRevision  int
 	width           int
 	height          int
 }
@@ -106,6 +112,14 @@ type sessionsUpdatedMessage struct {
 }
 
 type refreshMessage time.Time
+
+type sessionNavigationMessage struct {
+	err error
+}
+
+type noticeExpiredMessage struct {
+	revision int
+}
 
 type sessionSummary struct {
 	total   int
@@ -135,7 +149,7 @@ type sidebarItem struct {
 }
 
 // NewModel creates the dashboard for the supplied provider adapters.
-func NewModel(adapters []agent.Adapter) Model {
+func NewModel(adapters []agent.Adapter, options ...ModelOption) Model {
 	agentTable := table.New(
 		table.WithColumns(tableColumns(defaultTableWidth)),
 		table.WithFocused(true),
@@ -153,7 +167,12 @@ func NewModel(adapters []agent.Adapter) Model {
 		Background(lipgloss.Color("#292929"))
 	agentTable.SetStyles(styles)
 
-	return Model{table: agentTable, adapters: adapters, selectedView: allView}
+	model := Model{table: agentTable, adapters: adapters, selectedView: allView}
+	for _, option := range options {
+		option(&model)
+	}
+
+	return model
 }
 
 // Init starts the live provider refresh loop.
@@ -186,6 +205,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				model.moveSidebarCursor(-1)
 				return model, nil
 			}
+		case "enter":
+			return model.navigateSelectedSession()
 		}
 	case sessionsUpdatedMessage:
 		if message.err == nil {
@@ -197,6 +218,18 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return model, nil
 	case refreshMessage:
 		return model, tea.Batch(model.fetchSessions(), scheduleRefresh())
+	case sessionNavigationMessage:
+		if message.err != nil {
+			model.noticeRevision++
+			model.notice = safeNoticeText(fmt.Sprintf("Could not open workspace: %v", message.err))
+			return model, clearNotice(model.noticeRevision)
+		}
+		return model, tea.Quit
+	case noticeExpiredMessage:
+		if message.revision == model.noticeRevision {
+			model.notice = ""
+		}
+		return model, nil
 	}
 
 	var command tea.Cmd
@@ -220,7 +253,7 @@ func (model Model) View() string {
 	)
 	contentWidth := lipgloss.Width(body)
 	header := headerStyle.Width(contentWidth).Render(headerText)
-	footer := footerStyle.Width(contentWidth).Render("tab: switch focus  •  j/k or ↑/↓: browse  •  q: quit")
+	footer := model.footerView(contentWidth)
 
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
 }
@@ -270,16 +303,14 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 }
 
 func (model Model) detailView() string {
-	sessions := model.filteredSessions()
-	selectedIndex := model.table.Cursor()
-	if selectedIndex < 0 || selectedIndex >= len(sessions) {
+	selectedSession, ok := model.selectedSession()
+	if !ok {
 		if model.lastError != nil {
 			return "SELECTED SESSION\nCould not read live sessions."
 		}
 		return "SELECTED SESSION\nNo live sessions found."
 	}
 
-	selectedSession := sessions[selectedIndex]
 	return fmt.Sprintf(
 		"%s\n%s  %s\n%s\nDirectory: %s\nSession: %s",
 		sectionStyle.Render("SELECTED SESSION"),
@@ -289,6 +320,72 @@ func (model Model) detailView() string {
 		selectedSession.WorkingDirectory,
 		selectedSession.ID,
 	)
+}
+
+func (model Model) selectedSession() (agent.Session, bool) {
+	sessions := model.filteredSessions()
+	selectedIndex := model.table.Cursor()
+	if selectedIndex < 0 || selectedIndex >= len(sessions) {
+		return agent.Session{}, false
+	}
+
+	return sessions[selectedIndex], true
+}
+
+func (model Model) navigateSelectedSession() (tea.Model, tea.Cmd) {
+	if model.sidebarFocus || model.navigator == nil {
+		return model, nil
+	}
+
+	session, ok := model.selectedSession()
+	if !ok {
+		return model, nil
+	}
+
+	navigator := model.navigator
+	return model, func() tea.Msg {
+		requestContext, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		defer cancel()
+
+		return sessionNavigationMessage{err: navigator.Navigate(requestContext, session)}
+	}
+}
+
+func (model Model) footerText() string {
+	parts := []string{"tab: switch focus", "j/k or ↑/↓: browse"}
+	if model.navigator != nil {
+		parts = append(parts, "enter: open workspace")
+	}
+	parts = append(parts, "q: quit")
+
+	return strings.Join(parts, "  •  ")
+}
+
+func (model Model) footerView(width int) string {
+	if model.notice == "" {
+		return footerStyle.Width(width).Render(model.footerText())
+	}
+
+	messageWidth := max(0, width-4)
+	message := runewidth.Truncate(model.notice, messageWidth, "…")
+	return footerStyle.Width(width).Render(errorStyle.Render("! " + message))
+}
+
+// Error details can contain project paths. Keep terminal controls and newlines
+// in those paths from executing or breaking the single-line notice layout.
+func safeNoticeText(message string) string {
+	return strings.Map(func(character rune) rune {
+		if unicode.IsControl(character) {
+			return ' '
+		}
+		return character
+	}, ansi.Strip(message))
+}
+
+func clearNotice(revision int) tea.Cmd {
+	return tea.Tick(noticeDuration, func(time.Time) tea.Msg {
+		return noticeExpiredMessage{revision: revision}
+	})
 }
 
 func (model Model) sessionTableView() string {
