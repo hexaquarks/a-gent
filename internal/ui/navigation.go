@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"a-gent/internal/agent"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // SessionNavigator opens the workspace that owns a selected session when the
@@ -20,5 +22,24 @@ type ModelOption func(*Model)
 func WithSessionNavigator(navigator SessionNavigator) ModelOption {
 	return func(model *Model) {
 		model.navigator = navigator
+	}
+}
+
+func (model Model) navigateSelectedSession() (tea.Model, tea.Cmd) {
+	if model.sidebarFocus || model.navigator == nil {
+		return model, nil
+	}
+
+	session, ok := model.selectedSession()
+	if !ok {
+		return model, nil
+	}
+
+	navigator := model.navigator
+	return model, func() tea.Msg {
+		requestContext, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		defer cancel()
+
+		return sessionNavigationMessage{err: navigator.Navigate(requestContext, session)}
 	}
 }
