@@ -75,3 +75,61 @@ func TestNavigatorReturnsTheTmuxSwitchError(t *testing.T) {
 		t.Fatalf("Navigate() error = %v, want %v", err, switchError)
 	}
 }
+
+func TestPaneRunsProviderChecksTheExecutable(t *testing.T) {
+	testCases := []struct {
+		command  string
+		expected bool
+	}{
+		{command: "codex", expected: true},
+		{command: "/usr/local/bin/codex --resume", expected: true},
+		{command: "nvim codex"},
+		{command: "echo codex"},
+		{command: "codex-other"},
+		{command: ""},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.command, func(t *testing.T) {
+			if actual := paneRunsProvider(pane{command: testCase.command}, "codex"); actual != testCase.expected {
+				t.Fatalf("paneRunsProvider() = %v, want %v", actual, testCase.expected)
+			}
+		})
+	}
+}
+
+func TestNavigatorRejectsMissingTargets(t *testing.T) {
+	for _, directory := range []string{"", "/projects/missing"} {
+		t.Run(directory, func(t *testing.T) {
+			navigator := Navigator{
+				clientName: "client-1",
+				runCommand: func(_ context.Context, command string, arguments ...string) ([]byte, error) {
+					if command != "list-panes" {
+						t.Fatalf("unexpected navigation command: %s", command)
+					}
+					return []byte("malformed\n%1\t/projects/missing\tnvim codex\n"), nil
+				},
+			}
+			if err := navigator.Navigate(context.Background(), agent.Session{Provider: "codex", WorkingDirectory: directory}); err == nil {
+				t.Fatal("missing target did not return an error")
+			}
+		})
+	}
+}
+
+func TestNewNavigatorRequiresTmuxAndOriginatingClient(t *testing.T) {
+	testCases := []struct {
+		tmuxEnvironment, client string
+		supported               bool
+	}{
+		{tmuxEnvironment: "", client: "client-1"},
+		{tmuxEnvironment: "tmux", client: ""},
+		{tmuxEnvironment: "tmux", client: "client-1", supported: true},
+	}
+	for _, testCase := range testCases {
+		t.Setenv("TMUX", testCase.tmuxEnvironment)
+		t.Setenv(tmuxClientEnvironmentVariable, testCase.client)
+		if actual := NewNavigator() != nil; actual != testCase.supported {
+			t.Fatalf("navigation supported = %v, want %v", actual, testCase.supported)
+		}
+	}
+}

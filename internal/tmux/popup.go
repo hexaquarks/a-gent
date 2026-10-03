@@ -53,7 +53,6 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 	return true, popup.Run()
 }
 
-// popupCommand preserves arguments when the popup relaunches the current executable.
 func activeClientName() string {
 	output, err := exec.Command("tmux", "display-message", "-p", "#{client_name}").Output()
 	if err != nil {
@@ -63,6 +62,7 @@ func activeClientName() string {
 	return strings.TrimSpace(string(output))
 }
 
+// popupCommand preserves arguments when the popup relaunches the current executable.
 func popupCommand(executable string, arguments []string, clientName string) string {
 	commandParts := []string{
 		popupEnvironmentVariable + "=1",

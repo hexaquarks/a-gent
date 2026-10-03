@@ -122,6 +122,41 @@ func TestSessionSummary(t *testing.T) {
 	}
 }
 
+func TestOlderNoticeTimerDoesNotDismissNewError(t *testing.T) {
+	model := NewModel(nil)
+	firstModel, _ := model.Update(sessionNavigationMessage{err: errors.New("first error")})
+	firstNotice := firstModel.(Model)
+	secondModel, _ := firstNotice.Update(sessionNavigationMessage{err: errors.New("second error")})
+	updatedModel, _ := secondModel.(Model).Update(noticeExpiredMessage{revision: firstNotice.noticeRevision})
+	if !strings.Contains(updatedModel.(Model).notice, "second error") {
+		t.Fatal("old timer dismissed the newer notice")
+	}
+}
+
+func TestNavigationNoticeRemovesTerminalControls(t *testing.T) {
+	model := NewModel(nil)
+	updatedModel, _ := model.Update(sessionNavigationMessage{err: errors.New("bad\npath\x1b[31mred\x1b[0m\x1b]52;c;Y2xpcGJvYXJk\a")})
+	notice := updatedModel.(Model).notice
+	if strings.ContainsAny(notice, "\x1b\n\r\a") || strings.Contains(notice, "Y2xpcGJvYXJk") {
+		t.Fatalf("unsafe control text remained in notice: %q", notice)
+	}
+	if !strings.Contains(notice, "bad pathred") {
+		t.Fatalf("readable error details were lost: %q", notice)
+	}
+}
+
+func TestEnterDoesNotNavigateSidebarOrEmptyTable(t *testing.T) {
+	model := NewModel(nil, WithSessionNavigator(&fakeNavigator{}))
+	if _, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter}); command != nil {
+		t.Fatal("empty table attempted navigation")
+	}
+	model.sessions = []agent.Session{{ID: "main"}}
+	model.sidebarFocus = true
+	if _, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter}); command != nil {
+		t.Fatal("sidebar attempted navigation")
+	}
+}
+
 func TestSessionListCapsVisibleRowsAndScrolls(t *testing.T) {
 	sessions := make([]agent.Session, maximumSessionRows+2)
 	model := NewModel(nil)

@@ -8,12 +8,14 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -219,7 +221,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case sessionNavigationMessage:
 		if message.err != nil {
 			model.noticeRevision++
-			model.notice = fmt.Sprintf("Could not open workspace: %v", message.err)
+			model.notice = safeNoticeText(fmt.Sprintf("Could not open workspace: %v", message.err))
 			return model, clearNotice(model.noticeRevision)
 		}
 		return model, tea.Quit
@@ -367,6 +369,17 @@ func (model Model) footerView(width int) string {
 	messageWidth := max(0, width-4)
 	message := runewidth.Truncate(model.notice, messageWidth, "…")
 	return footerStyle.Width(width).Render(errorStyle.Render("! " + message))
+}
+
+// Error details can contain project paths. Keep terminal controls and newlines
+// in those paths from executing or breaking the single-line notice layout.
+func safeNoticeText(message string) string {
+	return strings.Map(func(character rune) rune {
+		if unicode.IsControl(character) {
+			return ' '
+		}
+		return character
+	}, ansi.Strip(message))
 }
 
 func clearNotice(revision int) tea.Cmd {

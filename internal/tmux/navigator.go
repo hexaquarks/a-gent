@@ -98,13 +98,14 @@ func matchingPanes(panes []pane, session agent.Session) []pane {
 }
 
 func paneRunsProvider(pane pane, provider string) bool {
-	for _, commandPart := range strings.Fields(pane.command) {
-		if filepath.Base(commandPart) == provider {
-			return true
-		}
+	commandParts := strings.Fields(pane.command)
+	if len(commandParts) == 0 || provider == "" {
+		return false
 	}
 
-	return false
+	// Only the executable identifies the provider. An argument such as
+	// "nvim codex" must not make an editor pane look like an agent pane.
+	return filepath.Base(commandParts[0]) == provider
 }
 
 func runTmuxCommand(context context.Context, command string, arguments ...string) ([]byte, error) {
