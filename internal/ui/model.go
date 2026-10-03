@@ -25,6 +25,7 @@ const (
 	requestTimeout      = 2 * time.Second
 	minimumSessionRows  = 3
 	maximumSessionRows  = 8
+	noticeDuration      = 3 * time.Second
 
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
@@ -97,7 +98,8 @@ type Model struct {
 	sidebarFocus    bool
 	sidebarCursor   int
 	lastError       error
-	navigationError error
+	notice          string
+	noticeRevision  int
 	width           int
 	height          int
 }
@@ -111,6 +113,10 @@ type refreshMessage time.Time
 
 type sessionNavigationMessage struct {
 	err error
+}
+
+type noticeExpiredMessage struct {
+	revision int
 }
 
 type sessionSummary struct {
@@ -212,10 +218,16 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(model.fetchSessions(), scheduleRefresh())
 	case sessionNavigationMessage:
 		if message.err != nil {
-			model.navigationError = message.err
-			return model, nil
+			model.noticeRevision++
+			model.notice = fmt.Sprintf("Could not open workspace: %v", message.err)
+			return model, clearNotice(model.noticeRevision)
 		}
 		return model, tea.Quit
+	case noticeExpiredMessage:
+		if message.revision == model.noticeRevision {
+			model.notice = ""
+		}
+		return model, nil
 	}
 
 	var command tea.Cmd
@@ -239,7 +251,7 @@ func (model Model) View() string {
 	)
 	contentWidth := lipgloss.Width(body)
 	header := headerStyle.Width(contentWidth).Render(headerText)
-	footer := footerStyle.Width(contentWidth).Render(model.footerText())
+	footer := model.footerView(contentWidth)
 
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
 }
@@ -342,12 +354,25 @@ func (model Model) footerText() string {
 	if model.navigator != nil {
 		parts = append(parts, "enter: open workspace")
 	}
-	if model.navigationError != nil {
-		parts = append(parts, "could not open workspace")
-	}
 	parts = append(parts, "q: quit")
 
 	return strings.Join(parts, "  •  ")
+}
+
+func (model Model) footerView(width int) string {
+	if model.notice == "" {
+		return footerStyle.Width(width).Render(model.footerText())
+	}
+
+	messageWidth := max(0, width-4)
+	message := runewidth.Truncate(model.notice, messageWidth, "…")
+	return footerStyle.Width(width).Render(errorStyle.Render("! " + message))
+}
+
+func clearNotice(revision int) tea.Cmd {
+	return tea.Tick(noticeDuration, func(time.Time) tea.Msg {
+		return noticeExpiredMessage{revision: revision}
+	})
 }
 
 func (model Model) sessionTableView() string {

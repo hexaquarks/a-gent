@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -81,6 +82,29 @@ func TestEnterDoesNothingWhenNavigationIsUnsupported(t *testing.T) {
 	}
 	if strings.Contains(model.footerText(), "enter:") {
 		t.Fatal("footer advertises navigation outside a supported terminal")
+	}
+}
+
+func TestNavigationErrorUsesAVisibleTemporaryNotice(t *testing.T) {
+	navigator := &fakeNavigator{err: errors.New("no tmux codex pane found for this project")}
+	model := NewModel(nil, WithSessionNavigator(navigator))
+	model.sessions = []agent.Session{{ID: "session-1", WorkingDirectory: "/projects/a-gent"}}
+
+	updatedModel, navigationCommand := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	navigationMessage := navigationCommand()
+	noticeModel, clearCommand := updatedModel.(Model).Update(navigationMessage)
+	modelWithNotice := noticeModel.(Model)
+
+	if clearCommand == nil {
+		t.Fatal("navigation error does not schedule notice dismissal")
+	}
+	if footer := modelWithNotice.footerView(100); !strings.Contains(footer, "Could not open workspace") {
+		t.Fatalf("navigation error is not visible in the footer: %q", footer)
+	}
+
+	expiredModel, _ := modelWithNotice.Update(noticeExpiredMessage{revision: modelWithNotice.noticeRevision})
+	if footer := expiredModel.(Model).footerView(100); strings.Contains(footer, "Could not open workspace") {
+		t.Fatalf("expired navigation error remains visible in the footer: %q", footer)
 	}
 }
 
