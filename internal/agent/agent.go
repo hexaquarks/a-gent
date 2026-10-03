@@ -1,7 +1,10 @@
 // Package agent defines provider-neutral coding-agent session data.
 package agent
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // State describes the current activity of one coding-agent session.
 type State string
@@ -27,6 +30,9 @@ type Session struct {
 	Preview          string
 	WorkingDirectory string
 	State            State
+
+	// LastActiveAt is the provider's last session update; zero means unknown.
+	LastActiveAt time.Time
 }
 
 // Adapter reads live sessions from one coding-agent provider.

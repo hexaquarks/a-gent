@@ -41,21 +41,33 @@ func (model *Model) resizeTable() {
 }
 
 func tableColumns(tableWidth int) []table.Column {
-	if tableWidth < 48 {
-		return []table.Column{{Title: "Agent", Width: 12}, {Title: "Status", Width: tableWidth - 15}}
+	const lastActiveWidth = 16
+
+	// Leave room for the surrounding panel's padding so rows do not wrap.
+	tableWidth -= panelStyle.GetHorizontalFrameSize()
+
+	if tableWidth < 60 {
+		return []table.Column{
+			{Title: "Agent", Width: 8},
+			{Title: "Status", Width: tableWidth - 8 - lastActiveWidth},
+			{Title: "Last active at", Width: lastActiveWidth},
+		}
 	}
-	if tableWidth < 72 {
+	if tableWidth < 90 {
 		return []table.Column{
 			{Title: "Agent", Width: 12},
-			{Title: "Session", Width: tableWidth - 29},
+			{Title: "Session", Width: tableWidth - 24 - lastActiveWidth},
 			{Title: "Status", Width: 12},
+			{Title: "Last active at", Width: lastActiveWidth},
 		}
 	}
 
+	remainingWidth := tableWidth - 24 - lastActiveWidth
 	return []table.Column{
 		{Title: "Agent", Width: 12},
-		{Title: "Session", Width: tableWidth / 3},
-		{Title: "Directory", Width: tableWidth/3 - 3},
+		{Title: "Session", Width: remainingWidth / 2},
+		{Title: "Directory", Width: remainingWidth - remainingWidth/2},
 		{Title: "Status", Width: 12},
+		{Title: "Last active at", Width: lastActiveWidth},
 	}
 }

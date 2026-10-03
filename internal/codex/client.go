@@ -42,6 +42,7 @@ type thread struct {
 	Status           threadStatus    `json:"status"`
 	ParentThreadID   string          `json:"parentThreadId"`
 	Source           json.RawMessage `json:"source"`
+	UpdatedAt        int64           `json:"updatedAt"`
 }
 
 func connect(context context.Context, socketPath string) (*client, error) {
