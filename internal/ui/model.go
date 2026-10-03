@@ -29,9 +29,20 @@ const (
 	maximumSessionRows  = 8
 	noticeDuration      = 3 * time.Second
 
+	colorBackground = "#0D1117"
+	colorMainText   = "#D7DEE8"
+	colorSecondary  = "#8996AA"
+	colorAccent     = "#69D3E7"
+	colorSelection  = "#203949"
+	colorAgent      = "#BB9AF7"
+	colorRunning    = "#9ECE6A"
+	colorAttention  = "#E0AF68"
+	colorError      = "#F7768E"
+	colorDivider    = "#293442"
+
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
-	popupChromeRows = 13
+	popupChromeRows = 15
 	// PopupHeight is the terminal-row height needed to render all reserved rows
 	// without unused space below the footer.
 	PopupHeight = maximumSessionRows + popupChromeRows
@@ -39,53 +50,60 @@ const (
 
 var (
 	appStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#0A0A0A")).
+			Background(lipgloss.Color(colorBackground)).
 			Padding(0, 1)
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#E6E6E6")).
-			Background(lipgloss.Color("#161616")).
+			Foreground(lipgloss.Color(colorMainText)).
+			Background(lipgloss.Color(colorBackground)).
 			BorderBottom(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#3A3A3A")).
+			BorderForeground(lipgloss.Color(colorDivider)).
 			Padding(0, 1)
 	sidebarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#D0D0D0")).
-			Background(lipgloss.Color("#0A0A0A")).
+			Foreground(lipgloss.Color(colorMainText)).
+			Background(lipgloss.Color(colorBackground)).
 			BorderRight(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#3A3A3A")).
+			BorderForeground(lipgloss.Color(colorDivider)).
 			Padding(1, 1, 0, 1).
 			Width(sidebarContentWidth)
 	panelStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#0A0A0A")).
+			Foreground(lipgloss.Color(colorMainText)).
+			Background(lipgloss.Color(colorBackground)).
 			Padding(0, 1)
 	detailStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#0A0A0A")).
+			Background(lipgloss.Color(colorBackground)).
 			BorderTop(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#3A3A3A")).
+			BorderForeground(lipgloss.Color(colorDivider)).
 			Padding(1, 1, 0, 1)
 	mutedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#969696"))
+			Foreground(lipgloss.Color(colorSecondary))
 	sectionStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#BDBDBD"))
+			Foreground(lipgloss.Color(colorMainText))
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#E6E6E6"))
+			Foreground(lipgloss.Color(colorAccent))
+	mainTextStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorMainText))
+	shortcutKeyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(colorAccent))
 	runningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#3FB950"))
+			Foreground(lipgloss.Color(colorRunning))
 	waitingStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#D29922"))
+			Foreground(lipgloss.Color(colorAttention))
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F85149"))
+			Foreground(lipgloss.Color(colorError))
+	agentStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorAgent))
 	footerStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#0A0A0A")).
+			Background(lipgloss.Color(colorBackground)).
 			BorderTop(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#3A3A3A")).
-			Foreground(lipgloss.Color("#969696")).
+			BorderForeground(lipgloss.Color(colorDivider)).
+			Foreground(lipgloss.Color(colorSecondary)).
 			Padding(0, 1)
 )
 
@@ -240,7 +258,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the current UI state after Bubble Tea calls Update.
 func (model Model) View() string {
 	summary := summarizeSessions(model.sessions)
-	main := panelStyle.Width(model.table.Width()).Render(accentStyle.Render(model.sessionTitle()) + "\n" + model.sessionTableView())
+	title := model.panelTitleStyle().Render(model.sessionTitle())
+	main := panelStyle.Width(model.table.Width()).Render(title + "\n\n" + model.sessionTableView())
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)
 	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.renderSidebar(summary))
@@ -249,13 +268,22 @@ func (model Model) View() string {
 	headerText := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		accentStyle.Render("a-gent"),
-		fmt.Sprintf("  /  %d sessions  /  %d running  /  live data", summary.total, summary.running),
+		mutedStyle.Render(fmt.Sprintf("  /  %d sessions  /  ", summary.total)),
+		runningStyle.Render(fmt.Sprintf("%d running", summary.running)),
+		mutedStyle.Render("  /  live data"),
 	)
 	contentWidth := lipgloss.Width(body)
 	header := headerStyle.Width(contentWidth).Render(headerText)
 	footer := model.footerView(contentWidth)
 
 	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
+}
+
+func (model Model) panelTitleStyle() lipgloss.Style {
+	if model.sidebarFocus {
+		return sectionStyle
+	}
+	return accentStyle
 }
 
 func (model Model) fetchSessions() tea.Cmd {
@@ -285,12 +313,18 @@ func scheduleRefresh() tea.Cmd {
 
 func (model Model) renderSidebar(summary sessionSummary) string {
 	items := model.sidebarItems()
-	lines := []string{sectionStyle.Render("VIEWS")}
+	viewsTitleStyle := sectionStyle
+	projectsTitleStyle := sectionStyle
+	if model.sidebarFocus {
+		viewsTitleStyle = accentStyle
+		projectsTitleStyle = accentStyle
+	}
+	lines := []string{viewsTitleStyle.Render("VIEWS")}
 	for index, item := range items[:len(sidebarViews())] {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
-	lines = append(lines, "", sectionStyle.Render("PROJECTS"))
+	lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
 	for index, item := range items[len(sidebarViews()):] {
 		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, model.projectCount(item.project)))
 	}
@@ -306,19 +340,21 @@ func (model Model) detailView() string {
 	selectedSession, ok := model.selectedSession()
 	if !ok {
 		if model.lastError != nil {
-			return "SELECTED SESSION\nCould not read live sessions."
+			return model.panelTitleStyle().Render("SELECTED SESSION") + "\n" + errorStyle.Render("Could not read live sessions.")
 		}
-		return "SELECTED SESSION\nNo live sessions found."
+		return model.panelTitleStyle().Render("SELECTED SESSION") + "\n" + mutedStyle.Render("No live sessions found.")
 	}
 
 	return fmt.Sprintf(
-		"%s\n%s  %s\n%s\nDirectory: %s\nSession: %s",
-		sectionStyle.Render("SELECTED SESSION"),
-		selectedSession.Provider,
+		"%s\n%s  %s\n%s\n%s %s\n%s %s",
+		model.panelTitleStyle().Render("SELECTED SESSION"),
+		agentStyle.Render(selectedSession.Provider),
 		statusStyle(selectedSession.State).Render("● "+displayState(selectedSession.State)),
-		selectedSession.Name,
-		selectedSession.WorkingDirectory,
-		selectedSession.ID,
+		mainTextStyle.Bold(true).Render(selectedSession.Name),
+		mutedStyle.Render("Directory:"),
+		mainTextStyle.Render(selectedSession.WorkingDirectory),
+		mutedStyle.Render("Session:"),
+		mutedStyle.Render(selectedSession.ID),
 	)
 }
 
@@ -352,11 +388,14 @@ func (model Model) navigateSelectedSession() (tea.Model, tea.Cmd) {
 }
 
 func (model Model) footerText() string {
-	parts := []string{"tab: switch focus", "j/k or ↑/↓: browse"}
-	if model.navigator != nil {
-		parts = append(parts, "enter: open workspace")
+	parts := []string{
+		shortcutKeyStyle.Render("tab") + mutedStyle.Render(": switch focus"),
+		shortcutKeyStyle.Render("j/k or ↑/↓") + mutedStyle.Render(": browse"),
 	}
-	parts = append(parts, "q: quit")
+	if model.navigator != nil {
+		parts = append(parts, shortcutKeyStyle.Render("enter")+mutedStyle.Render(": open workspace"))
+	}
+	parts = append(parts, shortcutKeyStyle.Render("q")+mutedStyle.Render(": quit"))
 
 	return strings.Join(parts, "  •  ")
 }
@@ -392,10 +431,10 @@ func (model Model) sessionTableView() string {
 	columns := model.table.Columns()
 	headerCells := make([]string, len(columns))
 	for index, column := range columns {
-		headerCells[index] = renderTableCell(column.Title, column.Width, sectionStyle, lipgloss.Color("#202020"))
+		headerCells[index] = renderTableCell(column.Title, column.Width, sectionStyle, lipgloss.Color(colorDivider))
 	}
 
-	rows := []string{lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
+	rows := []string{lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
 		rows = append(rows, model.sessionRowView(index, columns))
@@ -439,12 +478,16 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	selected := index == model.table.Cursor()
 	background := lipgloss.Color("")
 	if selected {
-		background = lipgloss.Color("#292929")
+		background = lipgloss.Color(colorSelection)
 	}
 
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
-		value, style := sessionColumnValue(model.filteredSessions()[index], column.Title)
+		session := model.filteredSessions()[index]
+		value, style := sessionColumnValue(session, column.Title)
+		if selected && column.Title == "Agent" {
+			value = "› " + value
+		}
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
 
@@ -508,7 +551,7 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	focused := model.sidebarFocus && index == model.sidebarCursor
 
 	if focused {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#292929")).Render("› " + label)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(colorMainText)).Background(lipgloss.Color(colorSelection)).Render("› " + label)
 	}
 	if selected {
 		return accentStyle.Render("• " + label)
@@ -622,13 +665,13 @@ func matchesView(session agent.Session, view sidebarView) bool {
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
-		return session.Provider, lipgloss.NewStyle()
+		return session.Provider, agentStyle
 	case "Session":
-		return session.Name, lipgloss.NewStyle()
+		return session.Name, mainTextStyle
 	case "Directory":
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
-		return displayState(session.State), statusStyle(session.State)
+		return "● " + displayState(session.State), statusStyle(session.State)
 	default:
 		return "", lipgloss.NewStyle()
 	}
@@ -651,8 +694,10 @@ func statusStyle(state agent.State) lipgloss.Style {
 		return runningStyle
 	case agent.StateWaiting:
 		return waitingStyle
-	case agent.StateError, agent.StateUnavailable:
+	case agent.StateError:
 		return errorStyle
+	case agent.StateUnavailable:
+		return waitingStyle
 	default:
 		return mutedStyle
 	}

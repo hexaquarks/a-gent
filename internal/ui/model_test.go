@@ -190,7 +190,7 @@ func TestSessionListRendersEmptyRowPlaceholders(t *testing.T) {
 	}
 
 	tableView := model.sessionTableView()
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+2; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
@@ -204,8 +204,40 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 	if !strings.Contains(tableView, "No live sessions found.") {
 		t.Fatal("empty session list does not explain that no sessions were found")
 	}
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+2; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
+	}
+}
+
+func TestSessionTableSeparatesTitleHeaderAndRows(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
+	tableView := model.sessionTableView()
+	if !strings.Contains(tableView, "Status") || !strings.Contains(tableView, "\n\n") || !strings.Contains(tableView, "› codex") {
+		t.Fatalf("table header and body do not have visual separation:\n%s", tableView)
+	}
+	view := model.View()
+	titleLine, headerLine := -1, -1
+	for lineNumber, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "SESSIONS (1-1 of 1)") {
+			titleLine = lineNumber
+		}
+		if strings.Contains(line, "Agent") && strings.Contains(line, "Status") {
+			headerLine = lineNumber
+		}
+	}
+	if titleLine < 0 || headerLine-titleLine < 2 {
+		t.Fatalf("session title and table header lack vertical spacing (lines %d and %d):\n%s", titleLine, headerLine, view)
+	}
+}
+
+func TestSelectionMarkerRemainsVisibleWhenSidebarHasFocus(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
+	model.sidebarFocus = true
+	row := model.sessionRowView(0, model.table.Columns())
+	if !strings.Contains(row, "› codex") {
+		t.Fatalf("selected row lacks its marker while sidebar has focus: %q", row)
 	}
 }
 

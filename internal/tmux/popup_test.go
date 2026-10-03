@@ -2,6 +2,8 @@ package tmux
 
 import (
 	"os/exec"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -32,5 +34,16 @@ func TestPopupCommandPassesTheOriginatingClient(t *testing.T) {
 		if !strings.Contains(command, expected) {
 			t.Fatalf("popup command %q does not contain %q", command, expected)
 		}
+	}
+}
+
+func TestPopupUsesRoundedThemeBorder(t *testing.T) {
+	actual := popupArguments(23, "/projects/a-gent", "A_GENT_TMUX_POPUP=1 a-gent")
+	expected := []string{
+		"display-popup", "-E", "-b", "rounded", "-s", "bg=#0D1117,fg=#D7DEE8", "-S", "fg=#293442",
+		"-w", "70%", "-h", strconv.Itoa(23), "-d", "/projects/a-gent", "-T", "a-gent", "A_GENT_TMUX_POPUP=1 a-gent",
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("popup arguments = %#v, want %#v", actual, expected)
 	}
 }

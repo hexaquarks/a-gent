@@ -29,13 +29,24 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 	}
 
 	command := popupCommand(executablePath, os.Args[1:], activeClientName())
-	popup := exec.Command(
-		"tmux",
+	popup := exec.Command("tmux", popupArguments(popupHeight, workingDirectory, command)...)
+	popup.Stdin = os.Stdin
+	popup.Stdout = os.Stdout
+	popup.Stderr = os.Stderr
+
+	return true, popup.Run()
+}
+
+func popupArguments(popupHeight int, workingDirectory, command string) []string {
+	return []string{
 		"display-popup",
-		"-B",
 		"-E",
+		"-b",
+		"rounded",
 		"-s",
-		"bg=#0a0a0a,fg=#d0d0d0",
+		"bg=#0D1117,fg=#D7DEE8",
+		"-S",
+		"fg=#293442",
 		"-w",
 		"70%",
 		"-h",
@@ -45,12 +56,7 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 		"-T",
 		"a-gent",
 		command,
-	)
-	popup.Stdin = os.Stdin
-	popup.Stdout = os.Stdout
-	popup.Stderr = os.Stderr
-
-	return true, popup.Run()
+	}
 }
 
 func activeClientName() string {
