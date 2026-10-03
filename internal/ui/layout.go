@@ -50,7 +50,7 @@ func tableColumns(tableWidth int) []table.Column {
 		return []table.Column{
 			{Title: "Agent", Width: 8},
 			{Title: "Status", Width: tableWidth - 8 - lastActiveWidth},
-			{Title: "Last active at", Width: lastActiveWidth},
+			{Title: "Last active", Width: lastActiveWidth},
 		}
 	}
 	if tableWidth < 90 {
@@ -58,7 +58,7 @@ func tableColumns(tableWidth int) []table.Column {
 			{Title: "Agent", Width: 12},
 			{Title: "Session", Width: tableWidth - 24 - lastActiveWidth},
 			{Title: "Status", Width: 12},
-			{Title: "Last active at", Width: lastActiveWidth},
+			{Title: "Last active", Width: lastActiveWidth},
 		}
 	}
 
@@ -68,6 +68,6 @@ func tableColumns(tableWidth int) []table.Column {
 		{Title: "Session", Width: remainingWidth / 2},
 		{Title: "Directory", Width: remainingWidth - remainingWidth/2},
 		{Title: "Status", Width: 12},
-		{Title: "Last active at", Width: lastActiveWidth},
+		{Title: "Last active", Width: lastActiveWidth},
 	}
 }
