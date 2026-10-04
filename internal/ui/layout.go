@@ -3,11 +3,12 @@ package ui
 import "github.com/charmbracelet/bubbles/table"
 
 const (
-	defaultTableWidth   = 70
-	minimumTableWidth   = 34
-	sidebarContentWidth = 22
-	minimumSessionRows  = 3
-	maximumSessionRows  = 8
+	selectionCursorWidth = 1
+	defaultTableWidth    = 70
+	minimumTableWidth    = 34
+	sidebarContentWidth  = 22
+	minimumSessionRows   = 3
+	maximumSessionRows   = 8
 
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
@@ -43,8 +44,8 @@ func (model *Model) resizeTable() {
 func tableColumns(tableWidth int) []table.Column {
 	const lastActiveWidth = 16
 
-	// Leave room for the surrounding panel's padding so rows do not wrap.
-	tableWidth -= panelStyle.GetHorizontalFrameSize()
+	// Reserve the panel padding and cursor column so rows do not wrap.
+	tableWidth -= panelStyle.GetHorizontalFrameSize() + selectionCursorWidth
 
 	if tableWidth < 60 {
 		return []table.Column{

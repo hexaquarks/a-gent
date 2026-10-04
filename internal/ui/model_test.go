@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type fakeAdapter struct {
@@ -238,6 +239,35 @@ func TestSelectionMarkerRemainsVisibleWhenSidebarHasFocus(t *testing.T) {
 	row := model.sessionRowView(0, model.table.Columns())
 	if !strings.Contains(row, "› codex") {
 		t.Fatalf("selected row lacks its marker while sidebar has focus: %q", row)
+	}
+}
+
+func TestSelectionCursorKeepsAgentNamesAligned(t *testing.T) {
+	for _, width := range []int{minimumTableWidth, defaultTableWidth, 110} {
+		model := NewModel(nil)
+		model.sessions = []agent.Session{
+			{Provider: "claude", Name: "First", State: agent.StateRunning},
+			{Provider: "claude", Name: "Second", State: agent.StateIdle},
+		}
+		columns := tableColumns(width)
+		model.table.SetColumns(columns)
+		model.updateTableRows()
+
+		selected := ansi.Strip(model.sessionRowView(0, columns))
+		model.table.SetCursor(1)
+		unselected := ansi.Strip(model.sessionRowView(0, columns))
+		if !strings.HasPrefix(selected, "› claude") || !strings.HasPrefix(unselected, "  claude") {
+			t.Fatalf("width %d: agent name shifted or truncated: selected %q, unselected %q", width, selected, unselected)
+		}
+		if []rune(selected)[0] != '›' || string([]rune(selected)[1:]) != string([]rune(unselected)[1:]) {
+			t.Fatalf("width %d: selection changed content outside the cursor column", width)
+		}
+		wantWidth := width - panelStyle.GetHorizontalFrameSize()
+		for _, row := range []string{selected, unselected, model.emptySessionRowView(columns, false), strings.Split(model.sessionTableView(), "\n")[0]} {
+			if got := lipgloss.Width(row); got != wantWidth {
+				t.Fatalf("width %d: rendered row width = %d, want %d", width, got, wantWidth)
+			}
+		}
 	}
 }
 
