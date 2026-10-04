@@ -13,9 +13,6 @@ import (
 const noticeDuration = 3 * time.Second
 
 func (model Model) footerText() string {
-	if model.sortMenuOpen {
-		return mutedStyle.Render("↑/↓: column  •  ←/→: order  •  enter: apply  •  esc: cancel")
-	}
 	parts := []string{
 		shortcutKeyStyle.Render("tab") + mutedStyle.Render(": switch focus"),
 		shortcutKeyStyle.Render("j/k or ↑/↓") + mutedStyle.Render(": browse"),

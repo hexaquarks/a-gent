@@ -10,9 +10,6 @@ import (
 func (model Model) View() string {
 	summary := summarizeSessions(model.sessions)
 	tableView := model.sessionTableView()
-	if model.sortMenuOpen {
-		tableView = model.sortMenuView()
-	}
 	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)

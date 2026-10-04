@@ -8,12 +8,9 @@ import (
 
 	"a-gent/internal/agent"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 )
-
-var sortColumns = []string{"Last active", "Session", "Agent", "Status", "Directory"}
 
 type sessionSort struct {
 	column     string
@@ -30,19 +27,6 @@ func (sort sessionSort) arrow() string {
 		return "↓"
 	}
 	return "↑"
-}
-
-func (sort sessionSort) directionLabel() string {
-	if sort.column == "Last active" {
-		if sort.descending {
-			return "newest first"
-		}
-		return "oldest first"
-	}
-	if sort.descending {
-		return "Z–A"
-	}
-	return "A–Z"
 }
 
 func (model Model) sortSessions(sessions []agent.Session) {
@@ -102,39 +86,23 @@ func sessionSortValue(session agent.Session, column string) string {
 	}
 }
 
-func (model *Model) openSortMenu() {
-	model.sortMenuOpen = true
-	model.sortMenuDraft = model.sort
-	model.sortMenuCursor = max(0, slices.Index(sortColumns, model.sort.column))
-}
-
-func (model Model) updateSortMenu(message tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch message.String() {
-	case "q", "ctrl+c":
-		return model, tea.Quit
-	case "esc", "s":
-		model.sortMenuOpen = false
-	case "j", "down", "k", "up":
-		offset := 1
-		if message.String() == "k" || message.String() == "up" {
-			offset = -1
-		}
-		model.sortMenuCursor = (model.sortMenuCursor + offset + len(sortColumns)) % len(sortColumns)
-		column := sortColumns[model.sortMenuCursor]
-		model.sortMenuDraft = sessionSort{column: column, descending: column == "Last active"}
-		if column == model.sort.column {
-			model.sortMenuDraft = model.sort
-		}
-	case "left", "h":
-		model.sortMenuDraft.descending = false
-	case "right", "l":
-		model.sortMenuDraft.descending = true
-	case "enter":
-		model.sort = model.sortMenuDraft
-		model.sortMenuOpen = false
-		model.updateTableRows()
+// Cycle through the columns in their displayed order, wrapping at the end.
+func (model *Model) cycleSortColumn() {
+	columns := model.table.Columns()
+	if len(columns) == 0 {
+		return
 	}
-	return model, nil
+
+	nextIndex := 0
+	for index, column := range columns {
+		if column.Title == model.sort.column {
+			nextIndex = (index + 1) % len(columns)
+			break
+		}
+	}
+	column := columns[nextIndex].Title
+	model.sort = sessionSort{column: column, descending: column == "Last active"}
+	model.updateTableRows()
 }
 
 func (model Model) sessionHeadingView() string {
@@ -144,25 +112,4 @@ func (model Model) sessionHeadingView() string {
 	title := model.panelTitleStyle().Render(runewidth.Truncate(model.sessionTitle(), titleWidth, "…"))
 	gap := strings.Repeat(" ", max(0, width-lipgloss.Width(title)-lipgloss.Width(indicator)))
 	return title + gap + indicator
-}
-
-func (model Model) sortMenuView() string {
-	width := model.table.Width() - panelStyle.GetHorizontalFrameSize()
-	height := model.table.Height() + 2
-	lines := []string{sectionStyle.Render("SORT BY"), ""}
-	visibleOptions := min(len(sortColumns), max(1, height-len(lines)))
-	start := max(0, model.sortMenuCursor-visibleOptions+1)
-	for index := start; index < start+visibleOptions; index++ {
-		label := "  " + sortColumns[index]
-		style := mainTextStyle
-		if index == model.sortMenuCursor {
-			label = "› " + sortColumns[index] + " " + model.sortMenuDraft.arrow() + "  " + model.sortMenuDraft.directionLabel()
-			style = accentStyle.Background(lipgloss.Color(colorSelection))
-		}
-		lines = append(lines, style.Width(width).Render(runewidth.Truncate(label, width, "…")))
-	}
-	for len(lines) < height {
-		lines = append(lines, strings.Repeat(" ", width))
-	}
-	return strings.Join(lines, "\n")
 }

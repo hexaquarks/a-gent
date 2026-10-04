@@ -129,37 +129,44 @@ func TestSortingHandlesEmptyStartupAndSessionReturn(t *testing.T) {
 	}
 }
 
-func TestSortMenuAppliesOrCancelsWithoutNavigating(t *testing.T) {
-	navigator := &fakeNavigator{}
-	model := NewModel(nil, WithSessionNavigator(navigator))
-	model.sessions = []agent.Session{{ID: "a", Name: "Alpha"}, {ID: "b", Name: "Beta"}}
-	model.updateTableRows()
-	model.sidebarFocus = true
-	model = sendSortKey(model, runeKey('s'))
-	model = sendSortKey(model, runeKey('j'))
-	model = sendSortKey(model, tea.KeyMsg{Type: tea.KeyRight})
-	if model.sort.column != "Last active" || !model.sortMenuOpen {
-		t.Fatal("sort changed before applying menu choice")
-	}
-	updated, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model = updated.(Model)
-	if command != nil || navigator.session.ID != "" {
-		t.Fatal("applying sort navigated or closed the dashboard")
-	}
-	if model.sortMenuOpen || model.sort.column != "Session" || !model.sort.descending || !model.sidebarFocus {
-		t.Fatalf("menu did not apply sort or preserve focus: %+v", model.sort)
-	}
-	assertSessionOrder(t, model, "b", "a")
-	model = sendSortKey(model, runeKey('s'))
-	model = sendSortKey(model, tea.KeyMsg{Type: tea.KeyLeft})
-	model = sendSortKey(model, runeKey('j'))
-	model = sendSortKey(model, tea.KeyMsg{Type: tea.KeyEsc})
-	if model.sortMenuOpen || model.sort.column != "Session" || !model.sort.descending {
-		t.Fatal("cancel applied the draft sort")
+func TestSortKeyCyclesVisibleColumnsAndPreservesSelection(t *testing.T) {
+	for _, width := range []int{64, 100, 140} {
+		navigator := &fakeNavigator{}
+		model := NewModel(nil, WithSessionNavigator(navigator))
+		model.sessions = []agent.Session{
+			{ID: "a", Name: "Alpha", LastActiveAt: time.Unix(100, 0)},
+			{ID: "b", Name: "Beta", LastActiveAt: time.Unix(200, 0)},
+		}
+		updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
+		model = updated.(Model)
+		model.table.SetCursor(1)
+		model.sidebarFocus = true
+		initialHeight := lipgloss.Height(model.View())
+
+		for _, column := range model.table.Columns() {
+			updated, command := model.Update(runeKey('s'))
+			model = updated.(Model)
+			if command != nil || navigator.session.ID != "" {
+				t.Fatal("cycling sort navigated or closed the dashboard")
+			}
+			if model.sort.column != column.Title || model.sort.descending != (column.Title == "Last active") {
+				t.Fatalf("width %d: sort = %+v, want %s with its default direction", width, model.sort, column.Title)
+			}
+			if selected, ok := model.selectedSession(); !ok || selected.ID != "a" || !model.sidebarFocus {
+				t.Fatalf("width %d: cycling sort lost selection or focus", width)
+			}
+			if got := lipgloss.Height(model.View()); got != initialHeight {
+				t.Fatalf("width %d: cycling sort changed height from %d to %d", width, initialHeight, got)
+			}
+		}
+		if model.sort.column != "Last active" || !model.sort.descending {
+			t.Fatal("full cycle did not return to the default sort")
+		}
+		assertSessionOrder(t, model, "b", "a")
 	}
 }
 
-func TestSortIndicatorsAndMenuFitResponsiveLayouts(t *testing.T) {
+func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 	for _, width := range []int{64, 100, 140} {
 		model := NewModel(nil)
 		updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
@@ -175,15 +182,15 @@ func TestSortIndicatorsAndMenuFitResponsiveLayouts(t *testing.T) {
 				t.Fatalf("width %d: header lost arrow for %s: %s", width, column.Title, header)
 			}
 		}
-		model.openSortMenu()
-		for range len(sortColumns) {
-			if got, want := lipgloss.Height(model.View()), lipgloss.Height(view); got != want {
-				t.Fatalf("width %d: opening menu changed dashboard height: %d, want %d", width, got, want)
-			}
-			if got, want := lipgloss.Width(model.sortMenuView()), model.table.Width()-panelStyle.GetHorizontalFrameSize(); got != want {
-				t.Fatalf("width %d: menu width = %d, want %d", width, got, want)
-			}
-			model = sendSortKey(model, runeKey('j'))
-		}
+	}
+}
+
+func TestResizeResetsSortWhenColumnIsHidden(t *testing.T) {
+	model := NewModel(nil)
+	model.sort = sessionSort{column: "Directory"}
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 64, Height: PopupContentHeight})
+	model = updated.(Model)
+	if model.sort.column != "Last active" || !model.sort.descending {
+		t.Fatal("resize left the active sort on a hidden column")
 	}
 }

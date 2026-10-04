@@ -34,9 +34,6 @@ type Model struct {
 	width           int
 	height          int
 	sort            sessionSort
-	sortMenuOpen    bool
-	sortMenuCursor  int
-	sortMenuDraft   sessionSort
 	tableSessionIDs []sessionIdentity
 }
 
@@ -101,9 +98,6 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.resizeTable()
 		return model, nil
 	case tea.KeyMsg:
-		if model.sortMenuOpen {
-			return model.updateSortMenu(message)
-		}
 		switch message.String() {
 		case "q", "ctrl+c":
 			return model, tea.Quit
@@ -111,7 +105,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.sidebarFocus = !model.sidebarFocus
 			return model, nil
 		case "s":
-			model.openSortMenu()
+			model.cycleSortColumn()
 			return model, nil
 		case "j", "down":
 			if model.sidebarFocus {
