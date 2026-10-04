@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"a-gent/internal/agent"
@@ -26,7 +27,7 @@ func (Adapter) Provider() string {
 	return providerName
 }
 
-// Sessions returns loaded Codex conversations, excluding delegated workers.
+// Sessions returns loaded Codex conversations, excluding workers and empty idle threads.
 func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	socketPath, err := daemonSocketPath(context)
 	if err != nil {
@@ -55,8 +56,7 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 			return nil, err
 		}
 
-		// Workers share their parent's directory but have no separate workspace.
-		if thread.isSubagent() {
+		if !thread.isVisibleSession() {
 			continue
 		}
 
@@ -66,9 +66,27 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	return sessions, nil
 }
 
+func (thread thread) isVisibleSession() bool {
+	// Workers share their parent's directory but have no separate workspace.
+	if thread.isSubagent() || thread.Status.Type == "notLoaded" {
+		return false
+	}
+
+	// Loaded threads can include unused chat drafts. Codex synthesizes their
+	// timestamps on each read, making them look perpetually recently active.
+	// Keep them once they have content or start running; retain errors and
+	// unfamiliar statuses so diagnostics are not silently hidden.
+	return thread.Status.Type != "idle" || thread.hasConversationContent()
+}
+
+func (thread thread) hasConversationContent() bool {
+	return strings.TrimSpace(thread.Name) != "" || strings.TrimSpace(thread.Preview) != ""
+}
+
 func (thread thread) session() agent.Session {
 	var lastActiveAt time.Time
-	if thread.UpdatedAt > 0 {
+	// Empty threads may carry synthesized timestamps rather than real activity.
+	if thread.UpdatedAt > 0 && thread.hasConversationContent() {
 		lastActiveAt = time.Unix(thread.UpdatedAt, 0)
 	}
 
