@@ -166,13 +166,47 @@ func TestSortKeyCyclesVisibleColumnsAndPreservesSelection(t *testing.T) {
 	}
 }
 
+func TestCapitalSReversesCurrentSortAndPreservesSelection(t *testing.T) {
+	for _, column := range []string{"Last active", "Session", "Agent", "Status", "Directory"} {
+		t.Run(column, func(t *testing.T) {
+			model := NewModel(nil)
+			model.sessions = []agent.Session{
+				{ID: "a", Name: "Alpha", Provider: "alpha", State: agent.StateError, WorkingDirectory: "/Alpha", LastActiveAt: time.Unix(100, 0)},
+				{ID: "b", Name: "Beta", Provider: "beta", State: agent.StateRunning, WorkingDirectory: "/Beta", LastActiveAt: time.Unix(200, 0)},
+			}
+			model.sort = sessionSort{column: column}
+			model.updateTableRows()
+			model.sidebarFocus = true
+
+			for _, descending := range []bool{true, false} {
+				updated, command := model.Update(runeKey('S'))
+				model = updated.(Model)
+				if command != nil || model.sort.column != column || model.sort.descending != descending {
+					t.Fatalf("capital S changed the column or failed to reverse: %+v", model.sort)
+				}
+				if selected, ok := model.selectedSession(); !ok || selected.ID != "a" || !model.sidebarFocus {
+					t.Fatal("reversing sort lost selection or focus")
+				}
+				if descending {
+					assertSessionOrder(t, model, "b", "a")
+				} else {
+					assertSessionOrder(t, model, "a", "b")
+				}
+				if !strings.Contains(model.sessionHeadingView(), column+" "+model.sort.arrow()) {
+					t.Fatal("sort direction indicator did not update")
+				}
+			}
+		})
+	}
+}
+
 func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 	for _, width := range []int{64, 100, 140} {
 		model := NewModel(nil)
 		updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
 		model = updated.(Model)
 		view := model.View()
-		if !strings.Contains(view, "Sort: Last active ↓") || !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "s: sort") {
+		if !strings.Contains(view, "Sort: Last active ↓") || !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "s: sort") || !strings.Contains(view, "S: reverse") {
 			t.Fatalf("width %d: missing sort indicators or shortcut:\n%s", width, view)
 		}
 		for _, column := range model.table.Columns() {

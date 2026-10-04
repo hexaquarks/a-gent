@@ -14,14 +14,15 @@ const noticeDuration = 3 * time.Second
 
 func (model Model) footerText() string {
 	parts := []string{
-		shortcutKeyStyle.Render("tab") + mutedStyle.Render(": switch focus"),
-		shortcutKeyStyle.Render("j/k or ↑/↓") + mutedStyle.Render(": browse"),
+		shortcutKeyStyle.Render("tab") + mutedStyle.Render(": focus"),
+		shortcutKeyStyle.Render("j/k") + mutedStyle.Render(": browse"),
 	}
 	if model.navigator != nil {
 		parts = append(parts, shortcutKeyStyle.Render("enter")+mutedStyle.Render(": open workspace"))
 	}
 	parts = append(parts,
 		shortcutKeyStyle.Render("s")+mutedStyle.Render(": sort"),
+		shortcutKeyStyle.Render("S")+mutedStyle.Render(": reverse"),
 		shortcutKeyStyle.Render("q")+mutedStyle.Render(": quit"),
 	)
 

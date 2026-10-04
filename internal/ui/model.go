@@ -107,6 +107,10 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			model.cycleSortColumn()
 			return model, nil
+		case "S":
+			model.sort.descending = !model.sort.descending
+			model.updateTableRows()
+			return model, nil
 		case "j", "down":
 			if model.sidebarFocus {
 				model.moveSidebarCursor(1)
