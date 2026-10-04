@@ -32,6 +32,7 @@ func (model *Model) resizeTable() {
 	columns := tableColumns(tableWidth)
 	model.table.SetWidth(tableWidth)
 	model.table.SetColumns(columns)
+
 	visibleSortColumn := false
 	for _, column := range columns {
 		if column.Title == model.sort.column {

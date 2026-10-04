@@ -73,8 +73,8 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	}
 
 	cells := make([]string, len(columns))
+	session := model.filteredSessions()[index]
 	for columnIndex, column := range columns {
-		session := model.filteredSessions()[index]
 		value, style := sessionColumnValue(session, column.Title)
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
@@ -164,6 +164,7 @@ func (model *Model) updateTableRows() {
 	if hasSelection {
 		selectedID = model.tableSessionIDs[model.table.Cursor()]
 	}
+
 	columns := model.table.Columns()
 	sessions := model.filteredSessions()
 	rows := make([]table.Row, len(sessions))
@@ -182,6 +183,7 @@ func (model *Model) updateTableRows() {
 		model.table.SetCursor(0)
 		return
 	}
+
 	model.table.SetCursor(max(0, min(model.table.Cursor(), len(rows)-1)))
 	if hasSelection {
 		for index, id := range model.tableSessionIDs {
