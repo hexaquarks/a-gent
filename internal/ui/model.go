@@ -98,15 +98,15 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.height = message.Height
 		model.resizeTable()
 		return model, nil
+	case tea.MouseMsg:
+		// Pointer movement never acknowledges a session's unseen state change.
+		return model, nil
 	case tea.KeyMsg:
 		switch message.String() {
 		case "q", "ctrl+c":
 			return model, tea.Quit
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
-			if !model.sidebarFocus {
-				model.markSelectedSessionRead()
-			}
 			return model, nil
 		case "s":
 			model.cycleSortColumn()
@@ -157,11 +157,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var command tea.Cmd
-	previousCursor := model.table.Cursor()
 	model.table, command = model.table.Update(message)
-	if _, isKey := message.(tea.KeyMsg); isKey && !model.sidebarFocus && model.table.Cursor() != previousCursor {
-		model.markSelectedSessionRead()
-	}
 	return model, command
 }
 

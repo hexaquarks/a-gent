@@ -2,8 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 // View renders the current UI state after Bubble Tea calls Update.
@@ -31,8 +33,7 @@ func (model Model) View() string {
 }
 
 func (model Model) detailView() string {
-	title := model.panelTitleStyle().Render("SELECTED SESSION") + "  " +
-		accentStyle.Render("●") + " " + mutedStyle.Render("Unseen state change")
+	title := model.detailHeadingView()
 	selectedSession, ok := model.selectedSession()
 	if !ok {
 		if model.lastError != nil {
@@ -52,4 +53,19 @@ func (model Model) detailView() string {
 		mutedStyle.Render("Session:"),
 		mutedStyle.Render(selectedSession.ID),
 	)
+}
+
+func (model Model) detailHeadingView() string {
+	title := "SELECTED SESSION"
+	session, ok := model.selectedSession()
+	if !ok || !model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
+		return model.panelTitleStyle().Render(title)
+	}
+
+	indicator := accentStyle.Render("●") + " " + mutedStyle.Render("Unseen state change")
+	width := model.table.Width() - detailStyle.GetHorizontalFrameSize()
+	titleWidth := max(0, width-lipgloss.Width(indicator)-2)
+	title = runewidth.Truncate(title, titleWidth, "…")
+	gap := strings.Repeat(" ", max(0, width-lipgloss.Width(title)-lipgloss.Width(indicator)))
+	return model.panelTitleStyle().Render(title) + gap + indicator
 }

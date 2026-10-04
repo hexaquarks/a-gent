@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"a-gent/internal/agent"
 
@@ -17,6 +20,158 @@ import (
 func refreshUnreadTestModel(model Model, sessions ...agent.Session) Model {
 	updated, _ := model.Update(sessionsUpdatedMessage{sessions: sessions})
 	return updated.(Model)
+}
+
+func TestUnseenLabelIsConditionalAndRightAligned(t *testing.T) {
+	for _, width := range []int{62, 100, 150} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			model := NewModel(nil)
+			updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
+			model = updated.(Model)
+			first := agent.Session{ID: "a", Provider: "codex", Name: "Alpha", State: agent.StateRunning}
+			second := agent.Session{ID: "b", Provider: "codex", Name: "Beta", State: agent.StateIdle}
+			model = refreshUnreadTestModel(model, first, second)
+			if strings.Contains(model.detailView(), "Unseen state change") {
+				t.Fatal("read session shows the unseen label")
+			}
+			first.State = agent.StateIdle
+			model = refreshUnreadTestModel(model, first, second)
+			panel := ansi.Strip(detailStyle.Width(model.table.Width()).Render(model.detailView()))
+			lines := strings.Split(panel, "\n")
+			labelRow := detailStyle.GetBorderTopSize() + detailStyle.GetPaddingTop()
+			if !strings.HasSuffix(lines[labelRow], "● Unseen state change"+strings.Repeat(" ", detailStyle.GetPaddingRight())) {
+				t.Fatalf("unseen label is not at the top right:\n%s", panel)
+			}
+			if lipgloss.Width(lines[labelRow]) != model.table.Width() {
+				t.Fatalf("heading overflowed its panel: %q", lines[labelRow])
+			}
+			model.table.SetCursor(1)
+			if strings.Contains(model.detailView(), "Unseen state change") {
+				t.Fatal("another session's unread dot shows a label on a read session")
+			}
+			model.table.SetCursor(0)
+			model.markSelectedSessionRead()
+			if strings.Contains(model.detailView(), "Unseen state change") {
+				t.Fatal("acknowledging the session left the unseen label visible")
+			}
+			model = refreshUnreadTestModel(model)
+			if strings.Contains(model.detailView(), "Unseen state change") {
+				t.Fatal("empty panel shows the unseen label")
+			}
+		})
+	}
+}
+
+type unreadInputSnapshot struct {
+	message tea.Msg
+	view    string
+	unread  int
+}
+
+type unreadInputModel struct {
+	Model
+	snapshots chan unreadInputSnapshot
+}
+
+func (model unreadInputModel) Init() tea.Cmd { return nil }
+
+func (model unreadInputModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	updated, command := model.Model.Update(message)
+	model.Model = updated.(Model)
+	switch message.(type) {
+	case sessionsUpdatedMessage, tea.MouseMsg, tea.KeyMsg:
+		model.snapshots <- unreadInputSnapshot{message: message, view: ansi.Strip(model.View()), unread: len(model.unreadSessions)}
+	}
+	return model, command
+}
+
+func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
+	model := NewModel(nil)
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight})
+	model = updated.(Model)
+	first := agent.Session{ID: "a", Provider: "codex", Name: "Alpha", State: agent.StateRunning}
+	second := agent.Session{ID: "b", Provider: "codex", Name: "Beta", State: agent.StateIdle}
+	model = refreshUnreadTestModel(model, first, second)
+	snapshots := make(chan unreadInputSnapshot, 16)
+	input, writer := io.Pipe()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	program := tea.NewProgram(unreadInputModel{Model: model, snapshots: snapshots},
+		tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(io.Discard),
+		tea.WithoutRenderer(), tea.WithoutSignalHandler())
+	done := make(chan error, 1)
+	go func() {
+		_, err := program.Run()
+		done <- err
+	}()
+	t.Cleanup(func() {
+		program.Quit()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("terminal program failed: %v", err)
+			}
+		case <-ctx.Done():
+			t.Error("terminal program did not stop")
+		}
+		writer.Close()
+		input.Close()
+		cancel()
+	})
+	next := func() unreadInputSnapshot {
+		t.Helper()
+		select {
+		case snapshot := <-snapshots:
+			return snapshot
+		case <-ctx.Done():
+			t.Fatal("terminal input was not processed")
+			return unreadInputSnapshot{}
+		}
+	}
+	first.State = agent.StateWaiting
+	program.Send(sessionsUpdatedMessage{sessions: []agent.Session{first, second}})
+	before := next()
+	if before.unread != 1 || !strings.Contains(before.view, "● Alpha") || !strings.Contains(before.view, "Unseen state change") {
+		t.Fatalf("unread session is not visible before hover:\n%s", before.view)
+	}
+	for y, line := range strings.Split(before.view, "\n") {
+		x := strings.Index(line, "● Alpha")
+		if x < 0 {
+			continue
+		}
+		// Feed SGR mouse motion bytes through Bubble Tea's real input decoder.
+		column := lipgloss.Width(line[:x]) + 1
+		for attempt := 0; attempt < 2; attempt++ {
+			if _, err := fmt.Fprintf(writer, "\x1b[<35;%d;%dM", column, y+1); err != nil {
+				t.Fatal(err)
+			}
+			hovered := next()
+			if _, ok := hovered.message.(tea.MouseMsg); !ok || hovered.unread != 1 || hovered.view != before.view {
+				t.Fatalf("raw hover changed the session dot or panel: %+v", hovered)
+			}
+		}
+		break
+	}
+	if _, err := io.WriteString(writer, "\x1b[B"); err != nil {
+		t.Fatal(err)
+	}
+	other := next()
+	if other.unread != 1 || strings.Contains(other.view, "Unseen state change") {
+		t.Fatal("selecting a read session cleared another dot or showed the unseen label")
+	}
+	if _, err := io.WriteString(writer, "\x1b[A"); err != nil {
+		t.Fatal(err)
+	}
+	read := next()
+	if read.unread != 1 || !strings.Contains(read.view, "● Alpha") || !strings.Contains(read.view, "Unseen state change") {
+		t.Fatal("moving the keyboard highlight cleared the dot or unseen label")
+	}
+	if _, err := io.WriteString(writer, "\r"); err != nil {
+		t.Fatal(err)
+	}
+	acknowledged := next()
+	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "● Alpha") || strings.Contains(acknowledged.view, "Unseen state change") {
+		t.Fatal("Enter did not clear both dot and label")
+	}
 }
 
 func TestUnreadSessionStateTransitions(t *testing.T) {
@@ -81,7 +236,7 @@ func TestUnreadSessionsKeepProviderIdentityAndRemoveMissingSessions(t *testing.T
 	}
 }
 
-func TestUnreadDotSurvivesSortingAndFilteringUntilKeyboardSelection(t *testing.T) {
+func TestUnreadDotSurvivesSortingFilteringAndKeyboardBrowsing(t *testing.T) {
 	first := agent.Session{ID: "a", Provider: "codex", Name: "Alpha", State: agent.StateRunning}
 	second := agent.Session{ID: "b", Provider: "codex", Name: "Beta", State: agent.StateRunning}
 	model := refreshUnreadTestModel(NewModel(nil), first, second)
@@ -98,8 +253,20 @@ func TestUnreadDotSurvivesSortingAndFilteringUntilKeyboardSelection(t *testing.T
 	}
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
 	model = updated.(Model)
+	if !model.unreadSessions[identity] {
+		t.Fatal("keyboard browsing cleared the dot")
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+		model = updated.(Model)
+	}
+	if !model.unreadSessions[identity] {
+		t.Fatal("switching focus cleared the dot")
+	}
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(Model)
 	if model.unreadSessions[identity] {
-		t.Fatal("keyboard selection did not clear the dot")
+		t.Fatal("Enter did not acknowledge the session")
 	}
 }
 
