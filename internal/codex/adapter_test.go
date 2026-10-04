@@ -64,13 +64,45 @@ func TestStateFromStatus(t *testing.T) {
 	}
 }
 
+func TestThreadVisibility(t *testing.T) {
+	testCases := []struct {
+		name    string
+		payload string
+		visible bool
+	}{
+		{name: "empty idle GUI draft", payload: `{"source":"vscode","name":null,"preview":"","status":{"type":"idle"}}`, visible: true},
+		{name: "empty idle CLI draft", payload: `{"source":"cli","name":null,"preview":"","status":{"type":"idle"}}`, visible: true},
+		{name: "whitespace only draft", payload: `{"name":"  ","preview":"\n","status":{"type":"idle"}}`, visible: true},
+		{name: "named idle conversation", payload: `{"name":"Fix dashboard","status":{"type":"idle"}}`, visible: true},
+		{name: "untitled conversation with content", payload: `{"preview":"Help me fix this","status":{"type":"idle"}}`, visible: true},
+		{name: "empty running conversation", payload: `{"status":{"type":"active"}}`, visible: true},
+		{name: "empty error", payload: `{"status":{"type":"systemError"}}`, visible: true},
+		{name: "unknown status", payload: `{"status":{"type":"futureStatus"}}`, visible: true},
+		{name: "unloaded during polling", payload: `{"name":"Closed conversation","status":{"type":"notLoaded"}}`},
+		{name: "running worker", payload: `{"parentThreadId":"main","status":{"type":"active"}}`},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var thread thread
+			if err := json.Unmarshal([]byte(testCase.payload), &thread); err != nil {
+				t.Fatal(err)
+			}
+			if got := thread.isVisibleSession(); got != testCase.visible {
+				t.Fatalf("visible = %v, want %v", got, testCase.visible)
+			}
+		})
+	}
+}
+
 func TestThreadSessionActivityTimestamp(t *testing.T) {
 	testCases := []struct {
 		name    string
 		payload string
 		seconds int64
 	}{
-		{name: "Unix seconds", payload: `{"updatedAt":1791028800}`, seconds: 1791028800},
+		{name: "Unix seconds", payload: `{"name":"Conversation","updatedAt":1791028800}`, seconds: 1791028800},
+		{name: "untitled conversation", payload: `{"preview":"User message","updatedAt":1791028800}`, seconds: 1791028800},
+		{name: "synthetic empty thread timestamp", payload: `{"updatedAt":1791028800}`},
 		{name: "missing", payload: `{}`},
 		{name: "null", payload: `{"updatedAt":null}`},
 		{name: "zero", payload: `{"updatedAt":0}`},

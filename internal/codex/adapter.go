@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"a-gent/internal/agent"
@@ -55,8 +56,7 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 			return nil, err
 		}
 
-		// Workers share their parent's directory but have no separate workspace.
-		if thread.isSubagent() {
+		if !thread.isVisibleSession() {
 			continue
 		}
 
@@ -66,9 +66,21 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	return sessions, nil
 }
 
+func (thread thread) isVisibleSession() bool {
+	// Workers share their parent's directory but have no separate workspace.
+	// A thread may unload between listing its ID and reading its metadata.
+	// Keep idle drafts: empty metadata does not establish that a GUI is closed.
+	return !thread.isSubagent() && thread.Status.Type != "notLoaded"
+}
+
+func (thread thread) hasConversationContent() bool {
+	return strings.TrimSpace(thread.Name) != "" || strings.TrimSpace(thread.Preview) != ""
+}
+
 func (thread thread) session() agent.Session {
 	var lastActiveAt time.Time
-	if thread.UpdatedAt > 0 {
+	// Empty threads may carry synthesized timestamps rather than real activity.
+	if thread.UpdatedAt > 0 && thread.hasConversationContent() {
 		lastActiveAt = time.Unix(thread.UpdatedAt, 0)
 	}
 
