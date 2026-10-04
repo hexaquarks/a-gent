@@ -161,6 +161,11 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 	case "Status":
 		return "● " + displayState(session.State), statusStyle(session.State)
 	case "Last active":
+		// Running sessions are active now even when their provider timestamp
+		// advances between polls or has not been populated yet.
+		if session.State == agent.StateRunning {
+			return "Now", mutedStyle
+		}
 		return formatLastActiveAt(session.LastActiveAt, time.Now()), mutedStyle
 	default:
 		return "", lipgloss.NewStyle()

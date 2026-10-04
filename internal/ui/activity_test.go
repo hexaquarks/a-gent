@@ -8,6 +8,7 @@ import (
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestFormatLastActiveAt(t *testing.T) {
@@ -37,6 +38,50 @@ func TestFormatLastActiveAt(t *testing.T) {
 				t.Fatalf("formatted activity = %q, want %q", actual, testCase.expected)
 			}
 		})
+	}
+}
+
+func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
+	for _, width := range []int{34, 70, 120} {
+		model := NewModel(nil)
+		model.table.SetWidth(width)
+		model.table.SetColumns(tableColumns(width))
+		session := agent.Session{ID: "running", Provider: "codex", State: agent.StateRunning}
+		for _, timestamp := range []time.Time{
+			{}, time.Now().Add(-5 * time.Minute), time.Now(), time.Now().Add(time.Minute),
+		} {
+			session.LastActiveAt = timestamp
+			updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{session}})
+			model = updated.(Model)
+			columns := model.table.Columns()
+			if got := model.table.Rows()[0][len(columns)-1]; got != "Now" {
+				t.Fatalf("width %d: running activity = %q, want Now", width, got)
+			}
+			row := ansi.Strip(model.sessionRowView(0, columns))
+			if !strings.HasSuffix(strings.TrimSpace(row), "Now") {
+				t.Fatalf("width %d: rendered activity is not Now: %q", width, row)
+			}
+			if !model.sessions[0].LastActiveAt.Equal(timestamp) {
+				t.Fatal("displaying Now changed the timestamp used for activity sorting")
+			}
+		}
+
+		for _, state := range []agent.State{agent.StateWaiting, agent.StateIdle, agent.StateError, agent.StateUnavailable} {
+			session.State = state
+			session.LastActiveAt = time.Now().Add(-125 * time.Minute)
+			updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{session}})
+			model = updated.(Model)
+			if row := model.sessionRowView(0, model.table.Columns()); !strings.HasSuffix(strings.TrimSpace(ansi.Strip(row)), "2h ago") {
+				t.Fatalf("width %d: %s session did not resume elapsed activity: %q", width, state, row)
+			}
+		}
+		session.State = agent.StateIdle
+		session.LastActiveAt = time.Time{}
+		updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{session}})
+		model = updated.(Model)
+		if row := model.sessionRowView(0, model.table.Columns()); !strings.HasSuffix(strings.TrimSpace(ansi.Strip(row)), "—") {
+			t.Fatalf("width %d: unknown idle activity is not preserved: %q", width, row)
+		}
 	}
 }
 
