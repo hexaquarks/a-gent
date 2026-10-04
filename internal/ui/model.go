@@ -35,6 +35,7 @@ type Model struct {
 	height          int
 	sort            sessionSort
 	tableSessionIDs []sessionIdentity
+	unreadSessions  map[sessionIdentity]bool
 }
 
 type sessionsUpdatedMessage struct {
@@ -97,6 +98,9 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.height = message.Height
 		model.resizeTable()
 		return model, nil
+	case tea.MouseMsg:
+		// Pointer movement never acknowledges a session's unseen state change.
+		return model, nil
 	case tea.KeyMsg:
 		switch message.String() {
 		case "q", "ctrl+c":
@@ -122,10 +126,14 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 		case "enter":
+			if !model.sidebarFocus {
+				model.markSelectedSessionRead()
+			}
 			return model.navigateSelectedSession()
 		}
 	case sessionsUpdatedMessage:
 		if message.err == nil {
+			model.updateUnreadSessions(message.sessions)
 			model.sessions = message.sessions
 			model.clearMissingProjectFilter()
 		}

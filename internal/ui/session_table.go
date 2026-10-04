@@ -76,10 +76,32 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	session := model.filteredSessions()[index]
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
+		if column.Title == "Session" {
+			cells[columnIndex] = model.sessionNameCell(session, column.Width, background)
+			continue
+		}
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
 
 	return renderSelectionCursor(selected, background) + lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+}
+
+func (model Model) sessionNameCell(session agent.Session, width int, background lipgloss.Color) string {
+	// Always reserve the dot's space so names stay aligned when it is cleared.
+	marker := "  "
+	if model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
+		markerStyle := accentStyle
+		if background != "" {
+			markerStyle = markerStyle.Background(background)
+		}
+		marker = markerStyle.Render("● ")
+	}
+	name := runewidth.Truncate(session.Name, max(0, width-4), "…")
+	style := mainTextStyle.Width(width).MaxWidth(width).Padding(0, 1)
+	if background != "" {
+		style = style.Background(background)
+	}
+	return style.Render(marker + name)
 }
 
 func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage bool) string {
