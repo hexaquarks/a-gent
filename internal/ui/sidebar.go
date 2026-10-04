@@ -179,6 +179,7 @@ func (model Model) filteredSessions() []agent.Session {
 		}
 		filteredSessions = append(filteredSessions, session)
 	}
+	model.sortSessions(filteredSessions)
 	return filteredSessions
 }
 

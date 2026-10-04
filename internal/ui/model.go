@@ -33,6 +33,11 @@ type Model struct {
 	noticeRevision  int
 	width           int
 	height          int
+	sort            sessionSort
+	sortMenuOpen    bool
+	sortMenuCursor  int
+	sortMenuDraft   sessionSort
+	tableSessionIDs []sessionIdentity
 }
 
 type sessionsUpdatedMessage struct {
@@ -69,7 +74,12 @@ func NewModel(adapters []agent.Adapter, options ...ModelOption) Model {
 		Background(lipgloss.Color("#292929"))
 	agentTable.SetStyles(styles)
 
-	model := Model{table: agentTable, adapters: adapters, selectedView: allView}
+	model := Model{
+		table:        agentTable,
+		adapters:     adapters,
+		selectedView: allView,
+		sort:         sessionSort{column: "Last active", descending: true},
+	}
 	for _, option := range options {
 		option(&model)
 	}
@@ -91,11 +101,17 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.resizeTable()
 		return model, nil
 	case tea.KeyMsg:
+		if model.sortMenuOpen {
+			return model.updateSortMenu(message)
+		}
 		switch message.String() {
 		case "q", "ctrl+c":
 			return model, tea.Quit
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
+			return model, nil
+		case "s":
+			model.openSortMenu()
 			return model, nil
 		case "j", "down":
 			if model.sidebarFocus {

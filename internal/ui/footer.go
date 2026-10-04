@@ -13,6 +13,9 @@ import (
 const noticeDuration = 3 * time.Second
 
 func (model Model) footerText() string {
+	if model.sortMenuOpen {
+		return mutedStyle.Render("↑/↓: column  •  ←/→: order  •  enter: apply  •  esc: cancel")
+	}
 	parts := []string{
 		shortcutKeyStyle.Render("tab") + mutedStyle.Render(": switch focus"),
 		shortcutKeyStyle.Render("j/k or ↑/↓") + mutedStyle.Render(": browse"),
@@ -20,7 +23,10 @@ func (model Model) footerText() string {
 	if model.navigator != nil {
 		parts = append(parts, shortcutKeyStyle.Render("enter")+mutedStyle.Render(": open workspace"))
 	}
-	parts = append(parts, shortcutKeyStyle.Render("q")+mutedStyle.Render(": quit"))
+	parts = append(parts,
+		shortcutKeyStyle.Render("s")+mutedStyle.Render(": sort"),
+		shortcutKeyStyle.Render("q")+mutedStyle.Render(": quit"),
+	)
 
 	return strings.Join(parts, "  •  ")
 }

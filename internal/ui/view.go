@@ -9,8 +9,11 @@ import (
 // View renders the current UI state after Bubble Tea calls Update.
 func (model Model) View() string {
 	summary := summarizeSessions(model.sessions)
-	title := model.panelTitleStyle().Render(model.sessionTitle())
-	main := panelStyle.Width(model.table.Width()).Render(title + "\n\n" + model.sessionTableView())
+	tableView := model.sessionTableView()
+	if model.sortMenuOpen {
+		tableView = model.sortMenuView()
+	}
+	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)
 	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.renderSidebar(summary))

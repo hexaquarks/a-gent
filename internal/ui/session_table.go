@@ -17,7 +17,12 @@ func (model Model) sessionTableView() string {
 	columns := model.table.Columns()
 	headerCells := make([]string, len(columns))
 	for index, column := range columns {
-		headerCells[index] = renderTableCell(column.Title, column.Width, sectionStyle, lipgloss.Color(colorDivider))
+		title := column.Title
+		if title == model.sort.column {
+			// Reserve the arrow before truncating narrow column titles.
+			title = runewidth.Truncate(title, max(0, column.Width-4), "…") + " " + model.sort.arrow()
+		}
+		headerCells[index] = renderTableCell(title, column.Width, sectionStyle, lipgloss.Color(colorDivider))
 	}
 
 	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorDivider)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
@@ -152,10 +157,19 @@ func renderTableCell(value string, width int, textStyle lipgloss.Style, backgrou
 }
 
 func (model *Model) updateTableRows() {
+	// Read identity from the previous rows; the provider data or sort order
+	// may already have changed, so the old cursor no longer identifies it.
+	var selectedID sessionIdentity
+	hasSelection := model.table.Cursor() >= 0 && model.table.Cursor() < len(model.tableSessionIDs)
+	if hasSelection {
+		selectedID = model.tableSessionIDs[model.table.Cursor()]
+	}
 	columns := model.table.Columns()
 	sessions := model.filteredSessions()
 	rows := make([]table.Row, len(sessions))
+	model.tableSessionIDs = make([]sessionIdentity, len(sessions))
 	for index, session := range sessions {
+		model.tableSessionIDs[index] = sessionIdentity{provider: session.Provider, id: session.ID}
 		values := make([]string, len(columns))
 		for columnIndex, column := range columns {
 			values[columnIndex], _ = sessionColumnValue(session, column.Title)
@@ -168,5 +182,13 @@ func (model *Model) updateTableRows() {
 		model.table.SetCursor(0)
 		return
 	}
-	model.table.SetCursor(min(model.table.Cursor(), len(rows)-1))
+	model.table.SetCursor(max(0, min(model.table.Cursor(), len(rows)-1)))
+	if hasSelection {
+		for index, id := range model.tableSessionIDs {
+			if id == selectedID {
+				model.table.SetCursor(index)
+				break
+			}
+		}
+	}
 }
