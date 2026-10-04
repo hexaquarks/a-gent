@@ -35,6 +35,7 @@ type Model struct {
 	height          int
 	sort            sessionSort
 	tableSessionIDs []sessionIdentity
+	unreadSessions  map[sessionIdentity]bool
 }
 
 type sessionsUpdatedMessage struct {
@@ -103,6 +104,9 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
+			if !model.sidebarFocus {
+				model.markSelectedSessionRead()
+			}
 			return model, nil
 		case "s":
 			model.cycleSortColumn()
@@ -122,10 +126,19 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 		case "enter":
+			if !model.sidebarFocus {
+				model.markSelectedSessionRead()
+			}
 			return model.navigateSelectedSession()
 		}
+	case tea.MouseMsg:
+		if message.Action == tea.MouseActionMotion && message.Button == tea.MouseButtonNone {
+			model.markHoveredSessionRead(message.X, message.Y)
+		}
+		return model, nil
 	case sessionsUpdatedMessage:
 		if message.err == nil {
+			model.updateUnreadSessions(message.sessions)
 			model.sessions = message.sessions
 			model.clearMissingProjectFilter()
 		}
@@ -149,7 +162,11 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var command tea.Cmd
+	previousCursor := model.table.Cursor()
 	model.table, command = model.table.Update(message)
+	if _, isKey := message.(tea.KeyMsg); isKey && !model.sidebarFocus && model.table.Cursor() != previousCursor {
+		model.markSelectedSessionRead()
+	}
 	return model, command
 }
 

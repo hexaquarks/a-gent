@@ -8,14 +8,27 @@ import (
 
 // View renders the current UI state after Bubble Tea calls Update.
 func (model Model) View() string {
+	sidebar, rightColumn := model.dashboardPanels()
+	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
+	contentWidth := lipgloss.Width(body)
+	header := model.headerView(contentWidth)
+	footer := model.footerView(contentWidth)
+
+	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
+}
+
+func (model Model) dashboardPanels() (string, string) {
 	summary := summarizeSessions(model.sessions)
 	tableView := model.sessionTableView()
 	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)
 	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.renderSidebar(summary))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
+	return sidebar, rightColumn
+}
 
+func (model Model) headerView(contentWidth int) string {
+	summary := summarizeSessions(model.sessions)
 	headerText := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		accentStyle.Render("a-gent"),
@@ -23,11 +36,7 @@ func (model Model) View() string {
 		runningStyle.Render(fmt.Sprintf("%d running", summary.running)),
 		mutedStyle.Render("  /  live data"),
 	)
-	contentWidth := lipgloss.Width(body)
-	header := headerStyle.Width(contentWidth).Render(headerText)
-	footer := model.footerView(contentWidth)
-
-	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
+	return headerStyle.Width(contentWidth).Render(headerText)
 }
 
 func (model Model) detailView() string {
