@@ -27,7 +27,7 @@ func (Adapter) Provider() string {
 	return providerName
 }
 
-// Sessions returns loaded Codex conversations, excluding workers and empty idle threads.
+// Sessions returns loaded Codex conversations, excluding delegated workers.
 func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	socketPath, err := daemonSocketPath(context)
 	if err != nil {
@@ -68,15 +68,9 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 
 func (thread thread) isVisibleSession() bool {
 	// Workers share their parent's directory but have no separate workspace.
-	if thread.isSubagent() || thread.Status.Type == "notLoaded" {
-		return false
-	}
-
-	// Loaded threads can include unused chat drafts. Codex synthesizes their
-	// timestamps on each read, making them look perpetually recently active.
-	// Keep them once they have content or start running; retain errors and
-	// unfamiliar statuses so diagnostics are not silently hidden.
-	return thread.Status.Type != "idle" || thread.hasConversationContent()
+	// A thread may unload between listing its ID and reading its metadata.
+	// Keep idle drafts: empty metadata does not establish that a GUI is closed.
+	return !thread.isSubagent() && thread.Status.Type != "notLoaded"
 }
 
 func (thread thread) hasConversationContent() bool {

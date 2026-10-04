@@ -70,8 +70,9 @@ func TestThreadVisibility(t *testing.T) {
 		payload string
 		visible bool
 	}{
-		{name: "empty idle draft", payload: `{"name":null,"preview":"","status":{"type":"idle"}}`},
-		{name: "whitespace only draft", payload: `{"name":"  ","preview":"\n","status":{"type":"idle"}}`},
+		{name: "empty idle GUI draft", payload: `{"source":"vscode","name":null,"preview":"","status":{"type":"idle"}}`, visible: true},
+		{name: "empty idle CLI draft", payload: `{"source":"cli","name":null,"preview":"","status":{"type":"idle"}}`, visible: true},
+		{name: "whitespace only draft", payload: `{"name":"  ","preview":"\n","status":{"type":"idle"}}`, visible: true},
 		{name: "named idle conversation", payload: `{"name":"Fix dashboard","status":{"type":"idle"}}`, visible: true},
 		{name: "untitled conversation with content", payload: `{"preview":"Help me fix this","status":{"type":"idle"}}`, visible: true},
 		{name: "empty running conversation", payload: `{"status":{"type":"active"}}`, visible: true},
