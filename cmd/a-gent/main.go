@@ -32,7 +32,6 @@ func main() {
 	program := tea.NewProgram(
 		ui.NewModel(adapters, modelOptions...),
 		tea.WithAltScreen(),
-		tea.WithMouseAllMotion(),
 	)
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "a-gent stopped unexpectedly: %v\n", err)

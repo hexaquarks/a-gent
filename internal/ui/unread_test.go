@@ -103,7 +103,7 @@ func TestUnreadDotSurvivesSortingAndFilteringUntilKeyboardSelection(t *testing.T
 	}
 }
 
-func TestHoverClearsOnlyTheSessionUnderThePointer(t *testing.T) {
+func TestHoverPreservesUnreadSessionDots(t *testing.T) {
 	for _, width := range []int{62, 100, 150} {
 		t.Run(fmt.Sprint(width), func(t *testing.T) {
 			model := NewModel(nil)
@@ -124,7 +124,7 @@ func TestHoverClearsOnlyTheSessionUnderThePointer(t *testing.T) {
 			model = refreshUnreadTestModel(model, sessions...)
 			model.table.SetCursor(maximumSessionRows)
 
-			// Find the row in the actual screen output, independently of hit testing.
+			// Hover a visible session row in the rendered screen output.
 			x, y := -1, -1
 			for lineNumber, line := range strings.Split(ansi.Strip(model.View()), "\n") {
 				if offset := strings.Index(line, "codex"); offset >= 0 {
@@ -148,8 +148,8 @@ func TestHoverClearsOnlyTheSessionUnderThePointer(t *testing.T) {
 			}
 			updated, _ = model.Update(tea.MouseMsg{X: x, Y: y, Action: tea.MouseActionMotion})
 			model = updated.(Model)
-			if len(model.unreadSessions) != len(sessions)-1 || model.unreadSessions[sessionIdentity{provider: "codex", id: "01"}] {
-				t.Fatalf("hover cleared the wrong scrolled session: %v", model.unreadSessions)
+			if len(model.unreadSessions) != len(sessions) {
+				t.Fatalf("hover cleared an unread dot: %v", model.unreadSessions)
 			}
 		})
 	}

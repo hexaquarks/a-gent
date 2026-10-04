@@ -131,11 +131,6 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return model.navigateSelectedSession()
 		}
-	case tea.MouseMsg:
-		if message.Action == tea.MouseActionMotion && message.Button == tea.MouseButtonNone {
-			model.markHoveredSessionRead(message.X, message.Y)
-		}
-		return model, nil
 	case sessionsUpdatedMessage:
 		if message.err == nil {
 			model.updateUnreadSessions(message.sessions)
