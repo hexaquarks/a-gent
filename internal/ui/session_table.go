@@ -20,7 +20,7 @@ func (model Model) sessionTableView() string {
 		headerCells[index] = renderTableCell(column.Title, column.Width, sectionStyle, lipgloss.Color(colorDivider))
 	}
 
-	rows := []string{lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
+	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorDivider)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
 		rows = append(rows, model.sessionRowView(index, columns))
@@ -71,13 +71,10 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	for columnIndex, column := range columns {
 		session := model.filteredSessions()[index]
 		value, style := sessionColumnValue(session, column.Title)
-		if selected && column.Title == "Agent" {
-			value = "› " + value
-		}
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+	return renderSelectionCursor(selected, background) + lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 }
 
 func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage bool) string {
@@ -103,7 +100,19 @@ func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage 
 		cells[columnIndex] = renderTableCell(value, column.Width, style, lipgloss.Color(""))
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+	return renderSelectionCursor(false, lipgloss.Color("")) + lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+}
+
+func renderSelectionCursor(selected bool, background lipgloss.Color) string {
+	value := " "
+	if selected {
+		value = "›"
+	}
+	style := agentStyle.Width(selectionCursorWidth)
+	if background != "" {
+		style = style.Background(background)
+	}
+	return style.Render(value)
 }
 
 func (model Model) emptySessionMessage() string {
