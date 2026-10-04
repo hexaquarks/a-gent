@@ -322,10 +322,10 @@ func TestViewsFilterSessions(t *testing.T) {
 		view    sidebarView
 		wantIDs []string
 	}{
-		{view: attentionView, wantIDs: []string{"waiting", "failed"}},
+		{view: attentionView, wantIDs: []string{"failed", "waiting"}},
 		{view: activeView, wantIDs: []string{"running"}},
 		{view: recentView, wantIDs: []string{"finished"}},
-		{view: allView, wantIDs: []string{"running", "waiting", "failed", "finished"}},
+		{view: allView, wantIDs: []string{"failed", "finished", "running", "waiting"}},
 	}
 
 	for _, testCase := range testCases {

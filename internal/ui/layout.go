@@ -32,6 +32,18 @@ func (model *Model) resizeTable() {
 	columns := tableColumns(tableWidth)
 	model.table.SetWidth(tableWidth)
 	model.table.SetColumns(columns)
+
+	visibleSortColumn := false
+	for _, column := range columns {
+		if column.Title == model.sort.column {
+			visibleSortColumn = true
+			break
+		}
+	}
+	if !visibleSortColumn {
+		// Keep the active sort indicator on screen when a column is hidden.
+		model.sort = sessionSort{column: "Last active", descending: true}
+	}
 	model.updateTableRows()
 
 	tableHeight := maximumSessionRows
