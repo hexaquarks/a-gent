@@ -39,6 +39,7 @@ func run() error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	modelOptions = append(modelOptions, ui.WithApplicationContext(ctx))
 	// Workers wait for the UI to receive each result so updates cannot pile up.
 	updates := make(chan polling.Update)
 	stopped := make(chan struct{})

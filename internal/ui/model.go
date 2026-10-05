@@ -2,6 +2,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -36,6 +37,9 @@ type Model struct {
 	sort            sessionSort
 	tableSessionIDs []sessionIdentity
 	unreadSessions  map[sessionIdentity]bool
+
+	appContext       context.Context
+	navigationCancel context.CancelFunc
 }
 
 type sessionNavigationMessage struct {
@@ -67,6 +71,7 @@ func NewModel(updates <-chan polling.Update, options ...ModelOption) Model {
 
 	model := Model{
 		table:          agentTable,
+		appContext:     context.Background(),
 		updates:        updates,
 		providerErrors: make(map[string]error),
 		selectedView:   allView,
@@ -98,6 +103,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch message.String() {
 		case "q", "ctrl+c":
+			model.cancelNavigation()
 			return model, tea.Quit
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
@@ -129,6 +135,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.applyProviderUpdate(message)
 		return model, awaitProviderUpdate(model.updates)
 	case sessionNavigationMessage:
+		model.cancelNavigation()
 		if message.err != nil {
 			model.noticeRevision++
 			model.notice = safeDisplayText(fmt.Sprintf("Could not open workspace: %v", message.err))
