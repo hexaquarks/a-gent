@@ -2,11 +2,11 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/polling"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	refreshInterval = time.Second
-	requestTimeout  = 2 * time.Second
+	requestTimeout = 2 * time.Second
 )
 
 // Model holds the UI state for the application.
 type Model struct {
 	table           table.Model
-	adapters        []agent.Adapter
+	updates         <-chan polling.Update
+	providerErrors  map[string]error
 	sessions        []agent.Session
 	navigator       SessionNavigator
 	selectedView    sidebarView
@@ -38,13 +38,6 @@ type Model struct {
 	unreadSessions  map[sessionIdentity]bool
 }
 
-type sessionsUpdatedMessage struct {
-	sessions []agent.Session
-	err      error
-}
-
-type refreshMessage time.Time
-
 type sessionNavigationMessage struct {
 	err error
 }
@@ -53,8 +46,8 @@ type noticeExpiredMessage struct {
 	revision int
 }
 
-// NewModel creates the dashboard for the supplied provider adapters.
-func NewModel(adapters []agent.Adapter, options ...ModelOption) Model {
+// NewModel creates a dashboard that consumes independently refreshed providers.
+func NewModel(updates <-chan polling.Update, options ...ModelOption) Model {
 	agentTable := table.New(
 		table.WithColumns(tableColumns(defaultTableWidth)),
 		table.WithFocused(true),
@@ -73,10 +66,11 @@ func NewModel(adapters []agent.Adapter, options ...ModelOption) Model {
 	agentTable.SetStyles(styles)
 
 	model := Model{
-		table:        agentTable,
-		adapters:     adapters,
-		selectedView: allView,
-		sort:         sessionSort{column: "Last active", descending: true},
+		table:          agentTable,
+		updates:        updates,
+		providerErrors: make(map[string]error),
+		selectedView:   allView,
+		sort:           sessionSort{column: "Last active", descending: true},
 	}
 	for _, option := range options {
 		option(&model)
@@ -85,9 +79,9 @@ func NewModel(adapters []agent.Adapter, options ...ModelOption) Model {
 	return model
 }
 
-// Init starts the live provider refresh loop.
+// Init waits for the first provider update.
 func (model Model) Init() tea.Cmd {
-	return tea.Batch(model.fetchSessions(), scheduleRefresh())
+	return awaitProviderUpdate(model.updates)
 }
 
 // Update receives events and returns the next UI state for Bubble Tea to render.
@@ -131,17 +125,9 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return model.navigateSelectedSession()
 		}
-	case sessionsUpdatedMessage:
-		if message.err == nil {
-			model.updateUnreadSessions(message.sessions)
-			model.sessions = message.sessions
-			model.clearMissingProjectFilter()
-		}
-		model.lastError = message.err
-		model.updateTableRows()
-		return model, nil
-	case refreshMessage:
-		return model, tea.Batch(model.fetchSessions(), scheduleRefresh())
+	case polling.Update:
+		model.applyProviderUpdate(message)
+		return model, awaitProviderUpdate(model.updates)
 	case sessionNavigationMessage:
 		if message.err != nil {
 			model.noticeRevision++
@@ -159,31 +145,6 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	var command tea.Cmd
 	model.table, command = model.table.Update(message)
 	return model, command
-}
-
-func (model Model) fetchSessions() tea.Cmd {
-	adapters := model.adapters
-	return func() tea.Msg {
-		requestContext, cancel := context.WithTimeout(context.Background(), requestTimeout)
-		defer cancel()
-
-		var sessions []agent.Session
-		for _, adapter := range adapters {
-			providerSessions, err := adapter.Sessions(requestContext)
-			if err != nil {
-				return sessionsUpdatedMessage{err: fmt.Errorf("read %s sessions: %w", adapter.Provider(), err)}
-			}
-			sessions = append(sessions, providerSessions...)
-		}
-
-		return sessionsUpdatedMessage{sessions: sessions}
-	}
-}
-
-func scheduleRefresh() tea.Cmd {
-	return tea.Tick(refreshInterval, func(time.Time) tea.Msg {
-		return refreshMessage(time.Now())
-	})
 }
 
 func (model Model) selectedSession() (agent.Session, bool) {

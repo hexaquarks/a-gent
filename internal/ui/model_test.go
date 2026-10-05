@@ -7,15 +7,12 @@ import (
 	"testing"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/polling"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
-
-type fakeAdapter struct {
-	sessions []agent.Session
-}
 
 type fakeNavigator struct {
 	session agent.Session
@@ -27,32 +24,13 @@ func (navigator *fakeNavigator) Navigate(_ context.Context, session agent.Sessio
 	return navigator.err
 }
 
-func (adapter fakeAdapter) Provider() string {
-	return "fake"
-}
-
-func (adapter fakeAdapter) Sessions(context.Context) ([]agent.Session, error) {
-	return adapter.sessions, nil
-}
-
-func TestFetchSessionsUpdatesTheDashboard(t *testing.T) {
-	model := NewModel([]agent.Adapter{fakeAdapter{sessions: []agent.Session{{
-		ID:               "session-1",
-		Provider:         "codex",
-		Name:             "Fix dashboard",
-		WorkingDirectory: "/projects/a-gent",
-		State:            agent.StateRunning,
-	}}}})
-
-	message := model.fetchSessions()()
-	updatedModel, _ := model.Update(message)
-	dashboard := updatedModel.(Model).View()
-
-	if !strings.Contains(dashboard, "Fix dashboard") {
+func TestProviderUpdateRendersTheDashboard(t *testing.T) {
+	model := NewModel(nil)
+	updatedModel, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{{
+		ID: "session-1", Name: "Fix dashboard", WorkingDirectory: "/projects/a-gent", State: agent.StateRunning,
+	}}})
+	if !strings.Contains(updatedModel.(Model).View(), "Fix dashboard") {
 		t.Fatal("dashboard does not render the live session")
-	}
-	if strings.Contains(dashboard, "mock data") {
-		t.Fatal("dashboard still renders mock data")
 	}
 }
 
