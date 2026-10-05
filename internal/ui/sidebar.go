@@ -196,12 +196,12 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
 	const gutterWidth = 2
 	const pinWidth = 1
-	const fieldSpacing = 2
+	const nameToPinSpacing = 3
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - fieldSpacing - countWidth
+	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth
 	label := sidebarLabel(name, max(0, nameWidth))
 	return markerStyle.Render(marker+" ") +
-		style.Render(label+" "+pin+" ") +
+		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
 		countStyle.Render(fmt.Sprintf("%*s", countWidth, count))
 }
 

@@ -112,7 +112,7 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 				ansi.Strip(model.sidebarItemView(sidebarItem{label: name, provider: name}, 0, count)),
 				ansi.Strip(model.sidebarItemView(sidebarItem{label: name, view: activeView}, 0, count)),
 			} {
-				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(row, " "+countText) {
+				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(row, countText) {
 					t.Fatalf("count was truncated or moved: %q", row)
 				}
 				if !strings.HasPrefix(row, "  ") || !strings.Contains(row, "…") {
