@@ -14,8 +14,8 @@ func (model Model) View() string {
 	tableView := model.sessionTableView()
 	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
 	detail := detailStyle.Width(model.table.Width()).Render(model.detailView())
-	rightColumn := lipgloss.JoinVertical(lipgloss.Left, main, detail)
-	sidebar := sidebarStyle.Height(lipgloss.Height(rightColumn)).Render(model.renderSidebar(summary))
+	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
+	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
 
 	dataStatus := "live data"

@@ -282,7 +282,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
 	}
-	if !strings.Contains(sidebar, "a-gent         2") {
+	if !strings.Contains(sidebar, "● a-gent           2") {
 		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
 	}
 }
@@ -329,8 +329,10 @@ func TestSelectingProjectFiltersTableAndDetails(t *testing.T) {
 		{ID: "a-gent", Name: "a-gent session", WorkingDirectory: "/projects/a-gent", State: agent.StateRunning},
 		{ID: "other", Name: "other session", WorkingDirectory: "/projects/other", State: agent.StateIdle},
 	}
+	model.sidebarFocus = true
 	model.sidebarCursor = len(sidebarViews())
 	model.moveSidebarCursor(1)
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 
 	if got := len(model.table.Rows()); got != 1 {
 		t.Fatalf("table rows = %d, want 1", got)
@@ -340,5 +342,45 @@ func TestSelectingProjectFiltersTableAndDetails(t *testing.T) {
 	}
 	if detail := model.detailView(); !strings.Contains(detail, "other session") {
 		t.Fatalf("details do not use the project-filtered session:\n%s", detail)
+	}
+}
+
+func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{ID: "running", State: agent.StateRunning, WorkingDirectory: "/one"},
+		{ID: "waiting", State: agent.StateWaiting, WorkingDirectory: "/two"},
+	}
+	model.updateTableRows()
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+	if model.selectedView != allView || len(model.table.Rows()) != 1 {
+		t.Fatal("browsing Active did not preview without committing")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedView != activeView || len(model.table.Rows()) != 1 {
+		t.Fatal("Enter did not apply Active")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyUp})
+	if model.selectedView != activeView {
+		t.Fatal("browsing Attention changed the view")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedView != attentionView || model.tableSessionIDs[0].id != "waiting" {
+		t.Fatal("Enter did not switch to Attention")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedView != allView || len(model.table.Rows()) != 2 {
+		t.Fatal("Enter on the selected view did not return to All")
+	}
+	model.selectedProject = "/one"
+	model.updateTableRows()
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+	if model.selectedProject != "/one" {
+		t.Fatal("browsing a view cleared the project filter")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedProject != "" || model.selectedView != activeView {
+		t.Fatal("Enter did not replace the project filter with the view")
 	}
 }

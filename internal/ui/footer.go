@@ -15,6 +15,9 @@ func (model Model) footerText() string {
 		shortcutKeyStyle.Render("tab") + mutedStyle.Render(": focus"),
 		shortcutKeyStyle.Render("j/k") + mutedStyle.Render(": browse"),
 	}
+	if model.projectSearching {
+		return shortcutKeyStyle.Render("enter") + mutedStyle.Render(": select project  •  ") + shortcutKeyStyle.Render("esc") + mutedStyle.Render(": cancel  •  ") + shortcutKeyStyle.Render("↑/↓") + mutedStyle.Render(": browse")
+	}
 	if model.navigator != nil {
 		parts = append(parts, shortcutKeyStyle.Render("enter")+mutedStyle.Render(": open workspace"))
 	}

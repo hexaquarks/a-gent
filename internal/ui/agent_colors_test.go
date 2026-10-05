@@ -50,14 +50,21 @@ func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 	model.sidebarCursor = len(sidebarViews())
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(Model)
-	if !strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "gemini") {
+	if !strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "claude") {
 		t.Fatal("enter did not expand providers")
 	}
 	model.moveSidebarCursor(1)
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(Model)
 	if model.selectedProvider != "claude" || len(model.filteredSessions()) != 1 {
 		t.Fatal("provider selection did not filter sessions")
 	}
 	model.moveSidebarCursor(-1)
+	if model.selectedProvider != "claude" || len(model.table.Rows()) != 4 {
+		t.Fatal("All types must preview all agents without clearing the confirmed filter")
+	}
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(Model)
 	if len(model.filteredSessions()) != 4 {
 		t.Fatal("All types did not clear provider filter")
 	}
@@ -91,5 +98,43 @@ func TestScrollbarTracksVisibleSessionsWithoutChangingWidth(t *testing.T) {
 	model.updateTableRows()
 	if strings.Contains(model.sessionTableView(), "┃") {
 		t.Fatal("short list renders scrollbar")
+	}
+}
+
+func TestBrowsingAgentsRequiresEnterToSelectAndClearFilter(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{ID: "claude-session", Provider: "claude", State: agent.StateIdle},
+		{ID: "codex-session", Provider: "codex", State: agent.StateIdle},
+	}
+	model.updateTableRows()
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
+	model.sidebarCursor = len(sidebarViews()) - 1
+	for range 2 {
+		model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+		if model.selectedProvider != "" || len(model.table.Rows()) != 1 {
+			t.Fatal("browsing an agent did not preview without committing")
+		}
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedProvider != "codex" || len(model.table.Rows()) != 1 {
+		t.Fatal("Enter did not select the focused agent")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyUp})
+	if model.selectedProvider != "codex" {
+		t.Fatal("browsing changed the selected agent")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedProvider != "claude" || len(model.table.Rows()) != 1 {
+		t.Fatal("Enter did not switch to the focused agent")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if model.selectedProvider != "" || len(model.table.Rows()) != 2 {
+		t.Fatal("Enter on the selected agent did not clear the filter")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+	if model.selectedProvider != "" {
+		t.Fatal("browsing past the agents left a provider filter")
 	}
 }

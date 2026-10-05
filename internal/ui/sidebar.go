@@ -9,6 +9,7 @@ import (
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 type sessionSummary struct {
@@ -43,17 +44,17 @@ type sidebarItem struct {
 
 func (model Model) renderSidebar(summary sessionSummary) string {
 	items := model.sidebarItems()
-	viewsTitleStyle := sectionStyle
-	projectsTitleStyle := sectionStyle
+	titleStyle := sectionStyle
 	if model.sidebarFocus {
-		viewsTitleStyle = accentStyle
-		projectsTitleStyle = accentStyle
+		titleStyle = accentStyle
 	}
-	lines := []string{viewsTitleStyle.Render("VIEWS")}
+	lines := []string{titleStyle.Render("VIEWS")}
 	for index, item := range items[:len(sidebarViews())] {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
+	// Reserve the same project area even when filtering leaves fewer rows.
+	projectTop := model.sidebarHeight() - model.projectRowCapacity() - 3
 	providers := model.providers()
 	if len(providers) > 0 {
 		title := "AGENTS"
@@ -62,33 +63,65 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 			if model.agentsExpanded {
 				arrow = "▾"
 			}
-			title = fmt.Sprintf("%s AGENTS (%d)", arrow, len(providers))
+			title = fmt.Sprintf("AGENTS (%d) %s", len(providers), arrow)
 		}
-		lines = append(lines, "", viewsTitleStyle.Render(title))
-	}
-	projectsStarted := false
-	for index, item := range items[len(sidebarViews()):] {
-		count := 0
-		if item.project != "" || (item.provider == "" && !item.agentGroup && !item.allTypes) {
-			if !projectsStarted {
-				lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
-				projectsStarted = true
-			}
-			count = model.projectCount(item.project)
-		} else if item.provider != "" {
-			count = model.providerCount(item.provider)
+		lines = append(lines, "", titleStyle.Render(title))
+		start := len(sidebarViews())
+		end := model.projectItemStart()
+		available := max(1, projectTop-len(lines)-1-len(model.failedProviders()))
+		if end-start > available {
+			// Keep the focused type visible when an expanded list needs to scroll.
+			start = min(max(start, model.sidebarCursor-available+1), end-available)
 		}
-		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, count))
+		for index := start; index < min(end, start+available); index++ {
+			item := items[index]
+			lines = append(lines, model.sidebarItemView(item, index, model.providerCount(item.provider)))
+		}
 	}
-	if !projectsStarted {
-		lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
-	}
-
 	for _, provider := range model.failedProviders() {
-		lines = append(lines, "", errorStyle.Render(safeDisplayText("● "+provider+": unavailable")))
+		lines = append(lines, errorStyle.Render(runewidth.Truncate(safeDisplayText(provider+": unavailable"), model.sidebarWidth(), "…")))
 	}
+	for len(lines) < projectTop {
+		lines = append(lines, "")
+	}
+	lines = append(lines, titleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
 
+	start, end := model.visibleProjectRange()
+	for index := start; index < end; index++ {
+		itemIndex := model.projectItemStart() + index
+		lines = append(lines, model.sidebarItemView(items[itemIndex], itemIndex, 0))
+	}
+	if model.projectSearching && start == end {
+		lines = append(lines, mutedStyle.Render("No matching projects"))
+	}
+	for len(lines) < projectTop+1+model.projectRowCapacity() {
+		lines = append(lines, "")
+	}
+	hidden := len(model.matchingProjects()) - (end - start)
+	if hidden > 0 {
+		lines = append(lines, accentStyle.Render(fmt.Sprintf("+ %d more…", hidden)))
+	} else {
+		lines = append(lines, "")
+	}
+	if model.projectSearching {
+		lines = append(lines, accentStyle.Render("/ "+runewidth.Truncate(model.projectQuery, model.sidebarWidth()-2, "…")))
+	} else {
+		lines = append(lines, shortcutKeyStyle.Render("/")+mutedStyle.Render(" find · ")+shortcutKeyStyle.Render("p")+mutedStyle.Render(" pin"))
+	}
 	return strings.Join(lines, "\n")
+}
+
+func (model Model) sidebarWidth() int {
+	return sidebarContentWidth - sidebarStyle.GetHorizontalPadding()
+}
+
+func (model Model) sidebarHeight() int {
+	return model.bodyHeight() - sidebarStyle.GetVerticalFrameSize()
+}
+
+// Keep the body height stable when the selected-session details are empty.
+func (model Model) bodyHeight() int {
+	return max(model.table.Height()+11, model.height-4)
 }
 
 func sidebarViews() []sidebarView {
@@ -110,41 +143,72 @@ func (model Model) sidebarItems() []sidebarItem {
 			items = append(items, sidebarItem{label: provider, provider: provider})
 		}
 	}
-	for _, project := range model.projects() {
+	for _, project := range model.matchingProjects() {
 		items = append(items, sidebarItem{label: projectName(project), project: project})
 	}
 	return items
 }
 
 func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
-	label := fmt.Sprintf("%-14s %d", safeDisplayText(item.label), count)
-	if item.allTypes {
-		label = "All types"
-	}
-
 	selected := (item.view != "" && item.view == model.selectedView) ||
 		(item.project != "" && item.project == model.selectedProject) ||
 		(item.provider != "" && item.provider == model.selectedProvider)
 	focused := model.sidebarFocus && index == model.sidebarCursor
-
+	if item.view == "" && item.provider == "" && !item.allTypes {
+		return model.projectItemView(item, focused, selected)
+	}
+	style := mutedStyle
 	if item.provider != "" {
-		prefix := "  "
-		style := providerStyle(item.provider)
-		if focused {
-			prefix = "› "
-			style = style.Background(lipgloss.Color(colorSelection))
-		} else if selected {
-			prefix = "• "
-		}
-		return style.Render(prefix + label)
+		style = providerStyle(item.provider)
+	} else if selected {
+		style = accentStyle
+	}
+	marker := " "
+	if selected {
+		marker = "•"
 	}
 	if focused {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(colorMainText)).Background(lipgloss.Color(colorSelection)).Render("› " + label)
+		marker = "›"
+		style = style.Background(lipgloss.Color(colorSelection))
+	}
+	countText := fmt.Sprint(count)
+	if item.allTypes {
+		countText = ""
+	}
+	countStyle := style
+	if item.view == attentionView {
+		countStyle = waitingStyle
+	}
+	if item.view == activeView {
+		countStyle = runningStyle
 	}
 	if selected {
-		return accentStyle.Render("• " + label)
+		countStyle = style
 	}
-	return mutedStyle.Render("  " + label)
+	if focused {
+		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
+	}
+	return model.renderSidebarRow(item.label, marker, " ", countText, style, style, countStyle)
+}
+
+// Every row reserves the same gutter, pin slot, and count column before
+// allocating space to the name. Larger totals widen all count cells together.
+func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
+	const gutterWidth = 2
+	const pinWidth = 1
+	const nameToPinSpacing = 3
+	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
+	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth
+	label := sidebarLabel(name, max(0, nameWidth))
+	return markerStyle.Render(marker+" ") +
+		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
+		countStyle.Render(fmt.Sprintf("%*s", countWidth, count))
+}
+
+// Pad using display cells so Unicode names share the same count column.
+func sidebarLabel(label string, width int) string {
+	label = runewidth.Truncate(safeDisplayText(label), width, "…")
+	return label + strings.Repeat(" ", max(0, width-lipgloss.Width(label)))
 }
 
 func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
@@ -170,7 +234,15 @@ func (model Model) projects() []string {
 	for project := range projects {
 		projectNames = append(projectNames, project)
 	}
-	slices.Sort(projectNames)
+	slices.SortFunc(projectNames, func(left, right string) int {
+		if model.pinnedProjects[left] != model.pinnedProjects[right] {
+			if model.pinnedProjects[left] {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(left, right)
+	})
 	return projectNames
 }
 
@@ -198,18 +270,36 @@ func (model *Model) moveSidebarCursor(offset int) {
 	}
 
 	model.sidebarCursor = (model.sidebarCursor + offset + len(items)) % len(items)
-	selectedItem := items[model.sidebarCursor]
-	if selectedItem.view != "" {
-		model.selectedView = selectedItem.view
-		model.selectedProject = ""
-	} else if selectedItem.provider != "" {
-		model.selectedProvider = selectedItem.provider
-	} else if selectedItem.allTypes {
-		model.selectedProvider = ""
-	} else {
-		model.selectedProject = selectedItem.project
-	}
+	model.previewSidebarItem()
 	model.updateTableRows()
+}
+
+func (model *Model) previewSidebarItem() {
+	items := model.sidebarItems()
+	if model.sidebarCursor >= 0 && model.sidebarCursor < len(items) {
+		item := items[model.sidebarCursor]
+		model.sidebarPreview = &item
+	}
+}
+
+// Preview against the confirmed filters without changing them. Leaving the
+// sidebar or pressing Enter discards this temporary selection.
+func (model Model) effectiveFilters() (sidebarView, string, string) {
+	view, provider, project := model.selectedView, model.selectedProvider, model.selectedProject
+	if model.sidebarFocus && !model.projectSearching && model.sidebarPreview != nil {
+		item := model.sidebarPreview
+		switch {
+		case item.view != "":
+			view, project = item.view, ""
+		case item.provider != "":
+			provider = item.provider
+		case item.allTypes:
+			provider = ""
+		default:
+			project = item.project
+		}
+	}
+	return view, provider, project
 }
 
 func (model *Model) clearMissingProjectFilter() {
@@ -226,15 +316,16 @@ func (model *Model) clearMissingProjectFilter() {
 }
 
 func (model Model) filteredSessions() []agent.Session {
+	view, provider, project := model.effectiveFilters()
 	filteredSessions := make([]agent.Session, 0, len(model.sessions))
 	for _, session := range model.sessions {
-		if model.selectedProvider != "" && session.Provider != model.selectedProvider {
+		if provider != "" && session.Provider != provider {
 			continue
 		}
-		if model.selectedProject != "" && session.WorkingDirectory != model.selectedProject {
+		if project != "" && session.WorkingDirectory != project {
 			continue
 		}
-		if model.selectedProject == "" && !matchesView(session, model.selectedView) {
+		if project == "" && !matchesView(session, view) {
 			continue
 		}
 		filteredSessions = append(filteredSessions, session)

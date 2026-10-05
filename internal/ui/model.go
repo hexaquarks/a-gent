@@ -30,8 +30,13 @@ type Model struct {
 	selectedProject  string
 	selectedProvider string
 	agentsExpanded   bool
+	pinnedProjects   map[string]bool
+	projectPinsPath  string
+	projectSearching bool
+	projectQuery     string
 	sidebarFocus     bool
 	sidebarCursor    int
+	sidebarPreview   *sidebarItem
 	lastError        error
 	notice           string
 	noticeRevision   int
@@ -104,12 +109,53 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		// Pointer movement never acknowledges a session's unseen state change.
 		return model, nil
 	case tea.KeyMsg:
+		if model.projectSearching {
+			return model.updateProjectSearch(message)
+		}
 		switch message.String() {
 		case "q", "ctrl+c":
 			model.cancelNavigation()
 			return model, tea.Quit
+		case "/":
+			model.sidebarPreview = nil
+			model.updateTableRows()
+			model.projectSearching = true
+			model.projectQuery = ""
+			model.sidebarFocus = true
+			model.sidebarCursor = model.projectItemStart()
+			return model, nil
+		case "p":
+			if model.sidebarFocus {
+				items := model.sidebarItems()
+				if model.sidebarCursor < len(items) {
+					item := items[model.sidebarCursor]
+					if item.view == "" && item.provider == "" && !item.allTypes {
+						if model.pinnedProjects == nil {
+							model.pinnedProjects = make(map[string]bool)
+						}
+						model.pinnedProjects[item.project] = !model.pinnedProjects[item.project]
+						if err := model.saveProjectPins(); err != nil {
+							model.notice = safeDisplayText(fmt.Sprintf("Could not save project pins: %v", err))
+							model.noticeRevision++
+							return model, clearNotice(model.noticeRevision)
+						}
+						for index, candidate := range model.sidebarItems() {
+							if candidate.project == item.project && candidate.view == "" && candidate.provider == "" && !candidate.allTypes {
+								model.sidebarCursor = index
+								break
+							}
+						}
+					}
+				}
+			}
+			return model, nil
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
+			model.sidebarPreview = nil
+			if model.sidebarFocus {
+				model.previewSidebarItem()
+			}
+			model.updateTableRows()
 			return model, nil
 		case "s":
 			model.cycleSortColumn()
@@ -131,8 +177,30 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if model.sidebarFocus {
 				items := model.sidebarItems()
-				if model.sidebarCursor < len(items) && items[model.sidebarCursor].agentGroup {
-					model.agentsExpanded = !model.agentsExpanded
+				if model.sidebarCursor >= 0 && model.sidebarCursor < len(items) {
+					item := items[model.sidebarCursor]
+					if item.view != "" {
+						if model.selectedView == item.view && model.selectedProject == "" {
+							model.selectedView = allView
+						} else {
+							model.selectedView = item.view
+						}
+						model.selectedProject = ""
+					} else if item.agentGroup {
+						model.agentsExpanded = !model.agentsExpanded
+						model.selectedProvider = ""
+					} else if item.provider != "" {
+						if model.selectedProvider == item.provider {
+							model.selectedProvider = ""
+						} else {
+							model.selectedProvider = item.provider
+						}
+					}
+					if item.view == "" && item.provider == "" && !item.allTypes {
+						model.selectedProject = item.project
+					}
+					model.sidebarPreview = nil
+					model.updateTableRows()
 				}
 				return model, nil
 			}
