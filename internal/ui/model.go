@@ -171,7 +171,14 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				items := model.sidebarItems()
 				if model.sidebarCursor >= 0 && model.sidebarCursor < len(items) {
 					item := items[model.sidebarCursor]
-					if item.agentGroup {
+					if item.view != "" {
+						if model.selectedView == item.view && model.selectedProject == "" {
+							model.selectedView = allView
+						} else {
+							model.selectedView = item.view
+						}
+						model.selectedProject = ""
+					} else if item.agentGroup {
 						model.agentsExpanded = !model.agentsExpanded
 						model.selectedProvider = ""
 					} else if item.provider != "" {

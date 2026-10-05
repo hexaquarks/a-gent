@@ -271,15 +271,11 @@ func (model *Model) moveSidebarCursor(offset int) {
 
 	model.sidebarCursor = (model.sidebarCursor + offset + len(items)) % len(items)
 	selectedItem := items[model.sidebarCursor]
-	if selectedItem.view != "" {
-		model.selectedView = selectedItem.view
-		model.selectedProject = ""
-	} else if selectedItem.provider != "" || selectedItem.allTypes {
-		// Browsing agent types must not leave an implicit provider filter behind.
+	if selectedItem.view != "" || selectedItem.provider != "" || selectedItem.allTypes {
+		// Views and agent filters are applied explicitly with Enter.
 		return
-	} else {
-		model.selectedProject = selectedItem.project
 	}
+	model.selectedProject = selectedItem.project
 	model.updateTableRows()
 }
 
