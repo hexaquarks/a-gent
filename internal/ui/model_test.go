@@ -329,8 +329,10 @@ func TestSelectingProjectFiltersTableAndDetails(t *testing.T) {
 		{ID: "a-gent", Name: "a-gent session", WorkingDirectory: "/projects/a-gent", State: agent.StateRunning},
 		{ID: "other", Name: "other session", WorkingDirectory: "/projects/other", State: agent.StateIdle},
 	}
+	model.sidebarFocus = true
 	model.sidebarCursor = len(sidebarViews())
 	model.moveSidebarCursor(1)
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 
 	if got := len(model.table.Rows()); got != 1 {
 		t.Fatalf("table rows = %d, want 1", got)
@@ -352,8 +354,8 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	model.updateTableRows()
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
-	if model.selectedView != allView || len(model.table.Rows()) != 2 {
-		t.Fatal("browsing Active applied a filter")
+	if model.selectedView != allView || len(model.table.Rows()) != 1 {
+		t.Fatal("browsing Active did not preview without committing")
 	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	if model.selectedView != activeView || len(model.table.Rows()) != 1 {

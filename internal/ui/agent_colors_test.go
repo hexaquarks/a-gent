@@ -112,8 +112,8 @@ func TestBrowsingAgentsRequiresEnterToSelectAndClearFilter(t *testing.T) {
 	model.sidebarCursor = len(sidebarViews()) - 1
 	for range 2 {
 		model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
-		if model.selectedProvider != "" || len(model.table.Rows()) != 2 {
-			t.Fatal("browsing an agent applied a filter")
+		if model.selectedProvider != "" || len(model.table.Rows()) != 1 {
+			t.Fatal("browsing an agent did not preview without committing")
 		}
 	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})

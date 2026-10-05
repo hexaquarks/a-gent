@@ -36,6 +36,7 @@ type Model struct {
 	projectQuery     string
 	sidebarFocus     bool
 	sidebarCursor    int
+	sidebarPreview   *sidebarItem
 	lastError        error
 	notice           string
 	noticeRevision   int
@@ -116,6 +117,8 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.cancelNavigation()
 			return model, tea.Quit
 		case "/":
+			model.sidebarPreview = nil
+			model.updateTableRows()
 			model.projectSearching = true
 			model.projectQuery = ""
 			model.sidebarFocus = true
@@ -148,6 +151,11 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return model, nil
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
+			model.sidebarPreview = nil
+			if model.sidebarFocus {
+				model.previewSidebarItem()
+			}
+			model.updateTableRows()
 			return model, nil
 		case "s":
 			model.cycleSortColumn()
@@ -188,6 +196,10 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 							model.selectedProvider = item.provider
 						}
 					}
+					if item.view == "" && item.provider == "" && !item.allTypes {
+						model.selectedProject = item.project
+					}
+					model.sidebarPreview = nil
 					model.updateTableRows()
 				}
 				return model, nil

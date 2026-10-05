@@ -270,13 +270,36 @@ func (model *Model) moveSidebarCursor(offset int) {
 	}
 
 	model.sidebarCursor = (model.sidebarCursor + offset + len(items)) % len(items)
-	selectedItem := items[model.sidebarCursor]
-	if selectedItem.view != "" || selectedItem.provider != "" || selectedItem.allTypes {
-		// Views and agent filters are applied explicitly with Enter.
-		return
-	}
-	model.selectedProject = selectedItem.project
+	model.previewSidebarItem()
 	model.updateTableRows()
+}
+
+func (model *Model) previewSidebarItem() {
+	items := model.sidebarItems()
+	if model.sidebarCursor >= 0 && model.sidebarCursor < len(items) {
+		item := items[model.sidebarCursor]
+		model.sidebarPreview = &item
+	}
+}
+
+// Preview against the confirmed filters without changing them. Leaving the
+// sidebar or pressing Enter discards this temporary selection.
+func (model Model) effectiveFilters() (sidebarView, string, string) {
+	view, provider, project := model.selectedView, model.selectedProvider, model.selectedProject
+	if model.sidebarFocus && !model.projectSearching && model.sidebarPreview != nil {
+		item := model.sidebarPreview
+		switch {
+		case item.view != "":
+			view, project = item.view, ""
+		case item.provider != "":
+			provider = item.provider
+		case item.allTypes:
+			provider = ""
+		default:
+			project = item.project
+		}
+	}
+	return view, provider, project
 }
 
 func (model *Model) clearMissingProjectFilter() {
@@ -293,15 +316,16 @@ func (model *Model) clearMissingProjectFilter() {
 }
 
 func (model Model) filteredSessions() []agent.Session {
+	view, provider, project := model.effectiveFilters()
 	filteredSessions := make([]agent.Session, 0, len(model.sessions))
 	for _, session := range model.sessions {
-		if model.selectedProvider != "" && session.Provider != model.selectedProvider {
+		if provider != "" && session.Provider != provider {
 			continue
 		}
-		if model.selectedProject != "" && session.WorkingDirectory != model.selectedProject {
+		if project != "" && session.WorkingDirectory != project {
 			continue
 		}
-		if model.selectedProject == "" && !matchesView(session, model.selectedView) {
+		if project == "" && !matchesView(session, view) {
 			continue
 		}
 		filteredSessions = append(filteredSessions, session)
