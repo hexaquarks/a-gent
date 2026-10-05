@@ -119,6 +119,7 @@ type daemonVersion struct {
 
 func daemonSocketPath(context context.Context) (string, error) {
 	command := exec.CommandContext(context, "codex", "app-server", "daemon", "version")
+	command.WaitDelay = 250 * time.Millisecond
 	output, err := command.Output()
 	if err != nil {
 		return "", fmt.Errorf("read Codex daemon details: %w", err)

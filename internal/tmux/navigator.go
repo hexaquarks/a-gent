@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"a-gent/internal/agent"
@@ -15,16 +16,18 @@ const tmuxClientEnvironmentVariable = "A_GENT_TMUX_CLIENT"
 
 type commandRunner func(context.Context, string, ...string) ([]byte, error)
 
-// Navigator opens tmux panes that match a coding-agent session's directory.
+// Navigator finds the tmux pane containing a coding-agent session.
 type Navigator struct {
-	clientName string
-	runCommand commandRunner
+	clientName     string
+	runCommand     commandRunner
+	processParents func(context.Context) (map[int]int, error)
 }
 
 type pane struct {
 	id        string
 	directory string
 	command   string
+	processID int
 }
 
 // NewNavigator returns nil outside a tmux popup or when its originating tmux
@@ -36,14 +39,16 @@ func NewNavigator() *Navigator {
 	}
 
 	return &Navigator{
-		clientName: clientName,
-		runCommand: commandRunner(runTmuxCommand),
+		clientName:     clientName,
+		runCommand:     commandRunner(runTmuxCommand),
+		processParents: readProcessParents,
 	}
 }
 
-// Navigate opens the unique tmux agent pane that matches session's provider and directory.
+// Navigate opens the session's pane using its process ID when available.
+// Otherwise, it requires a single pane running that provider in the same directory.
 func (navigator *Navigator) Navigate(context context.Context, session agent.Session) error {
-	if session.WorkingDirectory == "" {
+	if session.WorkingDirectory == "" && session.ProcessID == nil {
 		return fmt.Errorf("session has no working directory")
 	}
 
@@ -52,15 +57,27 @@ func (navigator *Navigator) Navigate(context context.Context, session agent.Sess
 		return err
 	}
 
-	matchingPanes := matchingPanes(panes, session)
-	if len(matchingPanes) == 0 {
+	var targets []pane
+	if session.ProcessID != nil {
+		if *session.ProcessID <= 0 {
+			return fmt.Errorf("session has no live local process")
+		}
+		parents, err := navigator.processParents(context)
+		if err != nil {
+			return err
+		}
+		targets = panesForProcess(panes, parents, *session.ProcessID)
+	} else {
+		targets = matchingPanes(panes, session)
+	}
+	if len(targets) == 0 {
 		return fmt.Errorf("no tmux %s pane found for %s", session.Provider, session.WorkingDirectory)
 	}
-	if len(matchingPanes) > 1 {
+	if len(targets) > 1 {
 		return fmt.Errorf("multiple tmux panes found for %s", session.WorkingDirectory)
 	}
 
-	if _, err := navigator.runCommand(context, "switch-client", "-c", navigator.clientName, "-t", matchingPanes[0].id); err != nil {
+	if _, err := navigator.runCommand(context, "switch-client", "-c", navigator.clientName, "-t", targets[0].id); err != nil {
 		return fmt.Errorf("open tmux pane: %w", err)
 	}
 
@@ -68,18 +85,19 @@ func (navigator *Navigator) Navigate(context context.Context, session agent.Sess
 }
 
 func (navigator *Navigator) panes(context context.Context) ([]pane, error) {
-	output, err := navigator.runCommand(context, "list-panes", "-a", "-F", "#{pane_id}\t#{pane_current_path}\t#{pane_start_command}")
+	output, err := navigator.runCommand(context, "list-panes", "-a", "-F", "#{pane_id}\t#{pane_current_path}\t#{pane_start_command}\t#{pane_pid}")
 	if err != nil {
 		return nil, fmt.Errorf("list tmux panes: %w", err)
 	}
 
 	var panes []pane
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-		values := strings.SplitN(line, "\t", 3)
-		if len(values) != 3 || values[0] == "" || values[1] == "" {
+	for _, line := range strings.Split(strings.TrimSuffix(string(output), "\n"), "\n") {
+		values := strings.SplitN(line, "\t", 4)
+		if len(values) != 4 || values[0] == "" || values[1] == "" {
 			continue
 		}
-		panes = append(panes, pane{id: values[0], directory: values[1], command: values[2]})
+		processID, _ := strconv.Atoi(values[3])
+		panes = append(panes, pane{id: values[0], directory: values[1], command: values[2], processID: processID})
 	}
 
 	return panes, nil
