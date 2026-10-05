@@ -57,7 +57,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	}
 
 	for _, provider := range model.failedProviders() {
-		lines = append(lines, "", errorStyle.Render(safeNoticeText("● "+provider+": unavailable")))
+		lines = append(lines, "", errorStyle.Render(safeDisplayText("● "+provider+": unavailable")))
 	}
 
 	return strings.Join(lines, "\n")
@@ -80,7 +80,7 @@ func (model Model) sidebarItems() []sidebarItem {
 }
 
 func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
-	label := fmt.Sprintf("%-14s %d", item.label, count)
+	label := fmt.Sprintf("%-14s %d", safeDisplayText(item.label), count)
 	selected := (item.view != "" && item.view == model.selectedView) ||
 		(item.project != "" && item.project == model.selectedProject)
 	focused := model.sidebarFocus && index == model.sidebarCursor

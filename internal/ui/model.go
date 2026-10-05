@@ -131,7 +131,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case sessionNavigationMessage:
 		if message.err != nil {
 			model.noticeRevision++
-			model.notice = safeNoticeText(fmt.Sprintf("Could not open workspace: %v", message.err))
+			model.notice = safeDisplayText(fmt.Sprintf("Could not open workspace: %v", message.err))
 			return model, clearNotice(model.noticeRevision)
 		}
 		return model, tea.Quit

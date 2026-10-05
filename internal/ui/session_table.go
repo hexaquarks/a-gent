@@ -96,7 +96,7 @@ func (model Model) sessionNameCell(session agent.Session, width int, background 
 		}
 		marker = markerStyle.Render("● ")
 	}
-	name := runewidth.Truncate(session.Name, max(0, width-4), "…")
+	name := runewidth.Truncate(safeDisplayText(session.Name), max(0, width-4), "…")
 	style := mainTextStyle.Width(width).MaxWidth(width).Padding(0, 1)
 	if background != "" {
 		style = style.Background(background)
@@ -174,7 +174,7 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 
 func renderTableCell(value string, width int, textStyle lipgloss.Style, background lipgloss.Color) string {
 	contentWidth := max(0, width-2)
-	truncatedValue := runewidth.Truncate(value, contentWidth, "…")
+	truncatedValue := runewidth.Truncate(safeDisplayText(value), contentWidth, "…")
 	cellStyle := textStyle.Width(width).MaxWidth(width).Padding(0, 1)
 	if background != "" {
 		cellStyle = cellStyle.Background(background)

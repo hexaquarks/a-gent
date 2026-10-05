@@ -55,13 +55,13 @@ func (model Model) detailView() string {
 	return fmt.Sprintf(
 		"%s\n%s  %s\n%s\n%s %s\n%s %s",
 		title,
-		agentStyle.Render(selectedSession.Provider),
-		statusStyle(sessionState(selectedSession)).Render("● "+stateText),
-		mainTextStyle.Render(selectedSession.Name),
+		agentStyle.Render(safeDisplayText(selectedSession.Provider)),
+		statusStyle(sessionState(selectedSession)).Render("● "+safeDisplayText(stateText)),
+		mainTextStyle.Render(safeDisplayText(selectedSession.Name)),
 		mutedStyle.Render("Directory:"),
-		mainTextStyle.Render(selectedSession.WorkingDirectory),
+		mainTextStyle.Render(safeDisplayText(selectedSession.WorkingDirectory)),
 		mutedStyle.Render("Session:"),
-		mutedStyle.Render(selectedSession.ID),
+		mutedStyle.Render(safeDisplayText(selectedSession.ID)),
 	)
 }
 
