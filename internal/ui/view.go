@@ -45,7 +45,7 @@ func (model Model) detailView() string {
 	return fmt.Sprintf(
 		"%s\n%s  %s\n%s\n%s %s\n%s %s",
 		title,
-		agentStyle.Render(selectedSession.Provider),
+		providerStyle(selectedSession.Provider).Render(selectedSession.Provider),
 		statusStyle(selectedSession.State).Render("● "+displayState(selectedSession.State)),
 		mainTextStyle.Render(selectedSession.Name),
 		mutedStyle.Render("Directory:"),

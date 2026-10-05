@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -35,6 +36,19 @@ func (model Model) sessionTableView() string {
 		rows = append(rows, model.emptySessionRowView(columns, placeholderIndex == 0))
 	}
 
+	if len(model.filteredSessions()) > model.table.Height() {
+		track := model.table.Height()
+		thumbSize := max(1, track*track/len(model.filteredSessions()))
+		thumbStart := start * (track - thumbSize) / (len(model.filteredSessions()) - track)
+		for index := 0; index < track; index++ {
+			glyph, style := "│", mutedStyle
+			if index >= thumbStart && index < thumbStart+thumbSize {
+				glyph, style = "┃", accentStyle
+			}
+			row := rows[index+2]
+			rows[index+2] = ansi.Truncate(row, lipgloss.Width(row)-1, "") + style.Render(glyph)
+		}
+	}
 	return strings.Join(rows, "\n")
 }
 
@@ -135,7 +149,7 @@ func renderSelectionCursor(selected bool, background lipgloss.Color) string {
 	if selected {
 		value = "›"
 	}
-	style := agentStyle.Width(selectionCursorWidth)
+	style := accentStyle.Width(selectionCursorWidth)
 	if background != "" {
 		style = style.Background(background)
 	}
@@ -153,7 +167,7 @@ func (model Model) emptySessionMessage() string {
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
-		return session.Provider, agentStyle
+		return session.Provider, providerStyle(session.Provider)
 	case "Session":
 		return session.Name, mainTextStyle
 	case "Directory":

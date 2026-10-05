@@ -4,6 +4,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"a-gent/internal/agent"
@@ -20,22 +21,24 @@ const (
 
 // Model holds the UI state for the application.
 type Model struct {
-	table           table.Model
-	adapters        []agent.Adapter
-	sessions        []agent.Session
-	navigator       SessionNavigator
-	selectedView    sidebarView
-	selectedProject string
-	sidebarFocus    bool
-	sidebarCursor   int
-	lastError       error
-	notice          string
-	noticeRevision  int
-	width           int
-	height          int
-	sort            sessionSort
-	tableSessionIDs []sessionIdentity
-	unreadSessions  map[sessionIdentity]bool
+	table            table.Model
+	adapters         []agent.Adapter
+	sessions         []agent.Session
+	navigator        SessionNavigator
+	selectedView     sidebarView
+	selectedProject  string
+	selectedProvider string
+	agentsExpanded   bool
+	sidebarFocus     bool
+	sidebarCursor    int
+	lastError        error
+	notice           string
+	noticeRevision   int
+	width            int
+	height           int
+	sort             sessionSort
+	tableSessionIDs  []sessionIdentity
+	unreadSessions   map[sessionIdentity]bool
 }
 
 type sessionsUpdatedMessage struct {
@@ -126,6 +129,13 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 		case "enter":
+			if model.sidebarFocus {
+				items := model.sidebarItems()
+				if model.sidebarCursor < len(items) && items[model.sidebarCursor].agentGroup {
+					model.agentsExpanded = !model.agentsExpanded
+				}
+				return model, nil
+			}
 			if !model.sidebarFocus {
 				model.markSelectedSessionRead()
 			}
@@ -136,6 +146,10 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.updateUnreadSessions(message.sessions)
 			model.sessions = message.sessions
 			model.clearMissingProjectFilter()
+			if !slices.Contains(model.providers(), model.selectedProvider) {
+				model.selectedProvider = ""
+			}
+			model.sidebarCursor = min(model.sidebarCursor, len(model.sidebarItems())-1)
 		}
 		model.lastError = message.err
 		model.updateTableRows()
