@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"hash/fnv"
 	"strings"
 
 	"a-gent/internal/agent"
@@ -108,4 +109,20 @@ func displayState(state agent.State) string {
 	}
 
 	return strings.ToUpper(string(state[:1])) + string(state[1:])
+}
+
+// providerStyle keeps each provider's color consistent across the dashboard.
+func providerStyle(provider string) lipgloss.Style {
+	color := colorAgent
+	switch strings.ToLower(provider) {
+	case "codex":
+	case "claude":
+		color = "#FFAF87"
+	default:
+		palette := []string{colorAccent, "#7DCFFF", "#73DACA", "#E0AF68", "#F7768E"}
+		hash := fnv.New32a()
+		_, _ = hash.Write([]byte(strings.ToLower(provider)))
+		color = palette[int(hash.Sum32())%len(palette)]
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 }

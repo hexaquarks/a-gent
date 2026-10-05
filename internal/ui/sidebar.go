@@ -35,7 +35,10 @@ type sidebarItem struct {
 	// view is set for a VIEWS item.
 	view sidebarView
 	// project is set for a PROJECTS item.
-	project string
+	project    string
+	provider   string
+	agentGroup bool
+	allTypes   bool
 }
 
 func (model Model) renderSidebar(summary sessionSummary) string {
@@ -51,9 +54,34 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
-	lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
+	providers := model.providers()
+	if len(providers) > 0 {
+		title := "AGENTS"
+		if len(providers) > 3 {
+			arrow := "▸"
+			if model.agentsExpanded {
+				arrow = "▾"
+			}
+			title = fmt.Sprintf("%s AGENTS (%d)", arrow, len(providers))
+		}
+		lines = append(lines, "", viewsTitleStyle.Render(title))
+	}
+	projectsStarted := false
 	for index, item := range items[len(sidebarViews()):] {
-		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, model.projectCount(item.project)))
+		count := 0
+		if item.project != "" || (item.provider == "" && !item.agentGroup && !item.allTypes) {
+			if !projectsStarted {
+				lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
+				projectsStarted = true
+			}
+			count = model.projectCount(item.project)
+		} else if item.provider != "" {
+			count = model.providerCount(item.provider)
+		}
+		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, count))
+	}
+	if !projectsStarted {
+		lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
 	}
 
 	for _, provider := range model.failedProviders() {
@@ -73,6 +101,15 @@ func (model Model) sidebarItems() []sidebarItem {
 	for _, view := range views {
 		items = append(items, sidebarItem{label: string(view), view: view})
 	}
+	providers := model.providers()
+	if len(providers) > 3 {
+		items = append(items, sidebarItem{label: "All types", agentGroup: true, allTypes: true})
+	}
+	if len(providers) <= 3 || model.agentsExpanded {
+		for _, provider := range providers {
+			items = append(items, sidebarItem{label: provider, provider: provider})
+		}
+	}
 	for _, project := range model.projects() {
 		items = append(items, sidebarItem{label: projectName(project), project: project})
 	}
@@ -81,10 +118,26 @@ func (model Model) sidebarItems() []sidebarItem {
 
 func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	label := fmt.Sprintf("%-14s %d", safeDisplayText(item.label), count)
+	if item.allTypes {
+		label = "All types"
+	}
+
 	selected := (item.view != "" && item.view == model.selectedView) ||
-		(item.project != "" && item.project == model.selectedProject)
+		(item.project != "" && item.project == model.selectedProject) ||
+		(item.provider != "" && item.provider == model.selectedProvider)
 	focused := model.sidebarFocus && index == model.sidebarCursor
 
+	if item.provider != "" {
+		prefix := "  "
+		style := providerStyle(item.provider)
+		if focused {
+			prefix = "› "
+			style = style.Background(lipgloss.Color(colorSelection))
+		} else if selected {
+			prefix = "• "
+		}
+		return style.Render(prefix + label)
+	}
 	if focused {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(colorMainText)).Background(lipgloss.Color(colorSelection)).Render("› " + label)
 	}
@@ -149,6 +202,10 @@ func (model *Model) moveSidebarCursor(offset int) {
 	if selectedItem.view != "" {
 		model.selectedView = selectedItem.view
 		model.selectedProject = ""
+	} else if selectedItem.provider != "" {
+		model.selectedProvider = selectedItem.provider
+	} else if selectedItem.allTypes {
+		model.selectedProvider = ""
 	} else {
 		model.selectedProject = selectedItem.project
 	}
@@ -171,6 +228,9 @@ func (model *Model) clearMissingProjectFilter() {
 func (model Model) filteredSessions() []agent.Session {
 	filteredSessions := make([]agent.Session, 0, len(model.sessions))
 	for _, session := range model.sessions {
+		if model.selectedProvider != "" && session.Provider != model.selectedProvider {
+			continue
+		}
 		if model.selectedProject != "" && session.WorkingDirectory != model.selectedProject {
 			continue
 		}
@@ -214,4 +274,29 @@ func summarizeSessions(sessions []agent.Session) sessionSummary {
 	}
 
 	return summary
+}
+
+func (model Model) providers() []string {
+	providers := make(map[string]bool)
+	for _, session := range model.sessions {
+		if session.Provider != "" {
+			providers[session.Provider] = true
+		}
+	}
+	names := make([]string, 0, len(providers))
+	for provider := range providers {
+		names = append(names, provider)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func (model Model) providerCount(provider string) int {
+	count := 0
+	for _, session := range model.sessions {
+		if session.Provider == provider {
+			count++
+		}
+	}
+	return count
 }
