@@ -140,8 +140,7 @@ func (model Model) projectItemView(item sidebarItem, focused, selected bool) str
 		style = mainTextStyle.Background(lipgloss.Color(colorSelection))
 		markerStyle = markerStyle.Background(lipgloss.Color(colorSelection))
 	}
-	name := sidebarLabel(item.label, model.sidebarWidth()-6)
-	return style.Render(name+" ") + style.Render(star) + markerStyle.Render(marker) + style.Render(fmt.Sprintf("%3d", model.projectCount(item.project)))
+	return model.renderSidebarRow(item.label, marker, star, fmt.Sprint(model.projectCount(item.project)), style, markerStyle, style)
 }
 
 func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {

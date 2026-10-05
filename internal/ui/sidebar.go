@@ -175,9 +175,34 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if item.allTypes {
 		countText = ""
 	}
-	labelWidth := model.sidebarWidth() - 6
-	label := sidebarLabel(item.label, labelWidth)
-	return style.Render(fmt.Sprintf("%s %s %3s", label, marker, countText))
+	countStyle := style
+	if item.view == attentionView {
+		countStyle = waitingStyle
+	}
+	if item.view == activeView {
+		countStyle = runningStyle
+	}
+	if selected {
+		countStyle = style
+	}
+	if focused {
+		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
+	}
+	return model.renderSidebarRow(item.label, marker, " ", countText, style, style, countStyle)
+}
+
+// Every row reserves the same gutter, pin slot, and count column before
+// allocating space to the name. Larger totals widen all count cells together.
+func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
+	const gutterWidth = 2
+	const pinWidth = 1
+	const fieldSpacing = 2
+	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
+	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - fieldSpacing - countWidth
+	label := sidebarLabel(name, max(0, nameWidth))
+	return markerStyle.Render(marker+" ") +
+		style.Render(label+" "+pin+" ") +
+		countStyle.Render(fmt.Sprintf("%*s", countWidth, count))
 }
 
 // Pad using display cells so Unicode names share the same count column.

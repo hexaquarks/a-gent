@@ -282,7 +282,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
 	}
-	if !strings.Contains(sidebar, "a-gent          ●  2") {
+	if !strings.Contains(sidebar, "● a-gent           2") {
 		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
 	}
 }
