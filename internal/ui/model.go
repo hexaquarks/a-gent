@@ -169,8 +169,19 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if model.sidebarFocus {
 				items := model.sidebarItems()
-				if model.sidebarCursor < len(items) && items[model.sidebarCursor].agentGroup {
-					model.agentsExpanded = !model.agentsExpanded
+				if model.sidebarCursor >= 0 && model.sidebarCursor < len(items) {
+					item := items[model.sidebarCursor]
+					if item.agentGroup {
+						model.agentsExpanded = !model.agentsExpanded
+						model.selectedProvider = ""
+					} else if item.provider != "" {
+						if model.selectedProvider == item.provider {
+							model.selectedProvider = ""
+						} else {
+							model.selectedProvider = item.provider
+						}
+					}
+					model.updateTableRows()
 				}
 				return model, nil
 			}

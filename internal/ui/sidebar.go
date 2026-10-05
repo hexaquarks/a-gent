@@ -274,10 +274,9 @@ func (model *Model) moveSidebarCursor(offset int) {
 	if selectedItem.view != "" {
 		model.selectedView = selectedItem.view
 		model.selectedProject = ""
-	} else if selectedItem.provider != "" {
-		model.selectedProvider = selectedItem.provider
-	} else if selectedItem.allTypes {
-		model.selectedProvider = ""
+	} else if selectedItem.provider != "" || selectedItem.allTypes {
+		// Browsing agent types must not leave an implicit provider filter behind.
+		return
 	} else {
 		model.selectedProject = selectedItem.project
 	}
