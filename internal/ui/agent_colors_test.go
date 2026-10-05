@@ -60,8 +60,8 @@ func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 		t.Fatal("provider selection did not filter sessions")
 	}
 	model.moveSidebarCursor(-1)
-	if model.selectedProvider != "claude" {
-		t.Fatal("browsing All types cleared the filter without Enter")
+	if model.selectedProvider != "claude" || len(model.table.Rows()) != 4 {
+		t.Fatal("All types must preview all agents without clearing the confirmed filter")
 	}
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(Model)
