@@ -30,6 +30,10 @@ type Model struct {
 	selectedProject  string
 	selectedProvider string
 	agentsExpanded   bool
+	pinnedProjects   map[string]bool
+	projectPinsPath  string
+	projectSearching bool
+	projectQuery     string
 	sidebarFocus     bool
 	sidebarCursor    int
 	lastError        error
@@ -104,10 +108,44 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		// Pointer movement never acknowledges a session's unseen state change.
 		return model, nil
 	case tea.KeyMsg:
+		if model.projectSearching {
+			return model.updateProjectSearch(message)
+		}
 		switch message.String() {
 		case "q", "ctrl+c":
 			model.cancelNavigation()
 			return model, tea.Quit
+		case "/":
+			model.projectSearching = true
+			model.projectQuery = ""
+			model.sidebarFocus = true
+			model.sidebarCursor = model.projectItemStart()
+			return model, nil
+		case "p":
+			if model.sidebarFocus {
+				items := model.sidebarItems()
+				if model.sidebarCursor < len(items) {
+					item := items[model.sidebarCursor]
+					if item.view == "" && item.provider == "" && !item.allTypes {
+						if model.pinnedProjects == nil {
+							model.pinnedProjects = make(map[string]bool)
+						}
+						model.pinnedProjects[item.project] = !model.pinnedProjects[item.project]
+						if err := model.saveProjectPins(); err != nil {
+							model.notice = safeDisplayText(fmt.Sprintf("Could not save project pins: %v", err))
+							model.noticeRevision++
+							return model, clearNotice(model.noticeRevision)
+						}
+						for index, candidate := range model.sidebarItems() {
+							if candidate.project == item.project && candidate.view == "" && candidate.provider == "" && !candidate.allTypes {
+								model.sidebarCursor = index
+								break
+							}
+						}
+					}
+				}
+			}
+			return model, nil
 		case "tab":
 			model.sidebarFocus = !model.sidebarFocus
 			return model, nil

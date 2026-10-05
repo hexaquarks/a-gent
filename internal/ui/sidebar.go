@@ -9,6 +9,7 @@ import (
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 type sessionSummary struct {
@@ -64,24 +65,45 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 			}
 			title = fmt.Sprintf("%s AGENTS (%d)", arrow, len(providers))
 		}
-		lines = append(lines, "", viewsTitleStyle.Render(title))
+		lines = append(lines, viewsTitleStyle.Render(title))
 	}
 	projectsStarted := false
 	for index, item := range items[len(sidebarViews()):] {
 		count := 0
 		if item.project != "" || (item.provider == "" && !item.agentGroup && !item.allTypes) {
 			if !projectsStarted {
-				lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
+				lines = append(lines, "", projectsTitleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
 				projectsStarted = true
 			}
 			count = model.projectCount(item.project)
 		} else if item.provider != "" {
 			count = model.providerCount(item.provider)
 		}
+		if item.provider == "" && !item.allTypes {
+			start, end := model.visibleProjectRange()
+			projectIndex := index + len(sidebarViews()) - model.projectItemStart()
+			if projectIndex < start || projectIndex >= end {
+				continue
+			}
+		}
 		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, count))
 	}
 	if !projectsStarted {
-		lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
+		lines = append(lines, "", projectsTitleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
+	}
+
+	start, end := model.visibleProjectRange()
+	hidden := len(model.matchingProjects()) - (end - start)
+	if hidden > 0 {
+		lines = append(lines, accentStyle.Render(fmt.Sprintf("+ %d more…", hidden)))
+	}
+	if model.projectSearching {
+		lines = append(lines, accentStyle.Render("/ "+runewidth.Truncate(model.projectQuery, sidebarContentWidth-sidebarStyle.GetHorizontalPadding()-2, "…")))
+		if len(model.matchingProjects()) == 0 {
+			lines = append(lines, mutedStyle.Render("No matching projects"))
+		}
+	} else {
+		lines = append(lines, shortcutKeyStyle.Render("/")+mutedStyle.Render(" find · ")+shortcutKeyStyle.Render("p")+mutedStyle.Render(" pin"))
 	}
 
 	for _, provider := range model.failedProviders() {
@@ -110,7 +132,7 @@ func (model Model) sidebarItems() []sidebarItem {
 			items = append(items, sidebarItem{label: provider, provider: provider})
 		}
 	}
-	for _, project := range model.projects() {
+	for _, project := range model.matchingProjects() {
 		items = append(items, sidebarItem{label: projectName(project), project: project})
 	}
 	return items
@@ -127,6 +149,9 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 		(item.provider != "" && item.provider == model.selectedProvider)
 	focused := model.sidebarFocus && index == model.sidebarCursor
 
+	if item.view == "" && item.provider == "" && !item.allTypes {
+		return model.projectItemView(item, focused, selected)
+	}
 	if item.provider != "" {
 		prefix := "  "
 		style := providerStyle(item.provider)
@@ -170,7 +195,15 @@ func (model Model) projects() []string {
 	for project := range projects {
 		projectNames = append(projectNames, project)
 	}
-	slices.Sort(projectNames)
+	slices.SortFunc(projectNames, func(left, right string) int {
+		if model.pinnedProjects[left] != model.pinnedProjects[right] {
+			if model.pinnedProjects[left] {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(left, right)
+	})
 	return projectNames
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"a-gent/internal/agent"
 	"a-gent/internal/claude"
@@ -34,6 +35,9 @@ func run() error {
 
 	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter()}
 	modelOptions := []ui.ModelOption{}
+	if configDirectory, err := os.UserConfigDir(); err == nil {
+		modelOptions = append(modelOptions, ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")))
+	}
 	if navigator := tmux.NewNavigator(); navigator != nil {
 		modelOptions = append(modelOptions, ui.WithSessionNavigator(navigator))
 	}
