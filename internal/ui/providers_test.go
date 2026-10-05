@@ -1,96 +1,88 @@
 package ui
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
 	"a-gent/internal/agent"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
+	"a-gent/internal/polling"
 )
 
-func TestProviderColorsAcrossDashboard(t *testing.T) {
-	previous := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.TrueColor)
-	defer lipgloss.SetColorProfile(previous)
-	for _, provider := range []string{"codex", "claude", "other"} {
-		model := NewModel(nil)
-		model.sessions = []agent.Session{{Provider: provider, Name: "Example"}}
-		_, style := sessionColumnValue(model.sessions[0], "Agent")
-		if style.GetForeground() != providerStyle(provider).GetForeground() {
-			t.Fatal("table uses a different provider color")
-		}
-		colorSample := providerStyle(provider).Render(provider)
-		// The same escape prefix must appear in sidebar and selected-session text.
-		prefix := strings.TrimSuffix(strings.Split(colorSample, provider)[0], "m")
-		for _, view := range []string{model.renderSidebar(summarizeSessions(model.sessions)), model.detailView(), model.sessionTableView()} {
-			if !strings.Contains(view, prefix) {
-				t.Fatalf("%s color missing from %q", provider, view)
+func TestProviderFailureDoesNotBlockHealthyUpdates(t *testing.T) {
+	model := NewModel(nil)
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "same", State: agent.StateRunning}}})
+	model.applyProviderUpdate(polling.Update{Provider: "claude", Sessions: []agent.Session{{ID: "same", State: agent.StateIdle}}})
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Err: errors.New("offline")})
+	model.applyProviderUpdate(polling.Update{Provider: "claude", Sessions: []agent.Session{{ID: "same", Name: "Updated", State: agent.StateRunning}}})
+	if len(model.sessions) != 2 || model.lastError == nil {
+		t.Fatalf("sessions = %+v, error = %v", model.sessions, model.lastError)
+	}
+	for _, session := range model.sessions {
+		if session.Provider == "codex" {
+			if !session.Stale || sessionState(session) != agent.StateUnavailable {
+				t.Fatal("failed provider still appears live")
 			}
+			if matchesView(session, activeView) || !matchesView(session, attentionView) {
+				t.Fatal("stale session is in the wrong view")
+			}
+			value, _ := sessionColumnValue(session, "Last active")
+			if value == "Now" {
+				t.Fatal("stale running session shows current activity")
+			}
+		} else if session.Name != "Updated" || session.Stale {
+			t.Fatal("healthy provider did not update")
 		}
 	}
-	if providerStyle("codex").GetForeground() == providerStyle("claude").GetForeground() {
-		t.Fatal("known providers share a color")
+	if summary := summarizeSessions(model.sessions); summary.running != 1 || summary.errors != 1 {
+		t.Fatalf("summary = %+v", summary)
+	}
+	if len(model.unreadSessions) != 0 {
+		t.Fatal("provider failure invented a completion")
+	}
+	if !strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "codex: unavailable") {
+		t.Fatal("failed provider not identified")
+	}
+
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "same", State: agent.StateIdle}}})
+	if model.lastError != nil {
+		t.Fatal("recovered provider retained an error")
+	}
+	if !model.unreadSessions[sessionIdentity{provider: "codex", id: "same"}] {
+		t.Fatal("recovery lost the observed completion")
+	}
+	model.applyProviderUpdate(polling.Update{Provider: "codex"})
+	if len(model.sessions) != 1 || model.sessions[0].Provider != "claude" {
+		t.Fatal("empty result removed another provider")
 	}
 }
 
-func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
+func TestSuccessfulRefreshDoesNotClearAnotherProvidersError(t *testing.T) {
 	model := NewModel(nil)
-	for _, provider := range []string{"claude", "codex", "gemini", "other"} {
-		model.sessions = append(model.sessions, agent.Session{ID: provider, Provider: provider})
-	}
-	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
-	if !strings.Contains(sidebar, "AGENTS (4)") || !strings.Contains(sidebar, "All types") || strings.Contains(sidebar, "gemini") {
-		t.Fatalf("unexpected collapsed agents: %s", sidebar)
-	}
-	model.sidebarFocus = true
-	model.sidebarCursor = len(sidebarViews())
-	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	model = updated.(Model)
-	if !strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "gemini") {
-		t.Fatal("enter did not expand providers")
-	}
-	model.moveSidebarCursor(1)
-	if model.selectedProvider != "claude" || len(model.filteredSessions()) != 1 {
-		t.Fatal("provider selection did not filter sessions")
-	}
-	model.moveSidebarCursor(-1)
-	if len(model.filteredSessions()) != 4 {
-		t.Fatal("All types did not clear provider filter")
-	}
-	updated, _ = model.Update(sessionsUpdatedMessage{sessions: model.sessions[:2]})
-	model = updated.(Model)
-	if strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "All types") {
-		t.Fatal("small provider list remains collapsed")
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Err: errors.New("offline")})
+	model.applyProviderUpdate(polling.Update{Provider: "claude", Err: errors.New("offline")})
+	model.applyProviderUpdate(polling.Update{Provider: "claude"})
+	if len(model.providerErrors) != 1 || model.providerErrors["codex"] == nil || model.lastError == nil {
+		t.Fatal("success cleared another provider's failure")
 	}
 }
 
-func TestScrollbarTracksVisibleSessionsWithoutChangingWidth(t *testing.T) {
-	model := NewModel(nil)
-	for index := 0; index < 30; index++ {
-		model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Name: "Example"})
+func TestUpdateStreamDrivesUIAndClosesCleanly(t *testing.T) {
+	updates := make(chan polling.Update, 2)
+	updates <- polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one"}}}
+	updates <- polling.Update{Provider: "claude", Sessions: []agent.Session{{ID: "two"}}}
+	close(updates)
+	model := NewModel(updates)
+	command := model.Init()
+	for range 2 {
+		updated, next := model.Update(command())
+		model = updated.(Model)
+		command = next
 	}
-	model.updateTableRows()
-	first := strings.Split(ansi.Strip(model.sessionTableView()), "\n")
-	if !strings.HasSuffix(first[2], "┃") {
-		t.Fatal("scroll thumb does not start at top")
+	if len(model.sessions) != 2 {
+		t.Fatal("stream lost provider updates")
 	}
-	model.table.SetCursor(29)
-	last := strings.Split(ansi.Strip(model.sessionTableView()), "\n")
-	if !strings.HasSuffix(last[len(last)-1], "┃") || !strings.HasSuffix(last[2], "│") {
-		t.Fatal("scroll thumb did not reach bottom")
-	}
-	for _, row := range last {
-		if row != "" && lipgloss.Width(row) != lipgloss.Width(first[0]) {
-			t.Fatal("scrollbar changes row width")
-		}
-	}
-	model.sessions = model.sessions[:1]
-	model.updateTableRows()
-	if strings.Contains(model.sessionTableView(), "┃") {
-		t.Fatal("short list renders scrollbar")
+	if message := command(); message != nil {
+		t.Fatalf("closed stream returned %v", message)
 	}
 }

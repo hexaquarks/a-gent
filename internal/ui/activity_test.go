@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/polling"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -51,7 +52,7 @@ func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
 			{}, time.Now().Add(-5 * time.Minute), time.Now(), time.Now().Add(time.Minute),
 		} {
 			session.LastActiveAt = timestamp
-			updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{session}})
+			updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{session}})
 			model = updated.(Model)
 			columns := model.table.Columns()
 			if got := model.table.Rows()[0][len(columns)-1]; got != "Now" {
@@ -69,7 +70,7 @@ func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
 		for _, state := range []agent.State{agent.StateWaiting, agent.StateIdle, agent.StateError, agent.StateUnavailable} {
 			session.State = state
 			session.LastActiveAt = time.Now().Add(-125 * time.Minute)
-			updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{session}})
+			updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{session}})
 			model = updated.(Model)
 			if row := model.sessionRowView(0, model.table.Columns()); !strings.HasSuffix(strings.TrimSpace(ansi.Strip(row)), "2h ago") {
 				t.Fatalf("width %d: %s session did not resume elapsed activity: %q", width, state, row)
@@ -77,7 +78,7 @@ func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
 		}
 		session.State = agent.StateIdle
 		session.LastActiveAt = time.Time{}
-		updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{session}})
+		updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{session}})
 		model = updated.(Model)
 		if row := model.sessionRowView(0, model.table.Columns()); !strings.HasSuffix(strings.TrimSpace(ansi.Strip(row)), "—") {
 			t.Fatalf("width %d: unknown idle activity is not preserved: %q", width, row)

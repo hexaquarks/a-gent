@@ -31,11 +31,20 @@ type Session struct {
 	WorkingDirectory string
 	State            State
 
+	// ProcessID identifies the process whose tmux pane should open.
+	// Nil means match by directory; zero or less means there is no running process.
+	ProcessID *int
+
+	// Stale means these sessions were kept from a previous successful poll.
+	Stale bool
+
 	// LastActiveAt is the provider's last session update; zero means unknown.
 	LastActiveAt time.Time
 }
 
 // Adapter reads live sessions from one coding-agent provider.
+// Sessions must stop when its context is cancelled and return data the caller
+// can change without affecting the adapter's own data.
 type Adapter interface {
 	Provider() string
 	Sessions(context.Context) ([]Session, error)

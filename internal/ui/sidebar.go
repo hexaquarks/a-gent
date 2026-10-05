@@ -84,8 +84,8 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 		lines = append(lines, "", projectsTitleStyle.Render("PROJECTS"))
 	}
 
-	if model.lastError != nil {
-		lines = append(lines, "", errorStyle.Render("● Unable to refresh"))
+	for _, provider := range model.failedProviders() {
+		lines = append(lines, "", errorStyle.Render(safeDisplayText("● "+provider+": unavailable")))
 	}
 
 	return strings.Join(lines, "\n")
@@ -117,10 +117,11 @@ func (model Model) sidebarItems() []sidebarItem {
 }
 
 func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
-	label := fmt.Sprintf("%-14s %d", item.label, count)
+	label := fmt.Sprintf("%-14s %d", safeDisplayText(item.label), count)
 	if item.allTypes {
 		label = "All types"
 	}
+
 	selected := (item.view != "" && item.view == model.selectedView) ||
 		(item.project != "" && item.project == model.selectedProject) ||
 		(item.provider != "" && item.provider == model.selectedProvider)
@@ -245,13 +246,13 @@ func (model Model) filteredSessions() []agent.Session {
 func matchesView(session agent.Session, view sidebarView) bool {
 	switch view {
 	case attentionView:
-		return session.State == agent.StateWaiting || session.State == agent.StateError || session.State == agent.StateUnavailable
+		return sessionState(session) == agent.StateWaiting || sessionState(session) == agent.StateError || sessionState(session) == agent.StateUnavailable
 	case activeView:
-		return session.State == agent.StateRunning
+		return sessionState(session) == agent.StateRunning
 	case recentView:
 		// The provider has no activity timestamp. Idle sessions are the completed
 		// sessions available to represent the recent view.
-		return session.State == agent.StateIdle
+		return sessionState(session) == agent.StateIdle
 	default:
 		return true
 	}
@@ -260,7 +261,7 @@ func matchesView(session agent.Session, view sidebarView) bool {
 func summarizeSessions(sessions []agent.Session) sessionSummary {
 	summary := sessionSummary{total: len(sessions)}
 	for _, session := range sessions {
-		switch session.State {
+		switch sessionState(session) {
 		case agent.StateRunning:
 			summary.running++
 		case agent.StateWaiting:

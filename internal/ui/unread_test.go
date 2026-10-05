@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/polling"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -18,8 +19,20 @@ import (
 )
 
 func refreshUnreadTestModel(model Model, sessions ...agent.Session) Model {
-	updated, _ := model.Update(sessionsUpdatedMessage{sessions: sessions})
-	return updated.(Model)
+	// Existing rendering tests supply whole snapshots. Deliver each provider
+	// separately, including successful empty results for removed providers.
+	providers := make(map[string][]agent.Session)
+	for _, session := range model.sessions {
+		providers[session.Provider] = nil
+	}
+	for _, session := range sessions {
+		providers[session.Provider] = append(providers[session.Provider], session)
+	}
+	for provider, sessions := range providers {
+		updated, _ := model.Update(polling.Update{Provider: provider, Sessions: sessions})
+		model = updated.(Model)
+	}
+	return model
 }
 
 func TestUnseenLabelIsConditionalAndRightAligned(t *testing.T) {
@@ -79,7 +92,7 @@ func (model unreadInputModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	updated, command := model.Model.Update(message)
 	model.Model = updated.(Model)
 	switch message.(type) {
-	case sessionsUpdatedMessage, tea.MouseMsg, tea.KeyMsg:
+	case polling.Update, tea.MouseMsg, tea.KeyMsg:
 		model.snapshots <- unreadInputSnapshot{message: message, view: ansi.Strip(model.View()), unread: len(model.unreadSessions)}
 	}
 	return model, command
@@ -128,7 +141,7 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 		}
 	}
 	first.State = agent.StateWaiting
-	program.Send(sessionsUpdatedMessage{sessions: []agent.Session{first, second}})
+	program.Send(polling.Update{Provider: "codex", Sessions: []agent.Session{first, second}})
 	before := next()
 	if before.unread != 1 || !strings.Contains(before.view, "● Alpha") || !strings.Contains(before.view, "Unseen state change") {
 		t.Fatalf("unread session is not visible before hover:\n%s", before.view)
@@ -194,7 +207,7 @@ func TestUnreadSessionStateTransitions(t *testing.T) {
 			if !model.unreadSessions[identity] {
 				t.Fatal("refresh cleared an unread session")
 			}
-			failed, _ := model.Update(sessionsUpdatedMessage{err: errors.New("offline")})
+			failed, _ := model.Update(polling.Update{Provider: "codex", Err: errors.New("offline")})
 			model = failed.(Model)
 			if !model.unreadSessions[identity] {
 				t.Fatal("failed refresh cleared an unread session")

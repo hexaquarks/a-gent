@@ -17,10 +17,11 @@ import (
 const maximumMessageSize = 1024 * 1024
 
 type client struct {
-	connection net.Conn
-	reader     *bufio.Reader
-	writer     *bufio.Writer
-	nextID     int
+	connection       net.Conn
+	stopCancellation func() bool
+	reader           *bufio.Reader
+	writer           *bufio.Writer
+	nextID           int
 }
 
 type rpcResponse struct {
@@ -45,14 +46,23 @@ type thread struct {
 	UpdatedAt        int64           `json:"updatedAt"`
 }
 
-func connect(context context.Context, socketPath string) (*client, error) {
+func connect(ctx context.Context, socketPath string) (*client, error) {
 	dialer := net.Dialer{}
-	connection, err := dialer.DialContext(context, "unix", socketPath)
+	connection, err := dialer.DialContext(ctx, "unix", socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("connect to Codex daemon: %w", err)
 	}
 
-	if deadline, ok := context.Deadline(); ok {
+	// Closing the connection stops a blocked read when a poll is cancelled.
+	stopCancellation := context.AfterFunc(ctx, func() { connection.Close() })
+	handshakeComplete := false
+	defer func() {
+		if !handshakeComplete {
+			stopCancellation()
+		}
+	}()
+
+	if deadline, ok := ctx.Deadline(); ok {
 		if err := connection.SetDeadline(deadline); err != nil {
 			connection.Close()
 			return nil, fmt.Errorf("set Codex connection deadline: %w", err)
@@ -90,10 +100,20 @@ func connect(context context.Context, socketPath string) (*client, error) {
 		return nil, fmt.Errorf("Codex returned an invalid WebSocket handshake")
 	}
 
-	return &client{connection: connection, reader: reader, writer: writer, nextID: 1}, nil
+	handshakeComplete = true
+	return &client{
+		connection:       connection,
+		reader:           reader,
+		writer:           writer,
+		nextID:           1,
+		stopCancellation: stopCancellation,
+	}, nil
 }
 
 func (client *client) Close() error {
+	if client.stopCancellation != nil {
+		client.stopCancellation()
+	}
 	return client.connection.Close()
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/polling"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -83,7 +84,7 @@ func TestRefreshAndSortKeepSelectedSession(t *testing.T) {
 	}
 	model.updateTableRows()
 	model.table.SetCursor(1) // Alpha, currently the older session.
-	updated, _ := model.Update(sessionsUpdatedMessage{sessions: []agent.Session{
+	updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{
 		{ID: "b", Name: "Beta", Provider: "codex", LastActiveAt: time.Unix(200, 0)},
 		{ID: "a", Name: "Alpha", Provider: "codex", LastActiveAt: time.Unix(300, 0)},
 	}})
@@ -98,12 +99,12 @@ func TestRefreshAndSortKeepSelectedSession(t *testing.T) {
 	if selected.ID != "a" || model.table.Cursor() != 1 {
 		t.Fatalf("sort lost selection: %+v, cursor=%d", selected, model.table.Cursor())
 	}
-	updated, _ = model.Update(sessionsUpdatedMessage{sessions: []agent.Session{{ID: "b", Provider: "codex"}}})
+	updated, _ = model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "b", Provider: "codex"}}})
 	model = updated.(Model)
 	if selected, ok = model.selectedSession(); !ok || selected.ID != "b" {
 		t.Fatalf("removing selected session left invalid selection: %+v", selected)
 	}
-	updated, _ = model.Update(sessionsUpdatedMessage{})
+	updated, _ = model.Update(polling.Update{Provider: "codex"})
 	model = updated.(Model)
 	if _, ok = model.selectedSession(); ok {
 		t.Fatal("empty refresh retained a selected session")
@@ -120,7 +121,7 @@ func TestSortingHandlesEmptyStartupAndSessionReturn(t *testing.T) {
 		nil,
 		{{ID: "b", Provider: "codex"}},
 	} {
-		updated, _ = model.Update(sessionsUpdatedMessage{sessions: sessions})
+		updated, _ = model.Update(polling.Update{Provider: "codex", Sessions: sessions})
 		model = updated.(Model)
 		_, selected := model.selectedSession()
 		if selected != (len(sessions) > 0) {

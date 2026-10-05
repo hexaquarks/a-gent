@@ -11,6 +11,13 @@ func (model *Model) updateUnreadSessions(sessions []agent.Session) {
 	unread := make(map[sessionIdentity]bool)
 	for _, session := range sessions {
 		identity := sessionIdentity{provider: session.Provider, id: session.ID}
+		if session.Stale {
+			// A failed poll tells us nothing about completed work; keep existing unread marks.
+			if model.unreadSessions[identity] {
+				unread[identity] = true
+			}
+			continue
+		}
 		if session.State != agent.StateRunning &&
 			(model.unreadSessions[identity] || previousStates[identity] == agent.StateRunning) {
 			unread[identity] = true

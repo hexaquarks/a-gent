@@ -25,8 +25,15 @@ func WithSessionNavigator(navigator SessionNavigator) ModelOption {
 	}
 }
 
+// WithApplicationContext stops navigation when the application shuts down.
+func WithApplicationContext(ctx context.Context) ModelOption {
+	return func(model *Model) {
+		model.appContext = ctx
+	}
+}
+
 func (model Model) navigateSelectedSession() (tea.Model, tea.Cmd) {
-	if model.sidebarFocus || model.navigator == nil {
+	if model.sidebarFocus || model.navigator == nil || model.navigationCancel != nil {
 		return model, nil
 	}
 
@@ -36,10 +43,23 @@ func (model Model) navigateSelectedSession() (tea.Model, tea.Cmd) {
 	}
 
 	navigator := model.navigator
+	requestContext, cancel := context.WithTimeout(model.appContext, requestTimeout)
+	// Keep this request pending until its result is handled so repeated Enter
+	// presses cannot start competing pane switches.
+	model.navigationCancel = cancel
 	return model, func() tea.Msg {
-		requestContext, cancel := context.WithTimeout(context.Background(), requestTimeout)
 		defer cancel()
+		if err := requestContext.Err(); err != nil {
+			return sessionNavigationMessage{err: err}
+		}
 
 		return sessionNavigationMessage{err: navigator.Navigate(requestContext, session)}
+	}
+}
+
+func (model *Model) cancelNavigation() {
+	if model.navigationCancel != nil {
+		model.navigationCancel()
+		model.navigationCancel = nil
 	}
 }
