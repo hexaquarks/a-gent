@@ -10,7 +10,6 @@ import (
 	"a-gent/internal/agent"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 )
 
 const maximumProjectRows = 6
@@ -88,9 +87,7 @@ func (model Model) projectItemStart() int {
 
 func (model Model) visibleProjectRange() (int, int) {
 	count := len(model.matchingProjects())
-	// Leave room for provider rows and the search hint inside the popup.
-	providerRows := model.projectItemStart() - len(sidebarViews())
-	visibleRows := max(1, min(maximumProjectRows, 8-providerRows-2*len(model.failedProviders())))
+	visibleRows := model.projectRowCapacity()
 	start := 0
 	cursor := model.sidebarCursor - model.projectItemStart()
 	if model.sidebarFocus && cursor >= visibleRows {
@@ -98,6 +95,11 @@ func (model Model) visibleProjectRange() (int, int) {
 	}
 	start = min(start, max(0, count-visibleRows))
 	return start, min(start+visibleRows, count)
+}
+
+// Reserve room for views, three agent types, and section spacing above projects.
+func (model Model) projectRowCapacity() int {
+	return max(1, min(maximumProjectRows, model.sidebarHeight()-14))
 }
 
 // Attention takes priority over running work; unread changes are shown next.
@@ -138,10 +140,8 @@ func (model Model) projectItemView(item sidebarItem, focused, selected bool) str
 		style = mainTextStyle.Background(lipgloss.Color(colorSelection))
 		markerStyle = markerStyle.Background(lipgloss.Color(colorSelection))
 	}
-	nameWidth := sidebarContentWidth - sidebarStyle.GetHorizontalPadding() - 8
-	name := runewidth.Truncate(safeDisplayText(item.label), nameWidth, "…")
-	name += strings.Repeat(" ", max(0, nameWidth-lipgloss.Width(name)))
-	return style.Render(star+" ") + markerStyle.Render(marker+" ") + style.Render(fmt.Sprintf("%s %3d", name, model.projectCount(item.project)))
+	name := sidebarLabel(item.label, model.sidebarWidth()-6)
+	return style.Render(name+" ") + style.Render(star) + markerStyle.Render(marker) + style.Render(fmt.Sprintf("%3d", model.projectCount(item.project)))
 }
 
 func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {

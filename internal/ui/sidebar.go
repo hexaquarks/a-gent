@@ -44,17 +44,17 @@ type sidebarItem struct {
 
 func (model Model) renderSidebar(summary sessionSummary) string {
 	items := model.sidebarItems()
-	viewsTitleStyle := sectionStyle
-	projectsTitleStyle := sectionStyle
+	titleStyle := sectionStyle
 	if model.sidebarFocus {
-		viewsTitleStyle = accentStyle
-		projectsTitleStyle = accentStyle
+		titleStyle = accentStyle
 	}
-	lines := []string{viewsTitleStyle.Render("VIEWS")}
+	lines := []string{titleStyle.Render("VIEWS")}
 	for index, item := range items[:len(sidebarViews())] {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
+	// Reserve the same project area even when filtering leaves fewer rows.
+	projectTop := model.sidebarHeight() - model.projectRowCapacity() - 3
 	providers := model.providers()
 	if len(providers) > 0 {
 		title := "AGENTS"
@@ -63,54 +63,65 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 			if model.agentsExpanded {
 				arrow = "▾"
 			}
-			title = fmt.Sprintf("%s AGENTS (%d)", arrow, len(providers))
+			title = fmt.Sprintf("AGENTS (%d) %s", len(providers), arrow)
 		}
-		lines = append(lines, viewsTitleStyle.Render(title))
-	}
-	projectsStarted := false
-	for index, item := range items[len(sidebarViews()):] {
-		count := 0
-		if item.project != "" || (item.provider == "" && !item.agentGroup && !item.allTypes) {
-			if !projectsStarted {
-				lines = append(lines, "", projectsTitleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
-				projectsStarted = true
-			}
-			count = model.projectCount(item.project)
-		} else if item.provider != "" {
-			count = model.providerCount(item.provider)
+		lines = append(lines, "", titleStyle.Render(title))
+		start := len(sidebarViews())
+		end := model.projectItemStart()
+		available := max(1, projectTop-len(lines)-1-len(model.failedProviders()))
+		if end-start > available {
+			// Keep the focused type visible when an expanded list needs to scroll.
+			start = min(max(start, model.sidebarCursor-available+1), end-available)
 		}
-		if item.provider == "" && !item.allTypes {
-			start, end := model.visibleProjectRange()
-			projectIndex := index + len(sidebarViews()) - model.projectItemStart()
-			if projectIndex < start || projectIndex >= end {
-				continue
-			}
+		for index := start; index < min(end, start+available); index++ {
+			item := items[index]
+			lines = append(lines, model.sidebarItemView(item, index, model.providerCount(item.provider)))
 		}
-		lines = append(lines, model.sidebarItemView(item, len(sidebarViews())+index, count))
 	}
-	if !projectsStarted {
-		lines = append(lines, "", projectsTitleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
+	for _, provider := range model.failedProviders() {
+		lines = append(lines, errorStyle.Render(runewidth.Truncate(safeDisplayText(provider+": unavailable"), model.sidebarWidth(), "…")))
 	}
+	for len(lines) < projectTop {
+		lines = append(lines, "")
+	}
+	lines = append(lines, titleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
 
 	start, end := model.visibleProjectRange()
+	for index := start; index < end; index++ {
+		itemIndex := model.projectItemStart() + index
+		lines = append(lines, model.sidebarItemView(items[itemIndex], itemIndex, 0))
+	}
+	if model.projectSearching && start == end {
+		lines = append(lines, mutedStyle.Render("No matching projects"))
+	}
+	for len(lines) < projectTop+1+model.projectRowCapacity() {
+		lines = append(lines, "")
+	}
 	hidden := len(model.matchingProjects()) - (end - start)
 	if hidden > 0 {
 		lines = append(lines, accentStyle.Render(fmt.Sprintf("+ %d more…", hidden)))
+	} else {
+		lines = append(lines, "")
 	}
 	if model.projectSearching {
-		lines = append(lines, accentStyle.Render("/ "+runewidth.Truncate(model.projectQuery, sidebarContentWidth-sidebarStyle.GetHorizontalPadding()-2, "…")))
-		if len(model.matchingProjects()) == 0 {
-			lines = append(lines, mutedStyle.Render("No matching projects"))
-		}
+		lines = append(lines, accentStyle.Render("/ "+runewidth.Truncate(model.projectQuery, model.sidebarWidth()-2, "…")))
 	} else {
 		lines = append(lines, shortcutKeyStyle.Render("/")+mutedStyle.Render(" find · ")+shortcutKeyStyle.Render("p")+mutedStyle.Render(" pin"))
 	}
-
-	for _, provider := range model.failedProviders() {
-		lines = append(lines, "", errorStyle.Render(safeDisplayText("● "+provider+": unavailable")))
-	}
-
 	return strings.Join(lines, "\n")
+}
+
+func (model Model) sidebarWidth() int {
+	return sidebarContentWidth - sidebarStyle.GetHorizontalPadding()
+}
+
+func (model Model) sidebarHeight() int {
+	return model.bodyHeight() - sidebarStyle.GetVerticalFrameSize()
+}
+
+// Keep the body height stable when the selected-session details are empty.
+func (model Model) bodyHeight() int {
+	return max(model.table.Height()+11, model.height-4)
 }
 
 func sidebarViews() []sidebarView {
@@ -139,37 +150,40 @@ func (model Model) sidebarItems() []sidebarItem {
 }
 
 func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
-	label := fmt.Sprintf("%-14s %d", safeDisplayText(item.label), count)
-	if item.allTypes {
-		label = "All types"
-	}
-
 	selected := (item.view != "" && item.view == model.selectedView) ||
 		(item.project != "" && item.project == model.selectedProject) ||
 		(item.provider != "" && item.provider == model.selectedProvider)
 	focused := model.sidebarFocus && index == model.sidebarCursor
-
 	if item.view == "" && item.provider == "" && !item.allTypes {
 		return model.projectItemView(item, focused, selected)
 	}
+	style := mutedStyle
 	if item.provider != "" {
-		prefix := "  "
-		style := providerStyle(item.provider)
-		if focused {
-			prefix = "› "
-			style = style.Background(lipgloss.Color(colorSelection))
-		} else if selected {
-			prefix = "• "
-		}
-		return style.Render(prefix + label)
+		style = providerStyle(item.provider)
+	} else if selected {
+		style = accentStyle
+	}
+	marker := " "
+	if selected {
+		marker = "•"
 	}
 	if focused {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(colorMainText)).Background(lipgloss.Color(colorSelection)).Render("› " + label)
+		marker = "›"
+		style = style.Background(lipgloss.Color(colorSelection))
 	}
-	if selected {
-		return accentStyle.Render("• " + label)
+	countText := fmt.Sprint(count)
+	if item.allTypes {
+		countText = ""
 	}
-	return mutedStyle.Render("  " + label)
+	labelWidth := model.sidebarWidth() - 6
+	label := sidebarLabel(item.label, labelWidth)
+	return style.Render(fmt.Sprintf("%s %s %3s", label, marker, countText))
+}
+
+// Pad using display cells so Unicode names share the same count column.
+func sidebarLabel(label string, width int) string {
+	label = runewidth.Truncate(safeDisplayText(label), width, "…")
+	return label + strings.Repeat(" ", max(0, width-lipgloss.Width(label)))
 }
 
 func (model Model) viewCount(view sidebarView, summary sessionSummary) int {

@@ -50,7 +50,7 @@ func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 	model.sidebarCursor = len(sidebarViews())
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(Model)
-	if !strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "gemini") {
+	if !strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "claude") {
 		t.Fatal("enter did not expand providers")
 	}
 	model.moveSidebarCursor(1)
