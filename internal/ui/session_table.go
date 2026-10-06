@@ -120,7 +120,7 @@ func (model Model) sessionGutter(session agent.Session, selected bool, backgroun
 	if background != "" {
 		style = style.Background(background)
 	}
-	return style.Render(cursor + dot + " ")
+	return style.Render(cursor + " " + dot + " ")
 }
 
 func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage bool) string {
@@ -150,9 +150,9 @@ func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage 
 }
 
 func renderSelectionCursor(selected bool, background lipgloss.Color) string {
-	value := "   "
+	value := "    "
 	if selected {
-		value = "›  "
+		value = "›   "
 	}
 	style := accentStyle.Width(selectionCursorWidth)
 	if background != "" {

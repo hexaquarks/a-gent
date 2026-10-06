@@ -229,7 +229,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 		if ansi.StringWidth(line) > width {
 			truncated = true
 		}
-		style := mutedStyle
+		style := mainTextStyle
 		if strings.HasPrefix(line, "+") {
 			style = runningStyle
 		}
@@ -241,10 +241,10 @@ func (model Model) previewView(width, height int, expanded bool) string {
 	if !expanded {
 		added, removed := 0, 0
 		for _, line := range strings.Split(edit.Diff, "\n") {
-			if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
+			if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++ ") {
 				added++
 			}
-			if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+			if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "--- ") {
 				removed++
 			}
 		}
@@ -300,14 +300,7 @@ func (model Model) detailWithPreview() string {
 	metadataWidth := width - previewWidth - 1
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(colorDivider)).Render(model.previewView(previewWidth-2, 7, false))
-	// Keep the two identity fields anchored to the bottom of the preview frame.
-	if _, selected := model.selectedSession(); selected {
-		gap := max(0, lipgloss.Height(box)-len(metadataLines))
-		top := strings.Join(metadataLines[:len(metadataLines)-2], "\n")
-		bottom := strings.Join(metadataLines[len(metadataLines)-2:], "\n")
-		metadataLines = strings.Split(top+strings.Repeat("\n", gap+1)+bottom, "\n")
-	}
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(colorDivider)).Render(model.previewView(previewWidth-2, model.inlinePreviewHeight(), false))
 	metadata := lipgloss.NewStyle().Width(metadataWidth).Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", box)
 }

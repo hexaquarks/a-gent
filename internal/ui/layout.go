@@ -3,7 +3,7 @@ package ui
 import "github.com/charmbracelet/bubbles/table"
 
 const (
-	selectionCursorWidth = 3
+	selectionCursorWidth = 4
 	defaultTableWidth    = 70
 	minimumTableWidth    = 34
 	sidebarContentWidth  = 24
@@ -11,7 +11,7 @@ const (
 
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
-	popupChromeRows = 19
+	popupChromeRows = 24
 	// popupBorderRows are drawn by tmux and are not available to the program.
 	popupBorderRows = 2
 	// PopupContentHeight is the terminal-row height needed by the dashboard.
@@ -26,7 +26,7 @@ func (model *Model) resizeTable() {
 	if model.width > 0 {
 		tableWidth = model.width - sidebarContentWidth - 3
 	}
-	if model.width > 0 && model.width < 64 {
+	if model.width > 0 && !model.sidebarVisible() {
 		tableWidth = max(8, model.width-2)
 	}
 	tableWidth = max(tableWidth, 8)
@@ -52,7 +52,7 @@ func (model *Model) resizeTable() {
 
 	tableHeight := maximumSessionRows
 	if model.height > 0 {
-		tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-15))
+		tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-model.inlinePreviewHeight()-8))
 		if model.table.Width() < 66 {
 			tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-16))
 		}
@@ -83,4 +83,20 @@ func tableColumns(tableWidth int) []table.Column {
 		{Title: "Status", Width: statusWidth},
 		{Title: "Last active", Width: lastActiveWidth},
 	}
+}
+
+// Short popups retain the metadata and expansion shortcut; taller terminals
+// show more of the selected edit.
+func (model Model) inlinePreviewHeight() int {
+	if model.height > 0 && model.height < 29 {
+		return 7
+	}
+	if model.height == 29 {
+		return 9
+	}
+	return 10
+}
+
+func (model Model) sidebarVisible() bool {
+	return (model.width == 0 || model.width >= 64) && (model.height == 0 || model.height >= 21)
 }

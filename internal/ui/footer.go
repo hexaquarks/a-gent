@@ -28,10 +28,36 @@ func (model Model) footerText() string {
 	if model.orderHeld {
 		holdLabel = "live order"
 	}
-	parts = append(parts, shortcut("s", "sort"), shortcut("f", holdLabel), shortcut("v", "preview"), shortcut("q", "quit"))
+	parts = append(parts,
+		shortcut("s", "sort"),
+		shortcut("f", holdLabel),
+		shortcut("v", "preview"),
+		shortcut("q", "quit"),
+	)
 	width := model.width - appStyle.GetHorizontalFrameSize() - footerStyle.GetHorizontalFrameSize()
 	if model.width > 0 && lipgloss.Width(strings.Join(parts, "   ")) > width {
-		return strings.Join(parts, " ")
+		compact := strings.Join(parts, " ")
+		if lipgloss.Width(compact) <= width {
+			return compact
+		}
+		compact = strings.Replace(compact, "hold order", "hold", 1)
+		compact = strings.Replace(compact, "live order", "live", 1)
+		if lipgloss.Width(compact) <= width {
+			return compact
+		}
+		keys := []string{"tab", "j/k"}
+		if model.navigator != nil {
+			keys = append(keys, "enter")
+		}
+		keys = append(keys, "s", "f", "v", "q")
+		if lipgloss.Width(strings.Join(keys, " ")) > width {
+			for index, key := range keys {
+				if key == "enter" {
+					keys[index] = "↵"
+				}
+			}
+		}
+		return shortcutKeyStyle.Render(strings.Join(keys, " "))
 	}
 	return strings.Join(parts, "   ")
 }

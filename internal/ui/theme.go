@@ -7,6 +7,7 @@ import (
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -134,5 +135,5 @@ func providerStyle(provider string) lipgloss.Style {
 
 // Section bars fill their panel, including the space after the heading.
 func sectionBar(text string, width int, style lipgloss.Style) string {
-	return style.Background(lipgloss.Color(colorSection)).Width(width).MaxWidth(width).Render(text)
+	return style.Background(lipgloss.Color(colorSection)).Width(width).MaxWidth(width).Render(ansi.Truncate(text, max(1, width), "…"))
 }

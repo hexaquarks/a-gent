@@ -192,7 +192,7 @@ func TestSessionTableSeparatesTitleHeaderAndRows(t *testing.T) {
 	model := NewModel(nil)
 	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
 	tableView := model.sessionTableView()
-	if !strings.Contains(tableView, "Status") || !strings.Contains(tableView, "\n\n") || !strings.Contains(tableView, "›   codex") {
+	if !strings.Contains(tableView, "Status") || !strings.Contains(tableView, "\n\n") || !strings.Contains(tableView, "›    codex") {
 		t.Fatalf("table header and body do not have visual separation:\n%s", tableView)
 	}
 	view := model.View()
@@ -215,7 +215,7 @@ func TestSelectionMarkerRemainsVisibleWhenSidebarHasFocus(t *testing.T) {
 	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
 	model.sidebarFocus = true
 	row := model.sessionRowView(0, model.table.Columns())
-	if !strings.Contains(row, "›   codex") {
+	if !strings.Contains(row, "›    codex") {
 		t.Fatalf("selected row lacks its marker while sidebar has focus: %q", row)
 	}
 }
@@ -234,7 +234,7 @@ func TestSelectionCursorKeepsAgentNamesAligned(t *testing.T) {
 		selected := ansi.Strip(model.sessionRowView(0, columns))
 		model.table.SetCursor(1)
 		unselected := ansi.Strip(model.sessionRowView(0, columns))
-		if !strings.HasPrefix(selected, "›   claude") || !strings.HasPrefix(unselected, "    claude") {
+		if !strings.HasPrefix(selected, "›    claude") || !strings.HasPrefix(unselected, "     claude") {
 			t.Fatalf("width %d: agent name shifted or truncated: selected %q, unselected %q", width, selected, unselected)
 		}
 		if []rune(selected)[0] != '›' || string([]rune(selected)[1:]) != string([]rune(unselected)[1:]) {

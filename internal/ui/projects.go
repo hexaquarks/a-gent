@@ -194,5 +194,5 @@ func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (model Model) projectTop() int {
-	return max(10, min(12, model.sidebarHeight()-4))
+	return max(9, min(11, model.sidebarHeight()-4))
 }

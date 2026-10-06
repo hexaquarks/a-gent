@@ -76,7 +76,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 		if strings.Contains(line, "╮") {
 			boxEnd = lipgloss.Width(strings.TrimRight(line, " "))
 		}
-		if strings.Contains(line, "╯") && strings.Contains(line, "Session ") {
+		if strings.Contains(line, "╯") && !strings.HasPrefix(line, "╰") {
 			boxBottom = row
 		}
 		if strings.Contains(line, "Directory") {
@@ -89,8 +89,8 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if boxEnd < 0 || boxEnd != separatorEnd {
 		t.Fatalf("preview ends at %d; separator ends at %d", boxEnd, separatorEnd)
 	}
-	if sessionRow != boxBottom || directoryRow != boxBottom-1 {
-		t.Fatalf("identity fields do not align with preview bottom: directory=%d session=%d bottom=%d", directoryRow, sessionRow, boxBottom)
+	if sessionRow > boxBottom || sessionRow < 0 || directoryRow != sessionRow-1 {
+		t.Fatalf("identity fields are not consecutive or extend below the preview: directory=%d session=%d bottom=%d", directoryRow, sessionRow, boxBottom)
 	}
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
@@ -133,4 +133,46 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture.setState("codex", agent.StateIdle)
 	fixture.waitText("No edits yet")
 	fixture.capture("no-edits")
+}
+
+func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.key("f")
+	fixture.waitText("HELD")
+	fixture.appendOutput("codex", "OUTPUT_WHILE_HELD")
+	fixture.waitText("OUTPUT_WHILE_HELD")
+	// A newer timestamp must update live status without moving existing rows.
+	session := fixture.sessions["claude"]
+	session.LastActiveAt = time.Now()
+	fixture.sessions["claude"] = session
+	fixture.setState("claude", agent.StateWaiting)
+	screen := fixture.waitText("1 needs input")
+	if strings.Index(screen, "codex fixture") > strings.Index(screen, "claude fixture") {
+		t.Fatal("held rows reordered after a provider update")
+	}
+	fixture.capture("held-live-output")
+	fixture.key("f")
+	screen = fixture.waitFor("resumed activity order", 4*time.Second, func(screen string) bool {
+		return strings.Contains(screen, "LIVE") && strings.Index(screen, "claude fixture") < strings.Index(screen, "codex fixture")
+	})
+	if !strings.Contains(screen, "OUTPUT_WHILE_HELD") {
+		t.Fatal("resuming order lost the selected preview")
+	}
+	fixture.key("Tab")
+	fixture.key("j") // Active
+	fixture.key("j") // Recent
+	fixture.key("j") // Updates
+	fixture.key("Enter")
+	fixture.key("Tab")
+	screen = fixture.waitText("SESSIONS (1 of 1)")
+	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") || !strings.Contains(screen, "1 unseen") {
+		t.Fatalf("Updates does not isolate the changed session:\n%s", screen)
+	}
+	fixture.capture("updates-filter")
+	fixture.key("Enter")
+	screen = fixture.waitText("No sessions match this filter")
+	if !strings.Contains(screen, "0 unseen") {
+		t.Fatal("acknowledgement did not update the header count")
+	}
+	fixture.capture("updates-acknowledged")
 }

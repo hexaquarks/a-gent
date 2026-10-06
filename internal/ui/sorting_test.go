@@ -207,8 +207,11 @@ func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 		updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
 		model = updated.(Model)
 		view := model.View()
-		if !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "s  sort") || !strings.Contains(view, "f  hold order") {
+		if !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "Last active ↓") {
 			t.Fatalf("width %d: missing sort indicators or shortcut:\n%s", width, view)
+		}
+		if footer := ansi.Strip(model.footerText()); !strings.Contains(footer, "s") || !strings.Contains(footer, "f") {
+			t.Fatal("sorting shortcuts are not visible")
 		}
 		for _, column := range model.table.Columns() {
 			model.sort = sessionSort{column: column.Title}

@@ -301,7 +301,7 @@ func (fixture *dashboardFixture) capture(name string) {
 	_ = encoder.Encode(map[string]any{
 		"version": 2, "width": fixture.width, "height": fixture.height,
 		"theme": map[string]string{
-			"fg": "#D7DEE8", "bg": "#0D1117",
+			"fg": "#EDF2F4", "bg": "#0C1112",
 			"palette": "#000000:#cd0000:#00cd00:#cdcd00:#0000ee:#cd00cd:#00cdcd:#e5e5e5:" +
 				"#7f7f7f:#ff0000:#00ff00:#ffff00:#5c5cff:#ff00ff:#00ffff:#ffffff",
 		},

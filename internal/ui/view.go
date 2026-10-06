@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 )
 
 // View renders the current UI state after Bubble Tea calls Update.
@@ -22,7 +21,7 @@ func (model Model) View() string {
 	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
 	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
-	if model.width > 0 && model.width < 64 {
+	if !model.sidebarVisible() {
 		body = rightColumn
 	}
 
@@ -80,17 +79,7 @@ func (model Model) detailHeadingView() string {
 }
 
 func (model Model) detailHeadingAtWidth(width int) string {
-	title := "SELECTED SESSION"
-	session, ok := model.selectedSession()
-	if !ok || !model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
-		return sectionBar(title, width, model.panelTitleStyle())
-	}
-
-	indicator := accentStyle.Render("●") + " " + mutedStyle.Render("Unseen state change")
-	titleWidth := max(0, width-lipgloss.Width(indicator)-2)
-	title = runewidth.Truncate(title, titleWidth, "…")
-	gap := strings.Repeat(" ", max(0, width-lipgloss.Width(title)-lipgloss.Width(indicator)))
-	return sectionBar(model.panelTitleStyle().Render(title)+gap+indicator, width, model.panelTitleStyle())
+	return sectionBar("SELECTED SESSION", width, model.panelTitleStyle())
 }
 
 func (model Model) headerView(summary sessionSummary, width int) string {

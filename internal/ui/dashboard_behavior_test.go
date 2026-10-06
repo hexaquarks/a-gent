@@ -63,3 +63,31 @@ func TestHoldOrderKeepsLiveDataAndAppendsNewSessions(t *testing.T) {
 		t.Fatal("choosing a new sort did not resume live order")
 	}
 }
+
+func TestOpeningAnUpdateUsesTheAcknowledgedSession(t *testing.T) {
+	navigator := &fakeNavigator{}
+	model := NewModel(nil, WithSessionNavigator(navigator))
+	model.sessions = []agent.Session{
+		{ID: "a", Provider: "codex", State: agent.StateIdle},
+		{ID: "b", Provider: "codex", State: agent.StateIdle},
+	}
+	model.unreadSessions = map[sessionIdentity]bool{
+		{provider: "codex", id: "a"}: true,
+		{provider: "codex", id: "b"}: true,
+	}
+	model.selectedView = updatesView
+	model.updateTableRows()
+	updated, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(Model)
+	if command == nil {
+		t.Fatal("opening an update did not start navigation")
+	}
+	command()
+	if navigator.session.ID != "a" {
+		t.Fatalf("opened %s after acknowledgement; want a", navigator.session.ID)
+	}
+	if len(model.table.Rows()) != 1 || model.tableSessionIDs[0].id != "b" {
+		t.Fatal("acknowledgement left the read update in the table")
+	}
+	model.cancelNavigation()
+}

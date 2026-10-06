@@ -125,7 +125,7 @@ func (model Model) bodyHeight() int {
 	if model.height > 0 {
 		return max(1, model.height-6)
 	}
-	return maximumSessionRows + 15
+	return maximumSessionRows + model.inlinePreviewHeight() + 8
 }
 
 func sidebarViews() []sidebarView {
