@@ -3,11 +3,10 @@ package ui
 import "github.com/charmbracelet/bubbles/table"
 
 const (
-	selectionCursorWidth = 1
+	selectionCursorWidth = 3
 	defaultTableWidth    = 70
 	minimumTableWidth    = 34
-	sidebarContentWidth  = 22
-	minimumSessionRows   = 3
+	sidebarContentWidth  = 24
 	maximumSessionRows   = 8
 
 	// popupChromeRows covers the header, table title and header, selected-session
@@ -25,9 +24,12 @@ const (
 func (model *Model) resizeTable() {
 	tableWidth := defaultTableWidth
 	if model.width > 0 {
-		tableWidth = model.width - sidebarContentWidth - 6
+		tableWidth = model.width - sidebarContentWidth - 3
 	}
-	tableWidth = max(tableWidth, minimumTableWidth)
+	if model.width > 0 && model.width < 64 {
+		tableWidth = max(8, model.width-2)
+	}
+	tableWidth = max(tableWidth, 8)
 
 	columns := tableColumns(tableWidth)
 	model.table.SetWidth(tableWidth)
@@ -50,42 +52,35 @@ func (model *Model) resizeTable() {
 
 	tableHeight := maximumSessionRows
 	if model.height > 0 {
-		tableHeight = min(tableHeight, max(minimumSessionRows, model.height-16))
-	}
-	if model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize() >= 64 && model.height > 0 {
-		tableHeight = max(1, min(maximumSessionRows, model.height-popupChromeRows))
+		tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-15))
+		if model.table.Width() < 66 {
+			tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-16))
+		}
 	}
 	model.table.SetHeight(tableHeight + 1)
 }
 
 func tableColumns(tableWidth int) []table.Column {
-	const lastActiveWidth = 16
-
-	// Reserve the panel padding and cursor column so rows do not wrap.
 	tableWidth -= panelStyle.GetHorizontalFrameSize() + selectionCursorWidth
-
-	if tableWidth < 60 {
+	if tableWidth < 27 {
+		return []table.Column{{Title: "Session", Width: max(1, tableWidth)}}
+	}
+	const lastActiveWidth = 16
+	if tableWidth < 44 {
 		return []table.Column{
 			{Title: "Agent", Width: 8},
 			{Title: "Status", Width: tableWidth - 8 - lastActiveWidth},
 			{Title: "Last active", Width: lastActiveWidth},
 		}
 	}
-	if tableWidth < 90 {
-		return []table.Column{
-			{Title: "Agent", Width: 12},
-			{Title: "Session", Width: tableWidth - 24 - lastActiveWidth},
-			{Title: "Status", Width: 12},
-			{Title: "Last active", Width: lastActiveWidth},
-		}
+	agentWidth, statusWidth := 12, 18
+	if tableWidth < 66 {
+		agentWidth, statusWidth = 8, 15
 	}
-
-	remainingWidth := tableWidth - 24 - lastActiveWidth
 	return []table.Column{
-		{Title: "Agent", Width: 12},
-		{Title: "Session", Width: remainingWidth / 2},
-		{Title: "Directory", Width: remainingWidth - remainingWidth/2},
-		{Title: "Status", Width: 12},
+		{Title: "Agent", Width: agentWidth},
+		{Title: "Session", Width: tableWidth - agentWidth - statusWidth - lastActiveWidth},
+		{Title: "Status", Width: statusWidth},
 		{Title: "Last active", Width: lastActiveWidth},
 	}
 }

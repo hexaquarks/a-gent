@@ -168,15 +168,14 @@ func (model Model) previewView(width, height int, expanded bool) string {
 	if cached.edit == nil {
 		return model.emptyPreviewView(model.previewStatus(session, ok, cached), width, height, expanded)
 	}
-	title := "EDIT PREVIEW · v"
+	title := "LAST EDIT"
 	if expanded {
 		title = "EDIT PREVIEW · Esc: return · j/k: scroll"
 	}
 	lines := []string{accentStyle.Render(ansi.Truncate(title, width, "…"))}
 	edit := cached.edit
-	name := safeDisplayText(filepath.Base(edit.Filename))
+	name := safeDisplayText(edit.Filename)
 	if expanded {
-		name = safeDisplayText(edit.Filename)
 		lines[0] += mutedStyle.Render(ansi.Truncate(" · checked "+cached.checked.Format("15:04:05"), max(0, width-lipgloss.Width(lines[0])), "…"))
 	}
 	age := formatLastActiveAt(edit.CompletedAt, time.Now())
@@ -184,10 +183,12 @@ func (model Model) previewView(width, height int, expanded bool) string {
 		age += " · stale"
 	}
 	if !expanded {
-		lines = nil
-		age += " · v"
+		lines = []string{alignedLine(accentStyle.Render("LAST EDIT"), mutedStyle.Render(age), width)}
 	}
-	lines = append(lines, mainTextStyle.Render(ansi.Truncate(name, width, "…")), mutedStyle.Render(ansi.Truncate(age, width, "…")))
+	lines = append(lines, mutedStyle.Render(ansi.Truncate(name, width, "…")))
+	if expanded {
+		lines = append(lines, mutedStyle.Render(ansi.Truncate(age, width, "…")))
+	}
 	diff := strings.Split(strings.TrimSuffix(edit.Diff, "\n"), "\n")
 	if edit.Diff == "" {
 		diff = []string{"Preview unavailable"}
@@ -202,6 +203,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 			}
 		}
 		if len(diff) > 0 && strings.HasPrefix(diff[0], "@@") {
+			lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
 			diff = diff[1:]
 		}
 		// Anchor the small box at the first changed line, keeping one leading
@@ -232,11 +234,29 @@ func (model Model) previewView(width, height int, expanded bool) string {
 			style = runningStyle
 		}
 		if strings.HasPrefix(line, "-") {
-			style = lipgloss.NewStyle().Foreground(lipgloss.Color("#B87983"))
+			style = lipgloss.NewStyle().Foreground(lipgloss.Color(colorError))
 		}
 		lines = append(lines, style.Render(ansi.Truncate(line, width, "…")))
 	}
-	if truncated {
+	if !expanded {
+		added, removed := 0, 0
+		for _, line := range strings.Split(edit.Diff, "\n") {
+			if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
+				added++
+			}
+			if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+				removed++
+			}
+		}
+		for len(lines) < height-1 {
+			lines = append(lines, "")
+		}
+		label := fmt.Sprintf("+%d −%d", added, removed)
+		if truncated {
+			label += " … truncated"
+		}
+		lines = append(lines, alignedLine(mutedStyle.Render(label), shortcutKeyStyle.Render("v")+mutedStyle.Render(" expand"), width))
+	} else if truncated {
 		label := "… truncated · v: expand"
 		if expanded {
 			label = fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
@@ -276,7 +296,7 @@ func (model Model) detailWithPreview() string {
 		}
 		return clipLines(model.detailView(), width) + "\n" + mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
 	}
-	previewWidth := min(34, width/3)
+	previewWidth := min(42, width*3/8)
 	metadataWidth := width - previewWidth - 1
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)

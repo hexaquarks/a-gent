@@ -76,13 +76,13 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 		if strings.Contains(line, "╮") {
 			boxEnd = lipgloss.Width(strings.TrimRight(line, " "))
 		}
-		if strings.Contains(line, "╯") {
+		if strings.Contains(line, "╯") && strings.Contains(line, "Session ") {
 			boxBottom = row
 		}
-		if strings.Contains(line, "Directory:") {
+		if strings.Contains(line, "Directory") {
 			directoryRow = row
 		}
-		if strings.Contains(line, "Session:") {
+		if strings.Contains(line, "Session ") {
 			sessionRow = row
 		}
 	}

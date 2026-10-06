@@ -143,11 +143,11 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 	first.State = agent.StateWaiting
 	program.Send(polling.Update{Provider: "codex", Sessions: []agent.Session{first, second}})
 	before := next()
-	if before.unread != 1 || !strings.Contains(before.view, "● Alpha") || !strings.Contains(before.view, "Unseen state change") {
+	if before.unread != 1 || !strings.Contains(before.view, "●  codex") || !strings.Contains(before.view, "Unseen state change") {
 		t.Fatalf("unread session is not visible before hover:\n%s", before.view)
 	}
 	for y, line := range strings.Split(before.view, "\n") {
-		x := strings.Index(line, "● Alpha")
+		x := strings.Index(line, "●  codex")
 		if x < 0 {
 			continue
 		}
@@ -175,14 +175,14 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 		t.Fatal(err)
 	}
 	read := next()
-	if read.unread != 1 || !strings.Contains(read.view, "● Alpha") || !strings.Contains(read.view, "Unseen state change") {
+	if read.unread != 1 || !strings.Contains(read.view, "●  codex") || !strings.Contains(read.view, "Unseen state change") {
 		t.Fatal("moving the keyboard highlight cleared the dot or unseen label")
 	}
 	if _, err := io.WriteString(writer, "\r"); err != nil {
 		t.Fatal(err)
 	}
 	acknowledged := next()
-	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "● Alpha") || strings.Contains(acknowledged.view, "Unseen state change") {
+	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "●  codex") || strings.Contains(acknowledged.view, "Unseen state change") {
 		t.Fatal("Enter did not clear both dot and label")
 	}
 }
@@ -261,7 +261,7 @@ func TestUnreadDotSurvivesSortingFilteringAndKeyboardBrowsing(t *testing.T) {
 	model.sort = sessionSort{column: "Session", descending: true}
 	model.updateTableRows()
 	identity := sessionIdentity{provider: "codex", id: "b"}
-	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(0, model.table.Columns())), "● Beta") {
+	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(0, model.table.Columns())), "●  codex") {
 		t.Fatal("sorting or filtering lost the unread dot")
 	}
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
@@ -339,10 +339,10 @@ func TestUnreadDotKeepsSessionNamesAligned(t *testing.T) {
 	model := NewModel(nil)
 	session := agent.Session{ID: "one", Provider: "codex", Name: "Example"}
 	model.unreadSessions = map[sessionIdentity]bool{{provider: "codex", id: "one"}: true}
-	unread := ansi.Strip(model.sessionNameCell(session, 16, lipgloss.Color(colorSelection)))
+	unread := ansi.Strip(model.sessionGutter(session, false, lipgloss.Color(colorSelection)) + renderTableCell(session.Provider, 12, providerStyle(session.Provider), lipgloss.Color(colorSelection)))
 	model.unreadSessions = nil
-	read := ansi.Strip(model.sessionNameCell(session, 16, lipgloss.Color(colorSelection)))
-	if lipgloss.Width(strings.Split(unread, "Example")[0]) != lipgloss.Width(strings.Split(read, "Example")[0]) || lipgloss.Width(unread) != 16 || lipgloss.Width(read) != 16 {
+	read := ansi.Strip(model.sessionGutter(session, false, lipgloss.Color(colorSelection)) + renderTableCell(session.Provider, 12, providerStyle(session.Provider), lipgloss.Color(colorSelection)))
+	if lipgloss.Width(strings.Split(unread, "codex")[0]) != lipgloss.Width(strings.Split(read, "codex")[0]) || lipgloss.Width(unread) != 15 || lipgloss.Width(read) != 15 {
 		t.Fatalf("clearing dot shifted or resized the name: %q, %q", unread, read)
 	}
 }

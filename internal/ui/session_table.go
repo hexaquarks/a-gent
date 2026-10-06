@@ -23,10 +23,14 @@ func (model Model) sessionTableView() string {
 			// Reserve the arrow before truncating narrow column titles.
 			title = runewidth.Truncate(title, max(0, column.Width-4), "…") + " " + model.sort.arrow()
 		}
-		headerCells[index] = renderTableCell(title, column.Width, sectionStyle, lipgloss.Color(colorDivider))
+		style := sectionStyle
+		if column.Title == "Last active" {
+			style = style.Align(lipgloss.Right)
+		}
+		headerCells[index] = renderTableCell(title, column.Width, style, lipgloss.Color(colorSection))
 	}
 
-	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorDivider)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
+	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorSection)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
 		rows = append(rows, model.sessionRowView(index, columns))
@@ -59,7 +63,7 @@ func (model Model) sessionTitle() string {
 	}
 
 	start, end := model.visibleSessionRange()
-	return fmt.Sprintf("SESSIONS (%d-%d of %d)", start+1, end, len(sessions))
+	return fmt.Sprintf("SESSIONS (%d of %d)", end-start, len(sessions))
 }
 
 func (model Model) visibleSessionRange() (int, int) {
@@ -91,31 +95,32 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
 		if column.Title == "Session" {
-			cells[columnIndex] = model.sessionNameCell(session, column.Width, background)
+			cells[columnIndex] = renderTableCell(session.Name, column.Width, mainTextStyle.Bold(selected), background)
 			continue
+		}
+		if column.Title == "Last active" {
+			style = style.Align(lipgloss.Right)
 		}
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
 	}
 
-	return renderSelectionCursor(selected, background) + lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+	return model.sessionGutter(session, selected, background) + lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 }
 
-func (model Model) sessionNameCell(session agent.Session, width int, background lipgloss.Color) string {
-	// Always reserve the dot's space so names stay aligned when it is cleared.
-	marker := "  "
-	if model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
-		markerStyle := accentStyle
-		if background != "" {
-			markerStyle = markerStyle.Background(background)
-		}
-		marker = markerStyle.Render("● ")
+// The cursor and unread dot have separate cells, before the agent column.
+func (model Model) sessionGutter(session agent.Session, selected bool, background lipgloss.Color) string {
+	cursor, dot := " ", " "
+	if selected {
+		cursor = "›"
 	}
-	name := runewidth.Truncate(safeDisplayText(session.Name), max(0, width-4), "…")
-	style := mainTextStyle.Width(width).MaxWidth(width).Padding(0, 1)
+	if model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
+		dot = "●"
+	}
+	style := accentStyle
 	if background != "" {
 		style = style.Background(background)
 	}
-	return style.Render(marker + name)
+	return style.Render(cursor + dot + " ")
 }
 
 func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage bool) string {
@@ -145,9 +150,9 @@ func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage 
 }
 
 func renderSelectionCursor(selected bool, background lipgloss.Color) string {
-	value := " "
+	value := "   "
 	if selected {
-		value = "›"
+		value = "›  "
 	}
 	style := accentStyle.Width(selectionCursorWidth)
 	if background != "" {
@@ -175,12 +180,12 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 	case "Status":
 		return "● " + displayState(sessionState(session)), statusStyle(sessionState(session))
 	case "Last active":
-		// Running sessions are active now even when their provider timestamp
-		// advances between polls or has not been populated yet.
-		if sessionState(session) == agent.StateRunning {
+		// Use the provider timestamp when available; an active session without
+		// a timestamp still has a meaningful fallback.
+		if sessionState(session) == agent.StateRunning && session.LastActiveAt.IsZero() {
 			return "Now", mutedStyle
 		}
-		return formatLastActiveAt(session.LastActiveAt, time.Now()), mutedStyle
+		return strings.TrimSuffix(formatLastActiveAt(session.LastActiveAt, time.Now()), " ago"), mutedStyle
 	default:
 		return "", lipgloss.NewStyle()
 	}

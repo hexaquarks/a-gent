@@ -207,7 +207,7 @@ func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 		updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
 		model = updated.(Model)
 		view := model.View()
-		if !strings.Contains(view, "Sort: Last active ↓") || !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "s: sort") || !strings.Contains(view, "S: reverse") {
+		if !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "s  sort") || !strings.Contains(view, "f  hold order") {
 			t.Fatalf("width %d: missing sort indicators or shortcut:\n%s", width, view)
 		}
 		for _, column := range model.table.Columns() {

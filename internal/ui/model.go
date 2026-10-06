@@ -226,10 +226,13 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return model, nil
 			}
-			if !model.sidebarFocus {
-				model.markSelectedSessionRead()
-			}
-			return model.navigateSelectedSession()
+			// Capture the destination before acknowledgement can remove the row
+			// from Updates and select the next unread session.
+			next, command := model.navigateSelectedSession()
+			model = next.(Model)
+			model.markSelectedSessionRead()
+			model.updateTableRows()
+			return model, command
 		}
 	case polling.Update:
 		model.applyProviderUpdate(message)

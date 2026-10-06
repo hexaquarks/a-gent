@@ -29,7 +29,7 @@ func sendProjectKey(model Model, key tea.KeyMsg) Model {
 func TestProjectListLimitsRowsAndFollowsCursor(t *testing.T) {
 	model := projectTestModel()
 	sidebar := ansi.Strip(model.renderSidebar(summarizeSessions(model.sessions)))
-	if !strings.Contains(sidebar, "PROJECTS (80)") || !strings.Contains(sidebar, "+ 76 more…") || strings.Contains(sidebar, "project-04") {
+	if !strings.Contains(sidebar, "PROJECTS (80)") || !strings.Contains(sidebar, fmt.Sprintf("+ %d more…", 80-model.projectRowCapacity())) || strings.Contains(sidebar, fmt.Sprintf("project-%02d", model.projectRowCapacity())) {
 		t.Fatalf("unexpected project list: %s", sidebar)
 	}
 	model.sidebarFocus = true

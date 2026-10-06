@@ -218,7 +218,7 @@ func (fixture *dashboardFixture) selectProvider(provider string) {
 		key = "G"
 	}
 	fixture.key(key)
-	fixture.waitText("Directory: /fixture/" + provider)
+	fixture.waitText("Directory  /fixture/" + provider)
 }
 func (fixture *dashboardFixture) setState(provider string, state agent.State) {
 	fixture.t.Helper()

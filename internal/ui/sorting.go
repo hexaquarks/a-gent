@@ -7,9 +7,6 @@ import (
 	"strings"
 
 	"a-gent/internal/agent"
-
-	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 )
 
 type sessionSort struct {
@@ -128,11 +125,13 @@ func (model *Model) cycleSortColumn() {
 
 func (model Model) sessionHeadingView() string {
 	width := model.table.Width() - panelStyle.GetHorizontalFrameSize()
-	indicator := mutedStyle.Render("Sort: ") + accentStyle.Render(model.sort.column+" "+model.sort.arrow())
-	titleWidth := max(0, width-lipgloss.Width(indicator)-2)
-	title := model.panelTitleStyle().Render(runewidth.Truncate(model.sessionTitle(), titleWidth, "…"))
-	gap := strings.Repeat(" ", max(0, width-lipgloss.Width(title)-lipgloss.Width(indicator)))
-	return title + gap + indicator
+	mode := "LIVE"
+	if model.orderHeld {
+		mode = "HELD"
+	}
+	indicator := accentStyle.Render(model.sort.column+" "+model.sort.arrow()) + mutedStyle.Render("  |  ") + accentStyle.Render(mode)
+	title := model.panelTitleStyle().Render(model.sessionTitle())
+	return sectionBar(alignedLine(title, indicator, width), width, model.panelTitleStyle())
 }
 
 // Remember the whole snapshot so filtering does not alter held positions.

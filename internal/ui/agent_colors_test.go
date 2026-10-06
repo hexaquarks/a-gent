@@ -25,7 +25,7 @@ func TestProviderColorsAcrossDashboard(t *testing.T) {
 		}
 		colorSample := providerStyle(provider).Render(provider)
 		// The same escape prefix must appear in sidebar and selected-session text.
-		prefix := strings.TrimSuffix(strings.Split(colorSample, provider)[0], "m")
+		prefix := "38;" + strings.Split(strings.TrimSuffix(strings.Split(colorSample, provider)[0], "m"), "38;")[1]
 		for _, view := range []string{model.renderSidebar(summarizeSessions(model.sessions)), model.detailView(), model.sessionTableView()} {
 			if !strings.Contains(view, prefix) {
 				t.Fatalf("%s color missing from %q", provider, view)
