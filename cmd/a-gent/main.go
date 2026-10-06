@@ -34,7 +34,7 @@ func run() error {
 	}
 
 	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter()}
-	modelOptions := []ui.ModelOption{}
+	modelOptions := []ui.ModelOption{ui.WithPreviewSources(adapters...)}
 	if configDirectory, err := os.UserConfigDir(); err == nil {
 		modelOptions = append(modelOptions, ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")))
 	}

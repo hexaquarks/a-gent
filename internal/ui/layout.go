@@ -12,7 +12,7 @@ const (
 
 	// popupChromeRows covers the header, table title and header, selected-session
 	// panel, and footer around the reserved session rows.
-	popupChromeRows = 15
+	popupChromeRows = 19
 	// popupBorderRows are drawn by tmux and are not available to the program.
 	popupBorderRows = 2
 	// PopupContentHeight is the terminal-row height needed by the dashboard.
@@ -31,6 +31,8 @@ func (model *Model) resizeTable() {
 
 	columns := tableColumns(tableWidth)
 	model.table.SetWidth(tableWidth)
+	// Bubbles renders immediately on SetColumns; old rows may have more cells.
+	model.table.SetRows(nil)
 	model.table.SetColumns(columns)
 
 	visibleSortColumn := false
@@ -48,7 +50,10 @@ func (model *Model) resizeTable() {
 
 	tableHeight := maximumSessionRows
 	if model.height > 0 {
-		tableHeight = min(tableHeight, max(minimumSessionRows, model.height-10))
+		tableHeight = min(tableHeight, max(minimumSessionRows, model.height-16))
+	}
+	if model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize() >= 64 && model.height > 0 {
+		tableHeight = max(1, min(maximumSessionRows, model.height-popupChromeRows))
 	}
 	model.table.SetHeight(tableHeight + 1)
 }
