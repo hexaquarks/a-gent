@@ -27,6 +27,7 @@ const (
 	attentionView sidebarView = "Attention"
 	activeView    sidebarView = "Active"
 	recentView    sidebarView = "Recent"
+	updatesView   sidebarView = "Updates"
 	allView       sidebarView = "All"
 )
 
@@ -125,7 +126,7 @@ func (model Model) bodyHeight() int {
 }
 
 func sidebarViews() []sidebarView {
-	return []sidebarView{attentionView, activeView, recentView, allView}
+	return []sidebarView{attentionView, activeView, recentView, updatesView, allView}
 }
 
 func (model Model) sidebarItems() []sidebarItem {
@@ -219,6 +220,8 @@ func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
 		return summary.running
 	case recentView:
 		return summary.idle
+	case updatesView:
+		return len(model.unreadSessions)
 	default:
 		return summary.total
 	}
@@ -323,6 +326,9 @@ func (model Model) filteredSessions() []agent.Session {
 			continue
 		}
 		if project != "" && session.WorkingDirectory != project {
+			continue
+		}
+		if project == "" && view == updatesView && !model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
 			continue
 		}
 		if project == "" && !matchesView(session, view) {

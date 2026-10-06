@@ -69,7 +69,7 @@ func TestPreviewPreservesOtherConfirmedFilters(t *testing.T) {
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	// Confirm Active, then browse through the other views to Codex.
-	for range 4 {
+	for range len(sidebarViews()) {
 		model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	}
 	if len(model.table.Rows()) != 1 || model.tableSessionIDs[0].id != "codex-running" {

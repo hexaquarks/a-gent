@@ -1,0 +1,65 @@
+package ui
+
+import (
+	"testing"
+	"time"
+
+	"a-gent/internal/agent"
+	"a-gent/internal/polling"
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+func TestUpdatesFilterTracksAcknowledgementAndProviderIdentity(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{ID: "same", Provider: "codex", State: agent.StateIdle},
+		{ID: "same", Provider: "claude", State: agent.StateWaiting},
+	}
+	model.unreadSessions = map[sessionIdentity]bool{{provider: "codex", id: "same"}: true}
+	model.selectedView = updatesView
+	model.updateTableRows()
+	if sessions := model.filteredSessions(); len(sessions) != 1 || sessions[0].Provider != "codex" {
+		t.Fatalf("Updates included a read provider: %+v", sessions)
+	}
+	if model.viewCount(updatesView, summarizeSessions(model.sessions)) != 1 {
+		t.Fatal("Updates count does not match unread sessions")
+	}
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
+	if len(model.filteredSessions()) != 0 || model.viewCount(updatesView, summarizeSessions(model.sessions)) != 0 {
+		t.Fatal("acknowledging an update did not clear it from Updates")
+	}
+}
+
+func TestHoldOrderKeepsLiveDataAndAppendsNewSessions(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{
+		{ID: "a", Provider: "codex", State: agent.StateRunning, LastActiveAt: time.Unix(200, 0)},
+		{ID: "b", Provider: "codex", State: agent.StateIdle, LastActiveAt: time.Unix(100, 0)},
+	}
+	model.updateTableRows()
+	model = sendSortKey(model, runeKey('f'))
+	updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{
+		{ID: "a", State: agent.StateIdle, LastActiveAt: time.Unix(200, 0)},
+		{ID: "b", State: agent.StateRunning, LastActiveAt: time.Unix(300, 0)},
+		{ID: "c", State: agent.StateIdle, LastActiveAt: time.Unix(400, 0)},
+	}})
+	model = updated.(Model)
+	assertSessionOrder(t, model, "a", "b", "c")
+	if selected, _ := model.selectedSession(); selected.State != agent.StateIdle || len(model.unreadSessions) != 1 {
+		t.Fatal("holding order prevented status or unread updates")
+	}
+	model.selectedView = activeView
+	assertSessionOrder(t, model, "b")
+	model.selectedView = allView
+	assertSessionOrder(t, model, "a", "b", "c")
+	model = sendSortKey(model, runeKey('f'))
+	assertSessionOrder(t, model, "c", "b", "a")
+	if selected, _ := model.selectedSession(); selected.ID != "a" {
+		t.Fatal("resuming live order lost selection")
+	}
+	model = sendSortKey(model, runeKey('f'))
+	model = sendSortKey(model, runeKey('s'))
+	if model.orderHeld {
+		t.Fatal("choosing a new sort did not resume live order")
+	}
+}
