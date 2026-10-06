@@ -67,9 +67,9 @@ func (model Model) detailView() string {
 		{"Directory", mutedStyle.Render(directory)},
 		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
 	}
-	lines := []string{title, "", mainTextStyle.Bold(true).Render(safeDisplayText(selectedSession.Name)), ""}
+	lines := []string{title, "", mainTextStyle.Bold(true).Render(" " + safeDisplayText(selectedSession.Name)), ""}
 	for _, field := range fields {
-		lines = append(lines, mutedStyle.Render(fmt.Sprintf("%-11s", field.label))+field.value)
+		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -79,7 +79,7 @@ func (model Model) detailHeadingView() string {
 }
 
 func (model Model) detailHeadingAtWidth(width int) string {
-	return sectionBar("SELECTED SESSION", width, model.panelTitleStyle())
+	return sectionBar(" SELECTED SESSION", width, model.panelTitleStyle())
 }
 
 func (model Model) headerView(summary sessionSummary, width int) string {

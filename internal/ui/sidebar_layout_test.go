@@ -20,7 +20,7 @@ func TestSidebarLabelsAndCountsAlign(t *testing.T) {
 		for index, item := range model.sidebarItems() {
 			model.sidebarCursor = index
 			row := ansi.Strip(model.sidebarItemView(item, index, 1))
-			if !strings.HasPrefix(string([]rune(row)[2:]), item.label) {
+			if !strings.HasPrefix(string([]rune(row)[3:]), item.label) {
 				t.Fatalf("name does not start after the fixed gutter: %q", row)
 			}
 			if !strings.HasSuffix(strings.Replace(row, "★", " ", 1), "  1  ") || lipgloss.Width(row) != model.sidebarWidth() {
@@ -40,7 +40,7 @@ func TestProjectsStayAnchoredWhileFilteringAndRefreshing(t *testing.T) {
 			t.Helper()
 			lines := strings.Split(ansi.Strip(model.renderSidebar(summarizeSessions(model.sessions))), "\n")
 			for index, line := range lines {
-				if strings.HasPrefix(line, "PROJECTS") {
+				if strings.HasPrefix(line, " PROJECTS") {
 					if projectLine == -1 {
 						projectLine = index
 					}
@@ -84,7 +84,7 @@ func TestAgentsHaveTopSpacingAndKeepFocusedTypeVisible(t *testing.T) {
 	model.sidebarFocus = true
 	model.sidebarCursor = model.projectItemStart() - 1
 	sidebar := ansi.Strip(model.renderSidebar(summarizeSessions(model.sessions)))
-	if !strings.Contains(sidebar, "\n\nAGENTS") {
+	if !strings.Contains(sidebar, "\n\n AGENTS") {
 		t.Fatal("agents section lacks top padding")
 	}
 	if !strings.Contains(sidebar, "other") {
@@ -125,7 +125,7 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 			}
 			model.sessions[0].State = agent.StateRunning
 			active := ansi.Strip(model.projectItemView(project, false, false))
-			if strings.TrimPrefix(active, "● ") != strings.TrimPrefix(pinned, "  ") {
+			if strings.TrimPrefix(active, " ● ") != strings.TrimPrefix(pinned, "   ") {
 				t.Fatalf("status dot moved another field: %q versus %q", active, pinned)
 			}
 		}

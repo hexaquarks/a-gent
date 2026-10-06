@@ -300,7 +300,17 @@ func (model Model) detailWithPreview() string {
 	metadataWidth := width - previewWidth - 1
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(colorDivider)).Render(model.previewView(previewWidth-2, model.inlinePreviewHeight(), false))
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(colorDivider)).
+		Padding(0, 1)
+	box := boxStyle.Render(model.previewView(previewWidth-boxStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
+	// Match the metadata heading to the preview's first text row, below its border.
+	metadataLines = append([]string{""}, metadataLines...)
+	if len(metadataLines) > lipgloss.Height(box) {
+		// Short terminals give up the blank after the name to retain every field.
+		metadataLines = append(metadataLines[:4], metadataLines[5:]...)
+	}
 	metadata := lipgloss.NewStyle().Width(metadataWidth).Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", box)
 }

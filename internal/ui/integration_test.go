@@ -69,7 +69,14 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	}
 	separatorEnd, boxEnd := -1, -1
 	boxBottom, directoryRow, sessionRow := -1, -1, -1
+	metadataHeadingRow, previewHeadingRow := -1, -1
 	for row, line := range strings.Split(screen, "\n") {
+		if strings.Contains(line, "SELECTED SESSION") {
+			metadataHeadingRow = row
+		}
+		if strings.Contains(line, "│ LIVE ACTIVITY") {
+			previewHeadingRow = row
+		}
 		if strings.Contains(line, "│─") {
 			separatorEnd = lipgloss.Width(strings.TrimRight(line, " "))
 		}
@@ -85,6 +92,9 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 		if strings.Contains(line, "Session ") {
 			sessionRow = row
 		}
+	}
+	if metadataHeadingRow < 0 || metadataHeadingRow != previewHeadingRow {
+		t.Fatal("selected-session and padded preview headings do not align")
 	}
 	if boxEnd < 0 || boxEnd != separatorEnd {
 		t.Fatalf("preview ends at %d; separator ends at %d", boxEnd, separatorEnd)

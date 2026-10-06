@@ -49,7 +49,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	if model.sidebarFocus {
 		titleStyle = accentStyle
 	}
-	lines := []string{sectionBar("VIEWS", model.sidebarWidth(), titleStyle)}
+	lines := []string{sectionBar(" VIEWS", model.sidebarWidth(), titleStyle)}
 	for index, item := range items[:len(sidebarViews())] {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
@@ -66,7 +66,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 			}
 			title = fmt.Sprintf("AGENTS (%d) %s", len(providers), arrow)
 		}
-		lines = append(lines, "", sectionBar(title, model.sidebarWidth(), titleStyle))
+		lines = append(lines, "", sectionBar(" "+title, model.sidebarWidth(), titleStyle))
 		start := len(sidebarViews())
 		end := model.projectItemStart()
 		available := max(1, projectTop-len(lines)-1-len(model.failedProviders()))
@@ -85,7 +85,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	for len(lines) < projectTop {
 		lines = append(lines, "")
 	}
-	lines = append(lines, sectionBar(fmt.Sprintf("PROJECTS (%d)", len(model.projects())), model.sidebarWidth(), titleStyle))
+	lines = append(lines, sectionBar(fmt.Sprintf(" PROJECTS (%d)", len(model.projects())), model.sidebarWidth(), titleStyle))
 
 	start, end := model.visibleProjectRange()
 	for index := start; index < end; index++ {
@@ -102,7 +102,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	if hidden > 0 {
 		lines = append(lines, accentStyle.Render(fmt.Sprintf("+ %d more…", hidden)))
 	} else {
-		lines = append(lines, mutedStyle.Render(strings.Repeat("─", model.sidebarWidth())))
+		lines = append(lines, lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.Repeat("─", model.sidebarWidth())))
 	}
 	if model.projectSearching {
 		lines = append(lines, accentStyle.Render("/ "+runewidth.Truncate(model.projectQuery, model.sidebarWidth()-2, "…")))
@@ -202,13 +202,13 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 // Every row reserves the same gutter, pin slot, and count column before
 // allocating space to the name. Larger totals widen all count cells together.
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
-	const gutterWidth = 2
+	const gutterWidth = 3
 	const pinWidth = 1
 	const nameToPinSpacing = 1
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
 	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - 1
 	label := sidebarLabel(name, max(0, nameWidth))
-	return markerStyle.Render(marker+" ") +
+	return markerStyle.Render(" "+marker+" ") +
 		style.Render(label+strings.Repeat(" ", nameToPinSpacing)) +
 		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)) +
 		style.Render(" "+pin)
