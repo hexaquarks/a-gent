@@ -263,8 +263,8 @@ func TestPopupHeightFitsTheReservedSessionRows(t *testing.T) {
 	if got := lipgloss.Height(view); got != PopupContentHeight {
 		t.Fatalf("popup content height = %d, want %d", got, PopupContentHeight)
 	}
-	if PopupHeight-PopupContentHeight != 2 {
-		t.Fatalf("popup border height = %d, want 2", PopupHeight-PopupContentHeight)
+	if PopupHeight != PopupContentHeight {
+		t.Fatalf("popup border height = %d, want 0", PopupHeight-PopupContentHeight)
 	}
 }
 

@@ -1,30 +1,28 @@
-╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                            ● live │
-│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│                        │                                                                                                         │
-│ VIEWS                  │ SESSIONS (6 of 6)                                                                Last active ↓  |  LIVE │
-│   Attention        1   │                                                                                                         │
-│   Active           1   │      Agent       Session                                              Status             Last active ↓  │
-│   Recent           5   │                                                                                                         │
-│   Updates          2   │      claude      Investigate terminal notifications                   ● Running                     4s  │
-│ ● All              6   │   ●  codex       Investigate AGENTS.md override                       ● Needs input                18s  │
-│                        │ › ●  codex       Restore response navigation                          ● Idle                        1m  │
-│ AGENTS                 │      codex       Align selected agent cursor                          ● Idle                        2m  │
-│   claude           1   │      codex       Add Claude session discovery                         ● Idle                        8m  │
-│   codex            5   │      codex       Untitled session                                     ● Idle                       13m  │
-│                        │─────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│ PROJECTS (4)           │ SELECTED SESSION                                                 ╭─────────────────────────────────────╮│
-│   mihailangheli…   1 ★ │                                                                  │LAST EDIT                      1m ago││
-│ ● a-gent           2   │ Restore response navigation                                      │internal/navigation.go               ││
-│ ● codex-audit      1   │                                                                  │@@ openSession                       ││
-│ ● swiftyprompt     2   │ Agent      codex                                                 │ if session != nil {                 ││
-│                        │ Status     ● Idle                                                │-    navigator.Open(cwd)             ││
-│                        │ Project    swiftyprompt                                          │+    navigator.Navigate(             ││
-│                        │ Directory  /projects/swiftyprompt                                │+        ctx, session,               ││
-│                        │ Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e                  │+    )                               ││
-│                        │                                                                  │ }                                   ││
-│ ────────────────────── │                                                                  │+3 −1                        v expand││
-│ / find · p pin         │                                                                  ╰─────────────────────────────────────╯│
-│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  tab  focus    j/k  browse    enter  open    s  sort    f  hold order    v  preview    q  quit                                   │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+│                        │                                                                                             │
+│ VIEWS                  │ SESSIONS (6 of 6)                                                    Last active ↓  |  LIVE │
+│   Attention        1   │                                                                                             │
+│   Active           1   │      Agent       Session                                  Status             Last active ↓  │
+│   Recent           5   │                                                                                             │
+│   Updates          2   │      claude      Investigate terminal notifications       ● Running                     4s  │
+│ ● All              6   │   ●  codex       Investigate AGENTS.md override           ● Needs input                18s  │
+│                        │ › ●  codex       Restore response navigation              ● Idle                        1m  │
+│ AGENTS                 │      codex       Align selected agent cursor              ● Idle                        2m  │
+│   claude           1   │      codex       Add Claude session discovery             ● Idle                        8m  │
+│   codex            5   │      codex       Untitled session                         ● Idle                       13m  │
+│                        │─────────────────────────────────────────────────────────────────────────────────────────────│
+│ PROJECTS (4)           │ SELECTED SESSION                                          ╭────────────────────────────────╮│
+│   mihailangheli…   1 ★ │                                                           │LAST EDIT                 1m ago││
+│ ● a-gent           2   │ Restore response navigation                               │internal/navigation.go          ││
+│ ● codex-audit      1   │                                                           │@@ openSession                  ││
+│ ● swiftyprompt     2   │ Agent      codex                                          │ if session != nil {            ││
+│                        │ Status     ● Idle                                         │-    navigator.Open(cwd)        ││
+│                        │ Project    swiftyprompt                                   │+    navigator.Navigate(        ││
+│                        │ Directory  /projects/swiftyprompt                         │+        ctx, session,          ││
+│ ────────────────────── │ Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e           │+3 −1 … truncated       v expand││
+│ / find · p pin         │                                                           ╰────────────────────────────────╯│
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+│  tab  focus    j/k  browse    enter  open    s  sort    f  hold order    v  preview    q  quit                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

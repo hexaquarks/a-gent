@@ -24,7 +24,7 @@ func main() {
 }
 
 func run() error {
-	popupOpened, err := tmux.OpenPopupInTmux(ui.PopupHeight)
+	popupOpened, err := tmux.OpenPopupInTmux(ui.PopupWidth, ui.PopupHeight)
 	if err != nil {
 		return fmt.Errorf("open tmux popup: %w", err)
 	}

@@ -95,7 +95,7 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(socketDirectory) })
-	fixture := &dashboardFixture{t: t, root: t.TempDir(), socket: filepath.Join(socketDirectory, "tmux"), width: 120, height: 30}
+	fixture := &dashboardFixture{t: t, root: t.TempDir(), socket: filepath.Join(socketDirectory, "tmux"), width: ui.PopupWidth, height: ui.PopupContentHeight}
 	fixture.artifacts = filepath.Join(fixture.root, "screens")
 	if destination := os.Getenv("A_GENT_TEST_ARTIFACTS"); destination != "" {
 		fixture.artifacts = filepath.Join(destination, strings.ReplaceAll(t.Name(), "/", "-"))
@@ -163,7 +163,7 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 			}
 		}
 	})
-	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "dashboard", "-x", "120", "-y", "30", strings.Join(command, " "))
+	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "dashboard", "-x", fmt.Sprint(fixture.width), "-y", fmt.Sprint(fixture.height), strings.Join(command, " "))
 	fixture.tmux("set-option", "-g", "status", "off")
 	fixture.tmux("set-window-option", "-g", "remain-on-exit", "on")
 	fixture.tmux("set-window-option", "-g", "window-size", "manual")

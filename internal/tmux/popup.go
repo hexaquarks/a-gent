@@ -11,9 +11,9 @@ import (
 const popupEnvironmentVariable = "A_GENT_TMUX_POPUP"
 
 // OpenPopupInTmux opens the current program in a centered tmux popup sized for
-// the supplied number of terminal rows.
+// the supplied terminal dimensions, using the border drawn by the application.
 // It returns false when a-gent is not running inside tmux or is already in a popup.
-func OpenPopupInTmux(popupHeight int) (bool, error) {
+func OpenPopupInTmux(popupWidth, popupHeight int) (bool, error) {
 	if os.Getenv("TMUX") == "" || os.Getenv(popupEnvironmentVariable) == "1" {
 		return false, nil
 	}
@@ -29,7 +29,7 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 	}
 
 	command := popupCommand(executablePath, os.Args[1:], activeClientName())
-	popup := exec.Command("tmux", popupArguments(popupHeight, workingDirectory, command)...)
+	popup := exec.Command("tmux", popupArguments(popupWidth, popupHeight, workingDirectory, command)...)
 	popup.Stdin = os.Stdin
 	popup.Stdout = os.Stdout
 	popup.Stderr = os.Stderr
@@ -37,18 +37,15 @@ func OpenPopupInTmux(popupHeight int) (bool, error) {
 	return true, popup.Run()
 }
 
-func popupArguments(popupHeight int, workingDirectory, command string) []string {
+func popupArguments(popupWidth, popupHeight int, workingDirectory, command string) []string {
 	return []string{
 		"display-popup",
 		"-E",
-		"-b",
-		"rounded",
+		"-B",
 		"-s",
-		"bg=#0D1117,fg=#D7DEE8",
-		"-S",
-		"fg=#293442",
+		"bg=#0C1112,fg=#EDF2F4",
 		"-w",
-		"70%",
+		strconv.Itoa(popupWidth),
 		"-h",
 		strconv.Itoa(popupHeight),
 		"-d",

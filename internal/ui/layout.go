@@ -9,16 +9,12 @@ const (
 	sidebarContentWidth  = 24
 	maximumSessionRows   = 8
 
-	// popupChromeRows covers the header, table title and header, selected-session
-	// panel, and footer around the reserved session rows.
-	popupChromeRows = 24
-	// popupBorderRows are drawn by tmux and are not available to the program.
-	popupBorderRows = 2
-	// PopupContentHeight is the terminal-row height needed by the dashboard.
-	PopupContentHeight = maximumSessionRows + popupChromeRows
-	// PopupHeight includes the tmux border so the dashboard header is never
-	// clipped by the popup's interior height.
-	PopupHeight = PopupContentHeight + popupBorderRows
+	// PopupWidth and PopupHeight keep the dashboard's wide proportions stable
+	// across terminal sizes. tmux clamps these dimensions to the available space.
+	PopupWidth  = 120
+	PopupHeight = 28
+	// PopupContentHeight equals the popup height because the app draws its border.
+	PopupContentHeight = PopupHeight
 )
 
 func (model *Model) resizeTable() {
@@ -88,13 +84,10 @@ func tableColumns(tableWidth int) []table.Column {
 // Short popups retain the metadata and expansion shortcut; taller terminals
 // show more of the selected edit.
 func (model Model) inlinePreviewHeight() int {
-	if model.height > 0 && model.height < 29 {
-		return 7
+	if model.height == 0 {
+		return 10
 	}
-	if model.height == 29 {
-		return 9
-	}
-	return 10
+	return min(10, max(7, model.height-20))
 }
 
 func (model Model) sidebarVisible() bool {
