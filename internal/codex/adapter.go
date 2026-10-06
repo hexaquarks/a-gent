@@ -10,16 +10,17 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/editpreview"
 )
 
 const providerName = "codex"
 
 // Adapter reads the sessions currently loaded by the local Codex daemon.
-type Adapter struct{}
+type Adapter struct{ edits *editpreview.Reader }
 
 // NewAdapter creates a read-only Codex session adapter.
 func NewAdapter() Adapter {
-	return Adapter{}
+	return Adapter{edits: &editpreview.Reader{}}
 }
 
 // Provider returns the name of the provider this adapter supports.
@@ -86,6 +87,7 @@ func (thread thread) session() agent.Session {
 
 	return agent.Session{
 		ID:               thread.ID,
+		TranscriptPath:   thread.Path,
 		Provider:         providerName,
 		Name:             thread.Name,
 		Preview:          thread.Preview,

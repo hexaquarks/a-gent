@@ -11,17 +11,19 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/editpreview"
 )
 
 type commandRunner func(context.Context) ([]byte, error)
 
 // Adapter reads Claude's sessions and converts them to the format shared by providers.
 type Adapter struct {
-	run commandRunner
+	run   commandRunner
+	edits *editpreview.Reader
 }
 
 func NewAdapter() Adapter {
-	return Adapter{run: func(ctx context.Context) ([]byte, error) {
+	return Adapter{edits: &editpreview.Reader{}, run: func(ctx context.Context) ([]byte, error) {
 		command := exec.CommandContext(ctx, "claude", "agents", "--json")
 		command.WaitDelay = 250 * time.Millisecond
 		return command.Output()
@@ -85,6 +87,7 @@ func decodeSessions(output []byte) ([]agent.Session, error) {
 
 		sessions = append(sessions, agent.Session{
 			ID:               id,
+			TranscriptID:     entry.SessionID,
 			Provider:         "claude",
 			Name:             entry.Name,
 			WorkingDirectory: entry.Directory,

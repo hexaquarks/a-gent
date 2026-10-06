@@ -13,3 +13,6 @@
 
 # Local Codex instructions
 AGENTS.md
+
+# Local dashboard integration workflow
+/.agents/skills/test-dashboard/

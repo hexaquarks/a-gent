@@ -21,6 +21,13 @@ const (
 
 // Model holds the UI state for the application.
 type Model struct {
+	previewSources   map[string]agent.PreviewSource
+	previewCache     map[sessionIdentity]previewEntry
+	previewKey       sessionIdentity
+	previewRevision  int
+	previewCancel    context.CancelFunc
+	previewExpanded  bool
+	previewScroll    int
 	table            table.Model
 	updates          <-chan polling.Update
 	providerErrors   map[string]error
@@ -94,11 +101,14 @@ func NewModel(updates <-chan polling.Update, options ...ModelOption) Model {
 
 // Init waits for the first provider update.
 func (model Model) Init() tea.Cmd {
-	return awaitProviderUpdate(model.updates)
+	if len(model.previewSources) == 0 {
+		return awaitProviderUpdate(model.updates)
+	}
+	return tea.Batch(awaitProviderUpdate(model.updates), previewTimer())
 }
 
-// Update receives events and returns the next UI state for Bubble Tea to render.
-func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+// update handles dashboard events; Update also synchronizes the selected preview.
+func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := message.(type) {
 	case tea.WindowSizeMsg:
 		model.width = message.Width

@@ -36,6 +36,7 @@ type rpcError struct {
 }
 
 type thread struct {
+	Path             string          `json:"path"`
 	ID               string          `json:"id"`
 	Name             string          `json:"name"`
 	Preview          string          `json:"preview"`

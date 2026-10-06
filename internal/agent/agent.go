@@ -24,6 +24,9 @@ const (
 
 // Session is a provider-neutral view of one coding-agent session.
 type Session struct {
+	// TranscriptPath and TranscriptID identify provider-owned edit records.
+	TranscriptPath   string
+	TranscriptID     string
 	ID               string
 	Provider         string
 	Name             string

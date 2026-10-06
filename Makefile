@@ -4,7 +4,7 @@ BINARY_NAME ?= a-gent
 BINARY_PATH := $(BIN_DIR)/$(BINARY_NAME)
 GO_FILES := $(shell find . -name '*.go' -not -path './vendor/*')
 
-.PHONY: build install uninstall run test vet format check help
+.PHONY: build install uninstall run test test-integration vet format check help
 
 build: ## Compile the application without creating an output binary.
 	$(GO) build ./cmd/a-gent
@@ -21,6 +21,9 @@ run: ## Run the application from the source checkout.
 
 test: ## Run the Go test suite.
 	$(GO) test ./...
+
+test-integration: ## Run Go integration tests in isolated tmux terminals.
+	$(GO) test -tags=integration -count=1 -timeout=90s -v ./internal/ui -run TestIntegration
 
 vet: ## Run Go's static analysis.
 	$(GO) vet ./...
