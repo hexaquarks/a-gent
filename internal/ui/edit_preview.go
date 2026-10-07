@@ -206,7 +206,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 			lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
 			diff = diff[1:]
 		}
-		// Anchor the small box at the first changed line, keeping one leading
+		// Anchor the inline preview at the first changed line, keeping one leading
 		// context line so a long hunk header does not hide the actual edit.
 		for i, line := range diff {
 			if strings.HasPrefix(line, "+") || strings.HasPrefix(line, "-") {
@@ -257,10 +257,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 		}
 		lines = append(lines, alignedLine(mutedStyle.Render(label), shortcutKeyStyle.Render("v")+mutedStyle.Render(" expand"), width))
 	} else if truncated {
-		label := "… truncated · v: expand"
-		if expanded {
-			label = fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
-		}
+		label := fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(label, width, "…")))
 	}
 	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).Render(strings.Join(lines, "\n"))

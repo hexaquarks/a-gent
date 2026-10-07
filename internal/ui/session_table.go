@@ -15,6 +15,7 @@ import (
 
 func (model Model) sessionTableView() string {
 	columns := model.table.Columns()
+	sessions := model.filteredSessions()
 	headerCells := make([]string, len(columns))
 	for index, column := range columns {
 		title := column.Title
@@ -32,7 +33,7 @@ func (model Model) sessionTableView() string {
 	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorTableHeader)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
-		rows = append(rows, model.sessionRowView(index, columns))
+		rows = append(rows, model.sessionRowView(sessions[index], index == model.table.Cursor(), columns))
 	}
 
 	for placeholderIndex := end - start; placeholderIndex < model.table.Height(); placeholderIndex++ {
@@ -44,10 +45,10 @@ func (model Model) sessionTableView() string {
 	for index := range rows {
 		rows[index] += strings.Repeat(" ", scrollbarGutterWidth)
 	}
-	if len(model.filteredSessions()) > model.table.Height() {
+	if len(sessions) > model.table.Height() {
 		track := model.table.Height()
-		thumbSize := max(1, track*track/len(model.filteredSessions()))
-		thumbStart := start * (track - thumbSize) / (len(model.filteredSessions()) - track)
+		thumbSize := max(1, track*track/len(sessions))
+		thumbStart := start * (track - thumbSize) / (len(sessions) - track)
 		for index := 0; index < track; index++ {
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Background(lipgloss.Color(colorBackground))
 			if index >= thumbStart && index < thumbStart+thumbSize {
@@ -83,19 +84,17 @@ func (model Model) visibleSessionRange() (int, int) {
 		start = selectedIndex - visibleRows + 1
 	}
 
-	end := min(start+visibleRows, len(model.filteredSessions()))
+	end := min(start+visibleRows, len(sessions))
 	return start, end
 }
 
-func (model Model) sessionRowView(index int, columns []table.Column) string {
-	selected := index == model.table.Cursor()
+func (model Model) sessionRowView(session agent.Session, selected bool, columns []table.Column) string {
 	background := lipgloss.Color("")
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
 
 	cells := make([]string, len(columns))
-	session := model.filteredSessions()[index]
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
 		if column.Title == "Session" {

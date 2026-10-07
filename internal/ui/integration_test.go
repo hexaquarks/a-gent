@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestIntegrationFeedUpdatesInRealtime(t *testing.T) {
@@ -45,7 +44,7 @@ func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
 	if strings.Contains(screen, "failed.go") || !strings.Contains(screen, "+verified change") {
 		t.Fatalf("wrong completed edit:\n%s", screen)
 	}
-	assertReferenceDetailLayout(t, screen)
+	assertPreviewHeading(t, screen, "LAST EDIT")
 	fixture.capture("idle-diff")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
@@ -68,7 +67,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
 	}
-	assertReferenceDetailLayout(t, screen)
+	assertPreviewHeading(t, screen, "LIVE ACTIVITY")
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
@@ -92,14 +91,14 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	screen := fixture.waitText("Waiting for output")
-	assertReferenceDetailLayout(t, screen)
+	assertPreviewHeading(t, screen, "PREVIEW")
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
 	}
 	screen = fixture.waitText("Preview unavailable")
-	assertReferenceDetailLayout(t, screen)
+	assertPreviewHeading(t, screen, "PREVIEW")
 	for _, redundant := range []string{"Checked ", "EDIT PREVIEW", "LIVE ACTIVITY", "v: expand"} {
 		if strings.Contains(screen, redundant) {
 			t.Fatalf("unavailable preview contains redundant content %q", redundant)
@@ -111,7 +110,7 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	}
 	fixture.setState("codex", agent.StateIdle)
 	screen = fixture.waitText("No edits yet")
-	assertReferenceDetailLayout(t, screen)
+	assertPreviewHeading(t, screen, "PREVIEW")
 	fixture.capture("no-edits")
 }
 
@@ -127,13 +126,15 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 	fixture.sessions["claude"] = session
 	fixture.setState("claude", agent.StateWaiting)
 	screen := fixture.waitText("1 needs input")
-	if strings.Index(screen, "codex fixture") > strings.Index(screen, "claude fixture") {
+	codexRow, claudeRow := strings.Index(screen, "codex fixture"), strings.Index(screen, "claude fixture")
+	if codexRow < 0 || claudeRow < 0 || codexRow >= claudeRow {
 		t.Fatal("held rows reordered after a provider update")
 	}
 	fixture.capture("held-live-output")
 	fixture.key("f")
 	screen = fixture.waitFor("resumed activity order", 4*time.Second, func(screen string) bool {
-		return strings.Contains(screen, "LIVE") && strings.Index(screen, "claude fixture") < strings.Index(screen, "codex fixture")
+		codexRow, claudeRow := strings.Index(screen, "codex fixture"), strings.Index(screen, "claude fixture")
+		return strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
 	})
 	if !strings.Contains(screen, "OUTPUT_WHILE_HELD") {
 		t.Fatal("resuming order lost the selected preview")
@@ -157,40 +158,14 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 	fixture.capture("updates-acknowledged")
 }
 
-// Both detail columns start with a heading and share a continuous divider.
-func assertReferenceDetailLayout(t *testing.T, screen string) {
+// Layout details live in the render tests; here we check the terminal shows
+// the correct preview state alongside the selected-session heading.
+func assertPreviewHeading(t *testing.T, screen, title string) {
 	t.Helper()
-	lines := strings.Split(screen, "\n")
-	heading, sessionRow := -1, -1
-	for row, line := range lines {
-		if strings.Contains(line, "SELECTED SESSION") {
-			heading = row
-		}
-		if strings.Contains(line, "Session ") {
-			sessionRow = row
+	for _, line := range strings.Split(screen, "\n") {
+		if strings.Contains(line, "SELECTED SESSION") && strings.Contains(line, title) {
+			return
 		}
 	}
-	if heading < 0 || sessionRow <= heading {
-		t.Fatalf("detail layout is missing or clipped:\n%s", screen)
-	}
-	title := lines[heading]
-	if !strings.Contains(title, "LAST EDIT") && !strings.Contains(title, "LIVE ACTIVITY") && !strings.Contains(title, "PREVIEW") {
-		t.Fatalf("preview and metadata headings must share a row:\n%s", screen)
-	}
-	headingColumn := strings.Index(title, "SELECTED SESSION")
-	separator := strings.Index(title[headingColumn:], "│") + headingColumn
-	if separator < strings.Index(title, "SELECTED SESSION") {
-		t.Fatal("missing detail divider")
-	}
-	column := lipgloss.Width(title[:separator])
-	for _, line := range lines[heading : sessionRow+1] {
-		cells := []rune(line)
-		// Fixture content before the divider uses single-cell characters.
-		if len(cells) <= column || cells[column] != '│' {
-			t.Fatalf("detail divider is not continuous:\n%s", screen)
-		}
-		if strings.ContainsAny(line, "🭽🭾🭼🭿▔▁▏▕") {
-			t.Fatal("preview still has a box border")
-		}
-	}
+	t.Fatalf("preview heading %q is missing or on a different row:\n%s", title, screen)
 }

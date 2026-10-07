@@ -226,6 +226,9 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return model, nil
 			}
+			if model.navigationCancel != nil {
+				return model, nil
+			}
 			// Capture the destination before acknowledgement can remove the row
 			// from Updates and select the next unread session.
 			next, command := model.navigateSelectedSession()

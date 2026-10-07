@@ -214,7 +214,7 @@ func TestSelectionMarkerRemainsVisibleWhenSidebarHasFocus(t *testing.T) {
 	model := NewModel(nil)
 	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
 	model.sidebarFocus = true
-	row := model.sessionRowView(0, model.table.Columns())
+	row := model.sessionRowView(model.filteredSessions()[0], model.table.Cursor() == 0, model.table.Columns())
 	if !strings.Contains(row, "›    codex") {
 		t.Fatalf("selected row lacks its marker while sidebar has focus: %q", row)
 	}
@@ -231,9 +231,9 @@ func TestSelectionCursorKeepsAgentNamesAligned(t *testing.T) {
 		model.table.SetColumns(columns)
 		model.updateTableRows()
 
-		selected := ansi.Strip(model.sessionRowView(0, columns))
+		selected := ansi.Strip(model.sessionRowView(model.filteredSessions()[0], model.table.Cursor() == 0, columns))
 		model.table.SetCursor(1)
-		unselected := ansi.Strip(model.sessionRowView(0, columns))
+		unselected := ansi.Strip(model.sessionRowView(model.filteredSessions()[0], model.table.Cursor() == 0, columns))
 		if !strings.HasPrefix(selected, "›    claude") || !strings.HasPrefix(unselected, "     claude") {
 			t.Fatalf("width %d: agent name shifted or truncated: selected %q, unselected %q", width, selected, unselected)
 		}

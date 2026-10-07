@@ -28,7 +28,8 @@ func referenceDashboard() Model {
 			Name:             "Investigate terminal notifications",
 			State:            agent.StateRunning,
 			WorkingDirectory: "/projects/a-gent",
-			LastActiveAt:     now.Add(-4500 * time.Millisecond),
+			// Keep snapshot ages away from display boundaries during rendering.
+			LastActiveAt: now.Add(-125 * time.Second),
 		},
 		{
 			ID:               "codex-waiting",
@@ -36,7 +37,7 @@ func referenceDashboard() Model {
 			Name:             "Investigate AGENTS.md override",
 			State:            agent.StateWaiting,
 			WorkingDirectory: "/projects/codex-audit",
-			LastActiveAt:     now.Add(-18500 * time.Millisecond),
+			LastActiveAt:     now.Add(-185 * time.Second),
 		},
 		{
 			ID:               "01a10404-3a82-7702-b4d9-3ae1bd0fb23e",
@@ -44,7 +45,7 @@ func referenceDashboard() Model {
 			Name:             "Restore response navigation",
 			State:            agent.StateIdle,
 			WorkingDirectory: "/projects/swiftyprompt",
-			LastActiveAt:     now.Add(-65 * time.Second),
+			LastActiveAt:     now.Add(-245 * time.Second),
 		},
 		{
 			ID:               "codex-cursor",
@@ -52,7 +53,7 @@ func referenceDashboard() Model {
 			Name:             "Align selected agent cursor",
 			State:            agent.StateIdle,
 			WorkingDirectory: "/projects/a-gent",
-			LastActiveAt:     now.Add(-125 * time.Second),
+			LastActiveAt:     now.Add(-305 * time.Second),
 		},
 		{
 			ID:               "codex-discovery",
@@ -98,32 +99,10 @@ func TestDashboardReferenceLayout(t *testing.T) {
 	if lipgloss.Width(view) != PopupWidth || lipgloss.Height(view) != PopupHeight {
 		t.Fatalf("reference dashboard size = %dx%d", lipgloss.Width(view), lipgloss.Height(view))
 	}
-	for _, expected := range []string{
-		"1 running", "1 needs input", "2 unseen", "Updates", "SESSIONS (6 of 6)",
-		"Untitled session", "Needs input", "SELECTED SESSION", "LAST EDIT", "internal/navigation.go",
-		"@@ openSession", "+3 −1", "v expand", "hold order", model.sessions[2].ID,
-	} {
-		if !strings.Contains(plain, expected) {
-			t.Errorf("reference dashboard missing %q:\n%s", expected, plain)
-		}
-	}
-	headingRow := -1
 	for index, line := range strings.Split(plain, "\n") {
-		if strings.Contains(line, "SELECTED SESSION") && !strings.Contains(line, "LAST EDIT") {
-			t.Error("selected-session and preview headings must share a row")
-		}
 		if lipgloss.Width(line) != PopupWidth {
 			t.Errorf("row %d is %d cells wide", index, lipgloss.Width(line))
 		}
-		if strings.Contains(line, "VIEWS") {
-			headingRow = index
-			if !strings.Contains(line, "SESSIONS (6 of 6)") {
-				t.Error("sidebar and session headings do not align")
-			}
-		}
-	}
-	if headingRow != 3 {
-		t.Fatal("sidebar and session headings must immediately follow the top divider")
 	}
 	writeReferenceCapture(t, view, plain)
 	expected, err := os.ReadFile("testdata/dashboard_reference.txt")
@@ -190,28 +169,55 @@ func TestCompactFooterKeepsAllActionsAndFrameVisible(t *testing.T) {
 	}
 }
 
-func TestDashboardScrollbarLayouts(t *testing.T) {
+func TestScrollbarTracksVisibleSessionsWithoutChangingWidth(t *testing.T) {
 	previous := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(previous)
+	model := referenceDashboard()
+	model.sessions = nil
 	destination := os.Getenv("A_GENT_TEST_ARTIFACTS")
+	for index := 0; index < 30; index++ {
+		model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Name: "Example", Provider: "codex", State: agent.StateIdle})
+	}
+	model.updateTableRows()
+	thumb := lipgloss.NewStyle().Foreground(lipgloss.Color(colorAccent)).Background(lipgloss.Color(colorBackground)).Render("┃")
+	track := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Background(lipgloss.Color(colorBackground)).Render("┃")
 	for _, cursor := range []int{0, 15, 29} {
-		t.Run(fmt.Sprintf("cursor-%d", cursor), func(t *testing.T) {
-			model := referenceDashboard()
-			for len(model.sessions) < 30 {
-				index := len(model.sessions)
-				model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Provider: "codex", Name: fmt.Sprintf("Additional session %02d", index), State: agent.StateIdle})
+		model.table.SetCursor(cursor)
+		view := model.View()
+		if lipgloss.Width(view) != PopupWidth || lipgloss.Height(view) != PopupHeight {
+			t.Fatal("scrollable dashboard changed dimensions")
+		}
+		if destination != "" {
+			t.Setenv("A_GENT_TEST_ARTIFACTS", filepath.Join(destination, fmt.Sprintf("scroll-%d", cursor)))
+			writeReferenceCapture(t, view, ansi.Strip(view))
+		}
+		rows := strings.Split(model.sessionTableView(), "\n")
+		start, end := model.visibleSessionRange()
+		for index := start; index < end; index++ {
+			row := rows[index-start+1]
+			cells := model.sessionRowView(model.filteredSessions()[index], index == model.table.Cursor(), model.table.Columns())
+			if !strings.HasPrefix(row, cells+" ") {
+				t.Fatalf("scrollbar overlaps session cells: %q", row)
 			}
-			model.updateTableRows()
-			model.table.SetCursor(cursor)
-			view := model.View()
-			if lipgloss.Width(view) != PopupWidth || lipgloss.Height(view) != PopupHeight {
-				t.Fatal("scrollable dashboard changed dimensions")
+			if lipgloss.Width(row) != lipgloss.Width(rows[0]) {
+				t.Fatal("scrollbar changes row width")
 			}
-			if destination != "" {
-				t.Setenv("A_GENT_TEST_ARTIFACTS", filepath.Join(destination, fmt.Sprintf("scroll-%d", cursor)))
-				writeReferenceCapture(t, view, ansi.Strip(view))
-			}
-		})
+		}
+		if cursor == 0 && !strings.HasSuffix(rows[1], thumb) {
+			t.Fatal("thumb must start at top")
+		}
+		if cursor == 15 && (!strings.HasSuffix(rows[1], track) || !strings.HasSuffix(rows[len(rows)-1], track)) {
+			t.Fatal("middle thumb must leave track on both sides")
+		}
+		if cursor == 29 && (!strings.HasSuffix(rows[1], track) || !strings.HasSuffix(rows[len(rows)-1], thumb)) {
+			t.Fatal("thumb must reach bottom")
+		}
+	}
+	model.sessions = model.sessions[:1]
+	model.updateTableRows()
+	rows := strings.Split(model.sessionTableView(), "\n")
+	if strings.Contains(model.sessionTableView(), "┃") || !strings.HasSuffix(rows[1], "  ") {
+		t.Fatal("short lists must reserve a blank scrollbar gutter")
 	}
 }
