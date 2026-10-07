@@ -82,6 +82,15 @@ func TestOpeningAnUpdateUsesTheAcknowledgedSession(t *testing.T) {
 	if command == nil {
 		t.Fatal("opening an update did not start navigation")
 	}
+	defer model.cancelNavigation()
+
+	// The first acknowledgement selects b. A second Enter must not silently
+	// acknowledge b while navigation to a is still pending.
+	updated, duplicate := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = updated.(Model)
+	if duplicate != nil || len(model.table.Rows()) != 1 || !model.unreadSessions[sessionIdentity{provider: "codex", id: "b"}] {
+		t.Fatal("repeated Enter acknowledged another update during navigation")
+	}
 	command()
 	if navigator.session.ID != "a" {
 		t.Fatalf("opened %s after acknowledgement; want a", navigator.session.ID)
@@ -89,5 +98,4 @@ func TestOpeningAnUpdateUsesTheAcknowledgedSession(t *testing.T) {
 	if len(model.table.Rows()) != 1 || model.tableSessionIDs[0].id != "b" {
 		t.Fatal("acknowledgement left the read update in the table")
 	}
-	model.cancelNavigation()
 }

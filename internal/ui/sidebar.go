@@ -45,7 +45,7 @@ type sidebarItem struct {
 
 func (model Model) renderSidebar(summary sessionSummary) string {
 	items := model.sidebarItems()
-	titleStyle := sectionStyle
+	titleStyle := sectionStyle.Foreground(lipgloss.Color(colorSecondary))
 	if model.sidebarFocus {
 		titleStyle = accentStyle
 	}
@@ -180,13 +180,16 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 		countText = ""
 	}
 	countStyle := style
+	if item.provider != "" {
+		countStyle = mutedStyle
+	}
 	if item.view == attentionView {
 		countStyle = waitingStyle
 	}
 	if item.view == activeView {
 		countStyle = runningStyle
 	}
-	if selected {
+	if selected && item.provider == "" {
 		countStyle = style
 	}
 	if selected {
@@ -204,14 +207,14 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
 	const gutterWidth = 3
 	const pinWidth = 1
-	const nameToPinSpacing = 1
+	const nameToPinSpacing = 2
+	const rightPadding = 1
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - 1
+	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - rightPadding
 	label := sidebarLabel(name, max(0, nameWidth))
 	return markerStyle.Render(" "+marker+" ") +
-		style.Render(label+strings.Repeat(" ", nameToPinSpacing)) +
-		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)) +
-		style.Render(" "+pin)
+		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
+		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)+strings.Repeat(" ", rightPadding))
 }
 
 // Pad using display cells so Unicode names share the same count column.

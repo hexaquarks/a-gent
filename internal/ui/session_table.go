@@ -10,12 +10,12 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
 
 func (model Model) sessionTableView() string {
 	columns := model.table.Columns()
+	sessions := model.filteredSessions()
 	headerCells := make([]string, len(columns))
 	for index, column := range columns {
 		title := column.Title
@@ -27,30 +27,35 @@ func (model Model) sessionTableView() string {
 		if column.Title == "Last active" {
 			style = style.Align(lipgloss.Right)
 		}
-		headerCells[index] = renderTableCell(title, column.Width, style, lipgloss.Color(colorSection))
+		headerCells[index] = renderTableCell(title, column.Width, style, lipgloss.Color(colorTableHeader))
 	}
 
-	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorSection)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
+	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorTableHeader)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
-		rows = append(rows, model.sessionRowView(index, columns))
+		rows = append(rows, model.sessionRowView(sessions[index], index == model.table.Cursor(), columns))
 	}
 
 	for placeholderIndex := end - start; placeholderIndex < model.table.Height(); placeholderIndex++ {
 		rows = append(rows, model.emptySessionRowView(columns, placeholderIndex == 0))
 	}
 
-	if len(model.filteredSessions()) > model.table.Height() {
+	// Keep the rail outside the cells and selection background. Reserving its
+	// gutter for short lists too prevents columns moving when sessions arrive.
+	for index := range rows {
+		rows[index] += strings.Repeat(" ", scrollbarGutterWidth)
+	}
+	if len(sessions) > model.table.Height() {
 		track := model.table.Height()
-		thumbSize := max(1, track*track/len(model.filteredSessions()))
-		thumbStart := start * (track - thumbSize) / (len(model.filteredSessions()) - track)
+		thumbSize := max(1, track*track/len(sessions))
+		thumbStart := start * (track - thumbSize) / (len(sessions) - track)
 		for index := 0; index < track; index++ {
-			glyph, style := "│", mutedStyle
+			style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Background(lipgloss.Color(colorBackground))
 			if index >= thumbStart && index < thumbStart+thumbSize {
-				glyph, style = "┃", accentStyle
+				style = style.Foreground(lipgloss.Color(colorAccent))
 			}
-			row := rows[index+2]
-			rows[index+2] = ansi.Truncate(row, lipgloss.Width(row)-1, "") + style.Render(glyph)
+			row := rows[index+1]
+			rows[index+1] = strings.TrimSuffix(row, " ") + style.Render("┃")
 		}
 	}
 	return strings.Join(rows, "\n")
@@ -79,23 +84,21 @@ func (model Model) visibleSessionRange() (int, int) {
 		start = selectedIndex - visibleRows + 1
 	}
 
-	end := min(start+visibleRows, len(model.filteredSessions()))
+	end := min(start+visibleRows, len(sessions))
 	return start, end
 }
 
-func (model Model) sessionRowView(index int, columns []table.Column) string {
-	selected := index == model.table.Cursor()
+func (model Model) sessionRowView(session agent.Session, selected bool, columns []table.Column) string {
 	background := lipgloss.Color("")
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
 
 	cells := make([]string, len(columns))
-	session := model.filteredSessions()[index]
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
 		if column.Title == "Session" {
-			cells[columnIndex] = renderTableCell(session.Name, column.Width, mainTextStyle.Bold(selected), background)
+			cells[columnIndex] = renderTableCell(sessionDisplayName(session), column.Width, mainTextStyle.Bold(selected), background)
 			continue
 		}
 		if column.Title == "Last active" {
@@ -172,9 +175,9 @@ func (model Model) emptySessionMessage() string {
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
-		return session.Provider, providerStyle(session.Provider)
+		return session.Provider, providerStyle(session.Provider).Bold(true)
 	case "Session":
-		return session.Name, mainTextStyle
+		return sessionDisplayName(session), mainTextStyle
 	case "Directory":
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
@@ -242,4 +245,12 @@ func (model *Model) updateTableRows() {
 			}
 		}
 	}
+}
+
+// sessionDisplayName supplies a label when a provider has not named a session.
+func sessionDisplayName(session agent.Session) string {
+	if strings.TrimSpace(safeDisplayText(session.Name)) == "" {
+		return "Untitled session"
+	}
+	return session.Name
 }

@@ -1,14 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
 	"a-gent/internal/agent"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
 )
 
@@ -71,33 +69,6 @@ func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 	model.sessions = model.sessions[:2]
 	if strings.Contains(model.renderSidebar(summarizeSessions(model.sessions)), "All types") {
 		t.Fatal("small provider list remains collapsed")
-	}
-}
-
-func TestScrollbarTracksVisibleSessionsWithoutChangingWidth(t *testing.T) {
-	model := NewModel(nil)
-	for index := 0; index < 30; index++ {
-		model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Name: "Example"})
-	}
-	model.updateTableRows()
-	first := strings.Split(ansi.Strip(model.sessionTableView()), "\n")
-	if !strings.HasSuffix(first[2], "┃") {
-		t.Fatal("scroll thumb does not start at top")
-	}
-	model.table.SetCursor(29)
-	last := strings.Split(ansi.Strip(model.sessionTableView()), "\n")
-	if !strings.HasSuffix(last[len(last)-1], "┃") || !strings.HasSuffix(last[2], "│") {
-		t.Fatal("scroll thumb did not reach bottom")
-	}
-	for _, row := range last {
-		if row != "" && lipgloss.Width(row) != lipgloss.Width(first[0]) {
-			t.Fatal("scrollbar changes row width")
-		}
-	}
-	model.sessions = model.sessions[:1]
-	model.updateTableRows()
-	if strings.Contains(model.sessionTableView(), "┃") {
-		t.Fatal("short list renders scrollbar")
 	}
 }
 

@@ -206,7 +206,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 			lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
 			diff = diff[1:]
 		}
-		// Anchor the small box at the first changed line, keeping one leading
+		// Anchor the inline preview at the first changed line, keeping one leading
 		// context line so a long hunk header does not hide the actual edit.
 		for i, line := range diff {
 			if strings.HasPrefix(line, "+") || strings.HasPrefix(line, "-") {
@@ -257,10 +257,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 		}
 		lines = append(lines, alignedLine(mutedStyle.Render(label), shortcutKeyStyle.Render("v")+mutedStyle.Render(" expand"), width))
 	} else if truncated {
-		label := "… truncated · v: expand"
-		if expanded {
-			label = fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
-		}
+		label := fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(label, width, "…")))
 	}
 	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).Render(strings.Join(lines, "\n"))
@@ -275,7 +272,7 @@ func clipLines(text string, width int) string {
 }
 
 func (model Model) detailWithPreview() string {
-	// The preview border ends at the same column as the panel's separator.
+	// The preview ends at the same column as the panel separator.
 	width := max(1, model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize())
 	// Below this width metadata and a readable hunk cannot share a row. Keep a
 	// one-line preview status, with the same expansion shortcut, under metadata.
@@ -297,18 +294,31 @@ func (model Model) detailWithPreview() string {
 		return clipLines(model.detailView(), width) + "\n" + mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
 	}
 	previewWidth := min(42, width*3/8)
-	metadataWidth := width - previewWidth - 1
+	metadataWidth := width - previewWidth - 2
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
 		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	previewStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(colorDivider)).
-		Padding(0, 1)
-	preview := previewStyle.Render(model.previewView(previewWidth-previewStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
-	// The reference has a flat metadata panel. Its heading starts on the same
-	// terminal row as the preview's top border, with no extra inset above it.
-	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", preview)
+	previewHeight := max(lipgloss.Height(metadata), model.inlinePreviewHeight()+2)
+	preview := lipgloss.NewStyle().Padding(0, 1).Render(model.inlinePreviewPanel(previewWidth-2, previewHeight))
+	divider := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.TrimSuffix(strings.Repeat("│\n", previewHeight), "\n"))
+	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", divider, preview)
+}
+
+// inlinePreviewPanel gives every preview state a heading aligned with metadata.
+func (model Model) inlinePreviewPanel(width, height int) string {
+	session, selected := model.selectedSession()
+	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+	var lines []string
+	if selected && (cached.edit != nil || model.showActivity(session, cached)) {
+		lines = strings.Split(model.previewView(width-2, height, false), "\n")
+	} else {
+		lines = append([]string{accentStyle.Render("PREVIEW")}, strings.Split(model.previewView(width-2, height-1, false), "\n")...)
+	}
+	for index, line := range lines {
+		lines[index] = " " + line + " "
+	}
+	lines[0] = sectionBar(ansi.Strip(lines[0]), width, accentStyle)
+	return strings.Join(lines, "\n")
 }

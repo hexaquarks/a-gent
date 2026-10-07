@@ -253,7 +253,7 @@ func TestUnreadDotSurvivesSortingFilteringAndKeyboardBrowsing(t *testing.T) {
 	model.sort = sessionSort{column: "Session", descending: true}
 	model.updateTableRows()
 	identity := sessionIdentity{provider: "codex", id: "b"}
-	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(0, model.table.Columns())), "●  codex") {
+	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(model.filteredSessions()[0], model.table.Cursor() == 0, model.table.Columns())), "●  codex") {
 		t.Fatal("sorting or filtering lost the unread dot")
 	}
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
