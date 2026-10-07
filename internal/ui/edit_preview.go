@@ -298,33 +298,17 @@ func (model Model) detailWithPreview() string {
 	}
 	previewWidth := min(42, width*3/8)
 	metadataWidth := width - previewWidth - 1
-	frameStyle := lipgloss.NewStyle().
+	metadataLines := strings.Split(model.detailView(), "\n")
+	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
+	metadata := lipgloss.NewStyle().
+		Width(metadataWidth).
+		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
+	previewStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(colorDivider)).
 		Padding(0, 1)
-	contentHeight := model.inlinePreviewHeight()
-	metadataContentWidth := metadataWidth - frameStyle.GetHorizontalFrameSize()
-	metadataLines := strings.Split(model.detailView(), "\n")
-	metadataLines[0] = sectionBar("SELECTED SESSION", metadataContentWidth, model.panelTitleStyle())
-
-	// The frame supplies the inset used directly by the compact detail view.
-	for index := 1; index < len(metadataLines); index++ {
-		metadataLines[index] = ansi.Cut(metadataLines[index], 1, ansi.StringWidth(metadataLines[index]))
-	}
-
-	// Keep every identity field inside the shared frame height. On short
-	// terminals, remove blank lines before reducing the useful content.
-	for index := len(metadataLines) - 1; len(metadataLines) > contentHeight && index >= 0; index-- {
-		if metadataLines[index] == "" {
-			metadataLines = append(metadataLines[:index], metadataLines[index+1:]...)
-		}
-	}
-
-	metadataContent := lipgloss.NewStyle().
-		Width(metadataContentWidth).
-		Height(contentHeight).
-		Render(clipLines(strings.Join(metadataLines, "\n"), metadataContentWidth))
-	metadata := frameStyle.Render(metadataContent)
-	preview := frameStyle.Render(model.previewView(previewWidth-frameStyle.GetHorizontalFrameSize(), contentHeight, false))
+	preview := previewStyle.Render(model.previewView(previewWidth-previewStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
+	// The reference has a flat metadata panel. Its heading starts on the same
+	// terminal row as the preview's top border, with no extra inset above it.
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", preview)
 }

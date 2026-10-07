@@ -45,7 +45,7 @@ func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
 	if strings.Contains(screen, "failed.go") || !strings.Contains(screen, "+verified change") {
 		t.Fatalf("wrong completed edit:\n%s", screen)
 	}
-	assertDetailFramesAligned(t, screen)
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("idle-diff")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
@@ -68,7 +68,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
 	}
-	assertDetailFramesAligned(t, screen)
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
@@ -92,14 +92,14 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	screen := fixture.waitText("Waiting for output")
-	assertDetailFramesAligned(t, screen)
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
 	}
 	screen = fixture.waitText("Preview unavailable")
-	assertDetailFramesAligned(t, screen)
+	assertReferenceDetailLayout(t, screen)
 	for _, redundant := range []string{"Checked ", "EDIT PREVIEW", "LIVE ACTIVITY", "v: expand"} {
 		if strings.Contains(screen, redundant) {
 			t.Fatalf("unavailable preview contains redundant content %q", redundant)
@@ -111,7 +111,7 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	}
 	fixture.setState("codex", agent.StateIdle)
 	screen = fixture.waitText("No edits yet")
-	assertDetailFramesAligned(t, screen)
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("no-edits")
 }
 
@@ -157,38 +157,35 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 	fixture.capture("updates-acknowledged")
 }
 
-// Check the drawn boundaries, including empty previews that have no heading.
-func assertDetailFramesAligned(t *testing.T, screen string) {
+// The reference frames only the preview; the metadata heading shares its top row.
+func assertReferenceDetailLayout(t *testing.T, screen string) {
 	t.Helper()
-	top, bottom, heading, sessionRow := -1, -1, -1, -1
-	for row, line := range strings.Split(screen, "\n") {
-		if strings.Count(line, "╭") == 2 && strings.Count(line, "╮") == 2 {
-			top = row
-		}
-		if strings.Count(line, "╰") == 2 && strings.Count(line, "╯") == 2 {
-			bottom = row
-		}
+	lines := strings.Split(screen, "\n")
+	heading, bottom, sessionRow := -1, -1, -1
+	for row, line := range lines {
 		if strings.Contains(line, "SELECTED SESSION") {
 			heading = row
 		}
 		if strings.Contains(line, "Session ") {
 			sessionRow = row
 		}
+		if strings.Contains(line, "╯") && !strings.HasPrefix(line, "╰") {
+			bottom = row
+		}
 	}
-	if top < 0 || bottom <= top || heading != top+1 || sessionRow <= heading || sessionRow >= bottom {
-		t.Fatalf("details and preview frames do not align or contain the metadata: top=%d bottom=%d heading=%d session=%d\n%s", top, bottom, heading, sessionRow, screen)
+	if heading < 0 || bottom <= heading || sessionRow <= heading || sessionRow > bottom {
+		t.Fatalf("reference detail layout is missing or clipped:\n%s", screen)
 	}
-	lines := strings.Split(screen, "\n")
+	topLine, bottomLine := lines[heading], lines[bottom]
+	if strings.Count(topLine, "╭") != 1 || strings.Count(topLine, "╮") != 1 ||
+		strings.Count(bottomLine, "╰") != 1 || strings.Count(bottomLine, "╯") != 1 {
+		t.Fatalf("only the preview should be framed, starting beside the metadata heading:\n%s", screen)
+	}
 	for _, corners := range [][2]string{{"╭", "╰"}, {"╮", "╯"}} {
-		topLine, bottomLine := lines[top], lines[bottom]
-		for range 2 {
-			topIndex := strings.Index(topLine, corners[0])
-			bottomIndex := strings.Index(bottomLine, corners[1])
-			if lipgloss.Width(topLine[:topIndex]) != lipgloss.Width(bottomLine[:bottomIndex]) {
-				t.Fatal("detail frame corners do not share the same columns")
-			}
-			topLine = topLine[topIndex+len(corners[0]):]
-			bottomLine = bottomLine[bottomIndex+len(corners[1]):]
+		topIndex := strings.Index(topLine, corners[0])
+		bottomIndex := strings.Index(bottomLine, corners[1])
+		if lipgloss.Width(topLine[:topIndex]) != lipgloss.Width(bottomLine[:bottomIndex]) {
+			t.Fatal("preview corners do not share the same columns")
 		}
 	}
 }
