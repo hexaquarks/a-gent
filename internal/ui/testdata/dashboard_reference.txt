@@ -1,7 +1,7 @@
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  VIEWS                 │ SESSIONS (6 of 6)                                                    Last active ↓  |  LIVE │
+│  VIEWS                 │  SESSIONS (6 of 6)                                                  Last active ↓  |  LIVE  │
 │    Attention        1  │                                                                                             │
 │    Active           1  │      Agent       Session                                Status             Last active ↓    │
 │    Recent           5  │      claude      Investigate terminal notifications     ● Running                     4s    │
