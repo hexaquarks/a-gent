@@ -45,6 +45,7 @@ func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
 	if strings.Contains(screen, "failed.go") || !strings.Contains(screen, "+verified change") {
 		t.Fatalf("wrong completed edit:\n%s", screen)
 	}
+	assertDetailFramesAligned(t, screen)
 	fixture.capture("idle-diff")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
@@ -67,41 +68,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
 	}
-	separatorEnd, boxEnd := -1, -1
-	boxBottom, directoryRow, sessionRow := -1, -1, -1
-	metadataHeadingRow, previewHeadingRow := -1, -1
-	for row, line := range strings.Split(screen, "\n") {
-		if strings.Contains(line, "SELECTED SESSION") {
-			metadataHeadingRow = row
-		}
-		if strings.Contains(line, "│ LIVE ACTIVITY") {
-			previewHeadingRow = row
-		}
-		if strings.Contains(line, "│─") {
-			separatorEnd = lipgloss.Width(strings.TrimRight(line, " "))
-		}
-		if strings.Contains(line, "╮") {
-			boxEnd = lipgloss.Width(strings.TrimRight(line, " "))
-		}
-		if strings.Contains(line, "╯") && !strings.HasPrefix(line, "╰") {
-			boxBottom = row
-		}
-		if strings.Contains(line, "Directory") {
-			directoryRow = row
-		}
-		if strings.Contains(line, "Session ") {
-			sessionRow = row
-		}
-	}
-	if metadataHeadingRow < 0 || metadataHeadingRow != previewHeadingRow {
-		t.Fatal("selected-session and padded preview headings do not align")
-	}
-	if boxEnd < 0 || boxEnd != separatorEnd {
-		t.Fatalf("preview ends at %d; separator ends at %d", boxEnd, separatorEnd)
-	}
-	if sessionRow > boxBottom || sessionRow < 0 || directoryRow != sessionRow-1 {
-		t.Fatalf("identity fields are not consecutive or extend below the preview: directory=%d session=%d bottom=%d", directoryRow, sessionRow, boxBottom)
-	}
+	assertDetailFramesAligned(t, screen)
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
@@ -124,13 +91,15 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture := newDashboardFixture(t)
-	fixture.waitText("Waiting for output")
+	screen := fixture.waitText("Waiting for output")
+	assertDetailFramesAligned(t, screen)
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
 	}
-	screen := fixture.waitText("Preview unavailable")
+	screen = fixture.waitText("Preview unavailable")
+	assertDetailFramesAligned(t, screen)
 	for _, redundant := range []string{"Checked ", "EDIT PREVIEW", "LIVE ACTIVITY", "v: expand"} {
 		if strings.Contains(screen, redundant) {
 			t.Fatalf("unavailable preview contains redundant content %q", redundant)
@@ -141,7 +110,8 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture.setState("codex", agent.StateIdle)
-	fixture.waitText("No edits yet")
+	screen = fixture.waitText("No edits yet")
+	assertDetailFramesAligned(t, screen)
 	fixture.capture("no-edits")
 }
 
@@ -185,4 +155,40 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 		t.Fatal("acknowledgement did not update the header count")
 	}
 	fixture.capture("updates-acknowledged")
+}
+
+// Check the drawn boundaries, including empty previews that have no heading.
+func assertDetailFramesAligned(t *testing.T, screen string) {
+	t.Helper()
+	top, bottom, heading, sessionRow := -1, -1, -1, -1
+	for row, line := range strings.Split(screen, "\n") {
+		if strings.Count(line, "╭") == 2 && strings.Count(line, "╮") == 2 {
+			top = row
+		}
+		if strings.Count(line, "╰") == 2 && strings.Count(line, "╯") == 2 {
+			bottom = row
+		}
+		if strings.Contains(line, "SELECTED SESSION") {
+			heading = row
+		}
+		if strings.Contains(line, "Session ") {
+			sessionRow = row
+		}
+	}
+	if top < 0 || bottom <= top || heading != top+1 || sessionRow <= heading || sessionRow >= bottom {
+		t.Fatalf("details and preview frames do not align or contain the metadata: top=%d bottom=%d heading=%d session=%d\n%s", top, bottom, heading, sessionRow, screen)
+	}
+	lines := strings.Split(screen, "\n")
+	for _, corners := range [][2]string{{"╭", "╰"}, {"╮", "╯"}} {
+		topLine, bottomLine := lines[top], lines[bottom]
+		for range 2 {
+			topIndex := strings.Index(topLine, corners[0])
+			bottomIndex := strings.Index(bottomLine, corners[1])
+			if lipgloss.Width(topLine[:topIndex]) != lipgloss.Width(bottomLine[:bottomIndex]) {
+				t.Fatal("detail frame corners do not share the same columns")
+			}
+			topLine = topLine[topIndex+len(corners[0]):]
+			bottomLine = bottomLine[bottomIndex+len(corners[1]):]
+		}
+	}
 }

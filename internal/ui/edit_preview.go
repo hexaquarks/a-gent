@@ -298,19 +298,33 @@ func (model Model) detailWithPreview() string {
 	}
 	previewWidth := min(42, width*3/8)
 	metadataWidth := width - previewWidth - 1
-	metadataLines := strings.Split(model.detailView(), "\n")
-	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
-	boxStyle := lipgloss.NewStyle().
+	frameStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(colorDivider)).
 		Padding(0, 1)
-	box := boxStyle.Render(model.previewView(previewWidth-boxStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
-	// Match the metadata heading to the preview's first text row, below its border.
-	metadataLines = append([]string{""}, metadataLines...)
-	if len(metadataLines) > lipgloss.Height(box) {
-		// Short terminals give up the blank after the name to retain every field.
-		metadataLines = append(metadataLines[:4], metadataLines[5:]...)
+	contentHeight := model.inlinePreviewHeight()
+	metadataContentWidth := metadataWidth - frameStyle.GetHorizontalFrameSize()
+	metadataLines := strings.Split(model.detailView(), "\n")
+	metadataLines[0] = sectionBar("SELECTED SESSION", metadataContentWidth, model.panelTitleStyle())
+
+	// The frame supplies the inset used directly by the compact detail view.
+	for index := 1; index < len(metadataLines); index++ {
+		metadataLines[index] = ansi.Cut(metadataLines[index], 1, ansi.StringWidth(metadataLines[index]))
 	}
-	metadata := lipgloss.NewStyle().Width(metadataWidth).Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", box)
+
+	// Keep every identity field inside the shared frame height. On short
+	// terminals, remove blank lines before reducing the useful content.
+	for index := len(metadataLines) - 1; len(metadataLines) > contentHeight && index >= 0; index-- {
+		if metadataLines[index] == "" {
+			metadataLines = append(metadataLines[:index], metadataLines[index+1:]...)
+		}
+	}
+
+	metadataContent := lipgloss.NewStyle().
+		Width(metadataContentWidth).
+		Height(contentHeight).
+		Render(clipLines(strings.Join(metadataLines, "\n"), metadataContentWidth))
+	metadata := frameStyle.Render(metadataContent)
+	preview := frameStyle.Render(model.previewView(previewWidth-frameStyle.GetHorizontalFrameSize(), contentHeight, false))
+	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", preview)
 }
