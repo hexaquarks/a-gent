@@ -2,6 +2,12 @@
   a-gent
 </h1>
 
+<p align="center">
+  <a href="https://github.com/hexaquarks/a-gent/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/hexaquarks/a-gent/tests.yml?branch=main&amp;label=tests" /></a>
+  <a href="https://app.codecov.io/gh/hexaquarks/a-gent"><img alt="Coverage" src="https://img.shields.io/codecov/c/github/hexaquarks/a-gent/main" /></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/hexaquarks/a-gent?logo=go" /></a>
+</p>
+
 a-gent is a small terminal dashboard for keeping track of Codex and Claude Code
 sessions across projects. See which agents are working or waiting for you, preview
 their activity and file edits, and jump to their tmux panes.
