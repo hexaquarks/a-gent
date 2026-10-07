@@ -157,11 +157,11 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 	fixture.capture("updates-acknowledged")
 }
 
-// The preview top edge shares a row with the filled metadata heading.
+// Both detail columns start with a heading and share a continuous divider.
 func assertReferenceDetailLayout(t *testing.T, screen string) {
 	t.Helper()
 	lines := strings.Split(screen, "\n")
-	heading, bottom, sessionRow := -1, -1, -1
+	heading, sessionRow := -1, -1
 	for row, line := range lines {
 		if strings.Contains(line, "SELECTED SESSION") {
 			heading = row
@@ -169,33 +169,28 @@ func assertReferenceDetailLayout(t *testing.T, screen string) {
 		if strings.Contains(line, "Session ") {
 			sessionRow = row
 		}
-		if strings.Contains(line, "🭿") {
-			bottom = row
+	}
+	if heading < 0 || sessionRow <= heading {
+		t.Fatalf("detail layout is missing or clipped:\n%s", screen)
+	}
+	title := lines[heading]
+	if !strings.Contains(title, "LAST EDIT") && !strings.Contains(title, "LIVE ACTIVITY") && !strings.Contains(title, "PREVIEW") {
+		t.Fatalf("preview and metadata headings must share a row:\n%s", screen)
+	}
+	headingColumn := strings.Index(title, "SELECTED SESSION")
+	separator := strings.Index(title[headingColumn:], "│") + headingColumn
+	if separator < strings.Index(title, "SELECTED SESSION") {
+		t.Fatal("missing detail divider")
+	}
+	column := lipgloss.Width(title[:separator])
+	for _, line := range lines[heading : sessionRow+1] {
+		cells := []rune(line)
+		// Fixture content before the divider uses single-cell characters.
+		if len(cells) <= column || cells[column] != '│' {
+			t.Fatalf("detail divider is not continuous:\n%s", screen)
 		}
-	}
-	if heading < 1 || bottom <= heading || sessionRow <= heading || sessionRow > bottom {
-		t.Fatalf("reference detail layout is missing or clipped:\n%s", screen)
-	}
-	for row, line := range lines {
-		if (strings.Contains(line, "LAST EDIT") || strings.Contains(line, "LIVE ACTIVITY")) && row != heading+1 {
-			t.Fatalf("preview title must follow its top border:\n%s", screen)
-		}
-	}
-	topLine, bottomLine := lines[heading], lines[bottom]
-	if strings.Count(topLine, "🭽") != 1 || strings.Count(topLine, "🭾") != 1 ||
-		strings.Count(bottomLine, "🭼") != 1 || strings.Count(bottomLine, "🭿") != 1 {
-		t.Fatalf("only the preview should be framed, starting beside the heading band:\n%s", screen)
-	}
-	for _, corners := range [][2]string{{"🭽", "🭼"}, {"🭾", "🭿"}} {
-		topIndex := strings.Index(topLine, corners[0])
-		bottomIndex := strings.Index(bottomLine, corners[1])
-		if lipgloss.Width(topLine[:topIndex]) != lipgloss.Width(bottomLine[:bottomIndex]) {
-			t.Fatal("preview corners do not share the same columns")
-		}
-	}
-	for _, line := range lines[heading+1 : bottom] {
-		if strings.Count(line, "▏") != 1 || strings.Count(line, "▕") != 1 {
-			t.Fatalf("preview sides must span every interior row:\n%s", screen)
+		if strings.ContainsAny(line, "🭽🭾🭼🭿▔▁▏▕") {
+			t.Fatal("preview still has a box border")
 		}
 	}
 }

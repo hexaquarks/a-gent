@@ -275,7 +275,7 @@ func clipLines(text string, width int) string {
 }
 
 func (model Model) detailWithPreview() string {
-	// The preview border ends at the same column as the panel's separator.
+	// The preview ends at the same column as the panel separator.
 	width := max(1, model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize())
 	// Below this width metadata and a readable hunk cannot share a row. Keep a
 	// one-line preview status, with the same expansion shortcut, under metadata.
@@ -303,15 +303,22 @@ func (model Model) detailWithPreview() string {
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
 		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	// One-eighth blocks join at the cell edges, keeping the frame continuous
-	// and its top aligned with the filled metadata heading.
-	previewBorder := lipgloss.Border{
-		Top: "▔", Bottom: "▁", Left: "▏", Right: "▕",
-		TopLeft: "🭽", TopRight: "🭾", BottomLeft: "🭼", BottomRight: "🭿",
+	previewHeight := max(lipgloss.Height(metadata), model.inlinePreviewHeight()+2)
+	preview := lipgloss.NewStyle().Padding(0, 1).Render(model.inlinePreviewPanel(previewWidth-2, previewHeight))
+	divider := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.TrimSuffix(strings.Repeat("│\n", previewHeight), "\n"))
+	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, divider, preview)
+}
+
+// inlinePreviewPanel gives every preview state a heading aligned with metadata.
+func (model Model) inlinePreviewPanel(width, height int) string {
+	session, selected := model.selectedSession()
+	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+	var lines []string
+	if selected && (cached.edit != nil || model.showActivity(session, cached)) {
+		lines = strings.Split(model.previewView(width, height, false), "\n")
+	} else {
+		lines = append([]string{accentStyle.Render("PREVIEW")}, strings.Split(model.previewView(width, height-1, false), "\n")...)
 	}
-	previewStyle := lipgloss.NewStyle().
-		Border(previewBorder).
-		BorderForeground(lipgloss.Color(colorDivider))
-	preview := previewStyle.Render(model.previewView(previewWidth-previewStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
-	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", preview)
+	lines[0] = sectionBar(ansi.Strip(lines[0]), width, accentStyle)
+	return strings.Join(lines, "\n")
 }
