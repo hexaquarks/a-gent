@@ -14,14 +14,14 @@
 │    codex           5   │      codex       Untitled session                         ● Idle                       13m  │
 │                        │─────────────────────────────────────────────────────────────────────────────────────────────│
 │  PROJECTS (4)          │  SELECTED SESSION                                         ╭────────────────────────────────╮│
-│    mihailanghel…   1 ★ │                                                           │ LAST EDIT               1m ago ││
-│  ● a-gent          2   │  Restore response navigation                              │ internal/navigation.go         ││
-│  ● codex-audit     1   │                                                           │ @@ openSession                 ││
-│  ● swiftyprompt    2   │  Agent      codex                                         │  if session != nil {           ││
-│                        │  Status     ● Idle                                        │ -    navigator.Open(cwd)       ││
-│                        │  Project    swiftyprompt                                  │ +    navigator.Navigate(       ││
-│                        │  Directory  /projects/swiftyprompt                        │ +        ctx, session,         ││
-│ ────────────────────── │  Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e          │ +3 −1 … truncated     v expand ││
+│    mihailanghel…   1 ★ │                                                           │LAST EDIT                 1m ago││
+│  ● a-gent          2   │  Restore response navigation                              │internal/navigation.go          ││
+│  ● codex-audit     1   │                                                           │@@ openSession                  ││
+│  ● swiftyprompt    2   │  Agent      codex                                         │ if session != nil {            ││
+│                        │  Status     ● Idle                                        │-    navigator.Open(cwd)        ││
+│                        │  Project    swiftyprompt                                  │+    navigator.Navigate(        ││
+│                        │  Directory  /projects/swiftyprompt                        │+        ctx, session,          ││
+│ ────────────────────── │  Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e          │+3 −1 … truncated       v expand││
 │ / find · p pin         │                                                           ╰────────────────────────────────╯│
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  tab  focus    j/k  browse    enter  open    s  sort    f  hold order    v  preview    q  quit                       │
