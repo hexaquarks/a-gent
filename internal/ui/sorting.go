@@ -134,8 +134,8 @@ func (model Model) sessionHeadingView() string {
 	sortLabel := model.sort.column + " " + model.sort.arrow()
 	indicator := sectionBar(sortLabel, lipgloss.Width(sortLabel), accentStyle) +
 		sectionBar("  |  ", 5, mutedStyle) +
-		sectionBar(mode, 4, accentStyle)
-	title := sectionBar(model.sessionTitle(), max(1, width-lipgloss.Width(indicator)), model.panelTitleStyle())
+		sectionBar(mode+" ", 5, accentStyle)
+	title := sectionBar(" "+model.sessionTitle(), max(1, width-lipgloss.Width(indicator)), model.panelTitleStyle())
 	return title + indicator
 }
 

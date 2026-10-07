@@ -65,7 +65,7 @@ func referenceDashboard() Model {
 		{
 			ID:               "codex-untitled",
 			Provider:         "codex",
-			Name:             "Untitled session",
+			Name:             "",
 			State:            agent.StateIdle,
 			WorkingDirectory: "/projects/swiftyprompt",
 			LastActiveAt:     now.Add(-785 * time.Second),
@@ -100,7 +100,7 @@ func TestDashboardReferenceLayout(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"1 running", "1 needs input", "2 unseen", "Updates", "SESSIONS (6 of 6)",
-		"Needs input", "SELECTED SESSION", "LAST EDIT", "internal/navigation.go",
+		"Untitled session", "Needs input", "SELECTED SESSION", "LAST EDIT", "internal/navigation.go",
 		"@@ openSession", "+3 −1", "v expand", "hold order", model.sessions[2].ID,
 	} {
 		if !strings.Contains(plain, expected) {
@@ -109,6 +109,9 @@ func TestDashboardReferenceLayout(t *testing.T) {
 	}
 	headingRow := -1
 	for index, line := range strings.Split(plain, "\n") {
+		if strings.Contains(line, "SELECTED SESSION") && !strings.Contains(line, "LAST EDIT") {
+			t.Error("selected-session and preview headings must share a row")
+		}
 		if lipgloss.Width(line) != PopupWidth {
 			t.Errorf("row %d is %d cells wide", index, lipgloss.Width(line))
 		}
@@ -119,8 +122,8 @@ func TestDashboardReferenceLayout(t *testing.T) {
 			}
 		}
 	}
-	if headingRow < 0 {
-		t.Fatal("missing sidebar heading")
+	if headingRow != 3 {
+		t.Fatal("sidebar and session headings must immediately follow the top divider")
 	}
 	writeReferenceCapture(t, view, plain)
 	expected, err := os.ReadFile("testdata/dashboard_reference.txt")
@@ -184,5 +187,31 @@ func TestCompactFooterKeepsAllActionsAndFrameVisible(t *testing.T) {
 				t.Errorf("%v: footer lost %s: %q", size, key, footer)
 			}
 		}
+	}
+}
+
+func TestDashboardScrollbarLayouts(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+	destination := os.Getenv("A_GENT_TEST_ARTIFACTS")
+	for _, cursor := range []int{0, 15, 29} {
+		t.Run(fmt.Sprintf("cursor-%d", cursor), func(t *testing.T) {
+			model := referenceDashboard()
+			for len(model.sessions) < 30 {
+				index := len(model.sessions)
+				model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Provider: "codex", Name: fmt.Sprintf("Additional session %02d", index), State: agent.StateIdle})
+			}
+			model.updateTableRows()
+			model.table.SetCursor(cursor)
+			view := model.View()
+			if lipgloss.Width(view) != PopupWidth || lipgloss.Height(view) != PopupHeight {
+				t.Fatal("scrollable dashboard changed dimensions")
+			}
+			if destination != "" {
+				t.Setenv("A_GENT_TEST_ARTIFACTS", filepath.Join(destination, fmt.Sprintf("scroll-%d", cursor)))
+				writeReferenceCapture(t, view, ansi.Strip(view))
+			}
+		})
 	}
 }

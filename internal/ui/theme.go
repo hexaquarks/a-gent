@@ -11,17 +11,18 @@ import (
 )
 
 const (
-	colorBackground = "#0C1112"
-	colorMainText   = "#EDF2F4"
-	colorSecondary  = "#A7B3C5"
-	colorAccent     = "#59DFF0"
-	colorSelection  = "#183740"
-	colorAgent      = "#BC80FF"
-	colorRunning    = "#A3EF78"
-	colorAttention  = "#FFCA64"
-	colorError      = "#FF6D7A"
-	colorSection    = "#202B2D"
-	colorDivider    = "#354548"
+	colorBackground  = "#0C1112"
+	colorMainText    = "#EDF2F4"
+	colorSecondary   = "#A7B3C5"
+	colorAccent      = "#59DFF0"
+	colorSelection   = "#183740"
+	colorAgent       = "#BC80FF"
+	colorRunning     = "#A3EF78"
+	colorAttention   = "#FFCA64"
+	colorError       = "#FF6D7A"
+	colorSection     = "#202B2D"
+	colorTableHeader = "#2D3B3E"
+	colorDivider     = "#354548"
 )
 
 var (
@@ -43,12 +44,12 @@ var (
 			BorderRight(true).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color(colorDivider)).
-			Padding(1, 1, 0, 1).
+			Padding(0, 1).
 			Width(sidebarContentWidth)
 	panelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorMainText)).
 			Background(lipgloss.Color(colorBackground)).
-			Padding(1, 1, 0, 1)
+			Padding(0, 1)
 	detailStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color(colorBackground)).
 			BorderTop(true).

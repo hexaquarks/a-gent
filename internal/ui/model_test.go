@@ -169,7 +169,7 @@ func TestSessionListRendersEmptyRowPlaceholders(t *testing.T) {
 	}
 
 	tableView := model.sessionTableView()
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+2; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
@@ -180,10 +180,10 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 	model.resizeTable()
 
 	tableView := model.sessionTableView()
-	if !strings.Contains(tableView, "No live sessions found.") {
+	if !strings.Contains(tableView, "No live sessions") {
 		t.Fatal("empty session list does not explain that no sessions were found")
 	}
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+2; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
@@ -192,8 +192,8 @@ func TestSessionTableSeparatesTitleHeaderAndRows(t *testing.T) {
 	model := NewModel(nil)
 	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
 	tableView := model.sessionTableView()
-	if !strings.Contains(tableView, "Status") || !strings.Contains(tableView, "\n\n") || !strings.Contains(tableView, "›    codex") {
-		t.Fatalf("table header and body do not have visual separation:\n%s", tableView)
+	if !strings.Contains(tableView, "Status") || !strings.Contains(strings.Split(tableView, "\n")[1], "Example") || !strings.Contains(tableView, "›    codex") {
+		t.Fatalf("first session must immediately follow the column header:\n%s", tableView)
 	}
 	view := model.View()
 	titleLine, headerLine := -1, -1
@@ -240,8 +240,8 @@ func TestSelectionCursorKeepsAgentNamesAligned(t *testing.T) {
 		if []rune(selected)[0] != '›' || string([]rune(selected)[1:]) != string([]rune(unselected)[1:]) {
 			t.Fatalf("width %d: selection changed content outside the cursor column", width)
 		}
-		wantWidth := width - panelStyle.GetHorizontalFrameSize()
-		for _, row := range []string{selected, unselected, model.emptySessionRowView(columns, false), strings.Split(model.sessionTableView(), "\n")[0]} {
+		wantWidth := width - panelStyle.GetHorizontalFrameSize() - scrollbarGutterWidth
+		for _, row := range []string{selected, unselected, model.emptySessionRowView(columns, false)} {
 			if got := lipgloss.Width(row); got != wantWidth {
 				t.Fatalf("width %d: rendered row width = %d, want %d", width, got, wantWidth)
 			}
@@ -282,7 +282,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
 	}
-	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " ● a-gent") || !strings.HasSuffix(row, "  2  ") {
+	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " ● a-gent") || !strings.HasSuffix(row, "  2 ") {
 		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
 	}
 }
@@ -382,5 +382,16 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	if model.selectedProject != "" || model.selectedView != activeView {
 		t.Fatal("Enter did not replace the project filter with the view")
+	}
+}
+
+func TestUnnamedSessionHasFallbackInTableAndDetails(t *testing.T) {
+	for _, name := range []string{"", "   ", "\t\n"} {
+		model := NewModel(nil)
+		model.sessions = []agent.Session{{ID: "unnamed", Provider: "codex", Name: name}}
+		model.updateTableRows()
+		if !strings.Contains(model.sessionTableView(), "Untitled session") || !strings.Contains(model.detailView(), "Untitled session") {
+			t.Fatalf("missing fallback for name %q", name)
+		}
 	}
 }
