@@ -140,9 +140,10 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 		t.Fatal("resuming order lost the selected preview")
 	}
 	fixture.key("Tab")
-	fixture.key("j") // Active
-	fixture.key("j") // Recent
-	fixture.key("j") // Updates
+	// Arrow sequences stay separate when the terminal batches rapid key presses.
+	fixture.key("Down") // Active
+	fixture.key("Down") // Recent
+	fixture.key("Down") // Updates
 	fixture.key("Enter")
 	fixture.key("Tab")
 	screen = fixture.waitText("SESSIONS (1 of 1)")

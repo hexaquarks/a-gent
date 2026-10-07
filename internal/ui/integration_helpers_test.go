@@ -144,13 +144,16 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 			fixture.key("q")
 			deadline := time.Now().Add(5 * time.Second)
 			for time.Now().Before(deadline) {
-				state, err := fixture.tmuxOutput("display-message", "-p", "-t", "dashboard:0.0", "#{pane_dead}:#{pane_dead_status}")
+				state, err := fixture.tmuxOutput("display-message", "-p", "-t", "dashboard:0.0", "#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}")
 				if err != nil {
 					t.Errorf("inspect dashboard exit: %v", err)
 					break
 				}
-				if strings.HasPrefix(state, "1:") {
-					if strings.TrimSpace(state) != "1:0" {
+				// The terminal can close before tmux collects the child's exit status.
+				// Wait for either an exit code or a signal before judging shutdown.
+				fields := strings.Split(strings.TrimSpace(state), ":")
+				if len(fields) == 3 && fields[0] == "1" && (fields[1] != "" || fields[2] != "") {
+					if fields[1] != "0" || fields[2] != "" {
 						t.Errorf("dashboard failed on exit: %s", state)
 						fixture.capture("exit-failure")
 					}
