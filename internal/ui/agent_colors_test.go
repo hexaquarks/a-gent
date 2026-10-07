@@ -8,7 +8,6 @@ import (
 	"a-gent/internal/agent"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
 )
 
@@ -75,29 +74,45 @@ func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 }
 
 func TestScrollbarTracksVisibleSessionsWithoutChangingWidth(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
 	model := NewModel(nil)
 	for index := 0; index < 30; index++ {
 		model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Name: "Example"})
 	}
 	model.updateTableRows()
-	first := strings.Split(ansi.Strip(model.sessionTableView()), "\n")
-	if !strings.HasSuffix(first[2], "┃") {
-		t.Fatal("scroll thumb does not start at top")
-	}
-	model.table.SetCursor(29)
-	last := strings.Split(ansi.Strip(model.sessionTableView()), "\n")
-	if !strings.HasSuffix(last[len(last)-1], "┃") || !strings.HasSuffix(last[2], "│") {
-		t.Fatal("scroll thumb did not reach bottom")
-	}
-	for _, row := range last {
-		if row != "" && lipgloss.Width(row) != lipgloss.Width(first[0]) {
-			t.Fatal("scrollbar changes row width")
+	thumb := lipgloss.NewStyle().Foreground(lipgloss.Color(colorAccent)).Background(lipgloss.Color(colorBackground)).Render("┃")
+	track := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Background(lipgloss.Color(colorBackground)).Render("┃")
+	for _, cursor := range []int{0, 15, 29} {
+		model.table.SetCursor(cursor)
+		rows := strings.Split(model.sessionTableView(), "\n")
+		start, end := model.visibleSessionRange()
+		for index := start; index < end; index++ {
+			row := rows[index-start+1]
+			cells := model.sessionRowView(index, model.table.Columns())
+			if !strings.HasPrefix(row, cells+" ") {
+				t.Fatalf("scrollbar overlaps session cells: %q", row)
+			}
+			if lipgloss.Width(row) != lipgloss.Width(rows[0]) {
+				t.Fatal("scrollbar changes row width")
+			}
+		}
+		if cursor == 0 && !strings.HasSuffix(rows[1], thumb) {
+			t.Fatal("thumb must start at top")
+		}
+		if cursor == 15 && (!strings.HasSuffix(rows[1], track) || !strings.HasSuffix(rows[len(rows)-1], track)) {
+			t.Fatal("middle thumb must leave track on both sides")
+		}
+		if cursor == 29 && (!strings.HasSuffix(rows[1], track) || !strings.HasSuffix(rows[len(rows)-1], thumb)) {
+			t.Fatal("thumb must reach bottom")
 		}
 	}
 	model.sessions = model.sessions[:1]
 	model.updateTableRows()
-	if strings.Contains(model.sessionTableView(), "┃") {
-		t.Fatal("short list renders scrollbar")
+	rows := strings.Split(model.sessionTableView(), "\n")
+	if strings.Contains(model.sessionTableView(), "┃") || !strings.HasSuffix(rows[1], "  ") {
+		t.Fatal("short lists must reserve a blank scrollbar gutter")
 	}
 }
 

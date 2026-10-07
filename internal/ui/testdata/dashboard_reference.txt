@@ -3,13 +3,13 @@
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  VIEWS                 │ SESSIONS (6 of 6)                                                    Last active ↓  |  LIVE │
 │    Attention         1 │                                                                                             │
-│    Active            1 │      Agent       Session                                  Status             Last active ↓  │
-│    Recent            5 │      claude      Investigate terminal notifications       ● Running                     4s  │
-│    Updates           2 │   ●  codex       Investigate AGENTS.md override           ● Needs input                18s  │
-│  ● All               6 │ › ●  codex       Restore response navigation              ● Idle                        1m  │
-│                        │      codex       Align selected agent cursor              ● Idle                        2m  │
-│  AGENTS                │      codex       Add Claude session discovery             ● Idle                        8m  │
-│    claude            1 │      codex       Untitled session                         ● Idle                       13m  │
+│    Active            1 │      Agent       Session                                Status             Last active ↓    │
+│    Recent            5 │      claude      Investigate terminal notifications     ● Running                     4s    │
+│    Updates           2 │   ●  codex       Investigate AGENTS.md override         ● Needs input                18s    │
+│  ● All               6 │ › ●  codex       Restore response navigation            ● Idle                        1m    │
+│                        │      codex       Align selected agent cursor            ● Idle                        2m    │
+│  AGENTS                │      codex       Add Claude session discovery           ● Idle                        8m    │
+│    claude            1 │      codex       Untitled session                       ● Idle                       13m    │
 │    codex             5 │                                                                                             │
 │                        │─────────────────────────────────────────────────────────────────────────────────────────────│
 │  PROJECTS (4)          │  SELECTED SESSION                                        │  LAST EDIT               1m ago  │

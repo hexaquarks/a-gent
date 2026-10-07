@@ -189,3 +189,29 @@ func TestCompactFooterKeepsAllActionsAndFrameVisible(t *testing.T) {
 		}
 	}
 }
+
+func TestDashboardScrollbarLayouts(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+	destination := os.Getenv("A_GENT_TEST_ARTIFACTS")
+	for _, cursor := range []int{0, 15, 29} {
+		t.Run(fmt.Sprintf("cursor-%d", cursor), func(t *testing.T) {
+			model := referenceDashboard()
+			for len(model.sessions) < 30 {
+				index := len(model.sessions)
+				model.sessions = append(model.sessions, agent.Session{ID: fmt.Sprint(index), Provider: "codex", Name: fmt.Sprintf("Additional session %02d", index), State: agent.StateIdle})
+			}
+			model.updateTableRows()
+			model.table.SetCursor(cursor)
+			view := model.View()
+			if lipgloss.Width(view) != PopupWidth || lipgloss.Height(view) != PopupHeight {
+				t.Fatal("scrollable dashboard changed dimensions")
+			}
+			if destination != "" {
+				t.Setenv("A_GENT_TEST_ARTIFACTS", filepath.Join(destination, fmt.Sprintf("scroll-%d", cursor)))
+				writeReferenceCapture(t, view, ansi.Strip(view))
+			}
+		})
+	}
+}

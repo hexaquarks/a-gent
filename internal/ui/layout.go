@@ -4,8 +4,9 @@ import "github.com/charmbracelet/bubbles/table"
 
 const (
 	selectionCursorWidth = 4
+	scrollbarGutterWidth = 2
 	defaultTableWidth    = 70
-	minimumTableWidth    = 34
+	minimumTableWidth    = 36
 	sidebarContentWidth  = 24
 	maximumSessionRows   = 8
 
@@ -57,7 +58,7 @@ func (model *Model) resizeTable() {
 }
 
 func tableColumns(tableWidth int) []table.Column {
-	tableWidth -= panelStyle.GetHorizontalFrameSize() + selectionCursorWidth
+	tableWidth -= panelStyle.GetHorizontalFrameSize() + selectionCursorWidth + scrollbarGutterWidth
 	if tableWidth < 27 {
 		return []table.Column{{Title: "Session", Width: max(1, tableWidth)}}
 	}

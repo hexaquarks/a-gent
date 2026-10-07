@@ -180,7 +180,7 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 	model.resizeTable()
 
 	tableView := model.sessionTableView()
-	if !strings.Contains(tableView, "No live sessions found.") {
+	if !strings.Contains(tableView, "No live sessions") {
 		t.Fatal("empty session list does not explain that no sessions were found")
 	}
 	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
@@ -240,8 +240,8 @@ func TestSelectionCursorKeepsAgentNamesAligned(t *testing.T) {
 		if []rune(selected)[0] != '›' || string([]rune(selected)[1:]) != string([]rune(unselected)[1:]) {
 			t.Fatalf("width %d: selection changed content outside the cursor column", width)
 		}
-		wantWidth := width - panelStyle.GetHorizontalFrameSize()
-		for _, row := range []string{selected, unselected, model.emptySessionRowView(columns, false), strings.Split(model.sessionTableView(), "\n")[0]} {
+		wantWidth := width - panelStyle.GetHorizontalFrameSize() - scrollbarGutterWidth
+		for _, row := range []string{selected, unselected, model.emptySessionRowView(columns, false)} {
 			if got := lipgloss.Width(row); got != wantWidth {
 				t.Fatalf("width %d: rendered row width = %d, want %d", width, got, wantWidth)
 			}

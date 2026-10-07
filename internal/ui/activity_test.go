@@ -43,7 +43,7 @@ func TestFormatLastActiveAt(t *testing.T) {
 }
 
 func TestRunningSessionActivityUsesProviderTimestamp(t *testing.T) {
-	for _, width := range []int{34, 70, 120} {
+	for _, width := range []int{minimumTableWidth, 70, 120} {
 		model := NewModel(nil)
 		model.table.SetWidth(width)
 		model.table.SetColumns(tableColumns(width))
@@ -91,7 +91,7 @@ func TestRunningSessionActivityUsesProviderTimestamp(t *testing.T) {
 }
 
 func TestLastActiveColumnAcrossTableWidths(t *testing.T) {
-	for _, width := range []int{34, 48, 59, 60, 70, 89, 90, 120} {
+	for _, width := range []int{minimumTableWidth, 48, 59, 60, 70, 89, 90, 120} {
 		model := NewModel(nil)
 		model.table.SetWidth(width)
 		model.table.SetColumns(tableColumns(width))
@@ -115,7 +115,7 @@ func TestLastActiveColumnAcrossTableWidths(t *testing.T) {
 			t.Fatalf("width %d: activity header is truncated: %q", width, header)
 		}
 		row := model.sessionRowView(0, columns)
-		if !strings.Contains(row, "2h") || lipgloss.Width(row) != width-panelStyle.GetHorizontalFrameSize() {
+		if !strings.Contains(row, "2h") || lipgloss.Width(row) != width-panelStyle.GetHorizontalFrameSize()-scrollbarGutterWidth {
 			t.Fatalf("width %d: unexpected activity row (%d cells): %q", width, lipgloss.Width(row), row)
 		}
 	}

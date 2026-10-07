@@ -10,7 +10,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -40,17 +39,22 @@ func (model Model) sessionTableView() string {
 		rows = append(rows, model.emptySessionRowView(columns, placeholderIndex == 0))
 	}
 
+	// Keep the rail outside the cells and selection background. Reserving its
+	// gutter for short lists too prevents columns moving when sessions arrive.
+	for index := range rows {
+		rows[index] += strings.Repeat(" ", scrollbarGutterWidth)
+	}
 	if len(model.filteredSessions()) > model.table.Height() {
 		track := model.table.Height()
 		thumbSize := max(1, track*track/len(model.filteredSessions()))
 		thumbStart := start * (track - thumbSize) / (len(model.filteredSessions()) - track)
 		for index := 0; index < track; index++ {
-			glyph, style := "│", mutedStyle
+			style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Background(lipgloss.Color(colorBackground))
 			if index >= thumbStart && index < thumbStart+thumbSize {
-				glyph, style = "┃", accentStyle
+				style = style.Foreground(lipgloss.Color(colorAccent))
 			}
 			row := rows[index+1]
-			rows[index+1] = ansi.Truncate(row, lipgloss.Width(row)-1, "") + style.Render(glyph)
+			rows[index+1] = strings.TrimSuffix(row, " ") + style.Render("┃")
 		}
 	}
 	return strings.Join(rows, "\n")
