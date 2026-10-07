@@ -207,14 +207,13 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
 	const gutterWidth = 3
 	const pinWidth = 1
-	const nameToPinSpacing = 1
+	const nameToPinSpacing = 3
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - 1
+	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth
 	label := sidebarLabel(name, max(0, nameWidth))
 	return markerStyle.Render(" "+marker+" ") +
-		style.Render(label+strings.Repeat(" ", nameToPinSpacing)) +
-		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)) +
-		style.Render(" "+pin)
+		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
+		countStyle.Render(fmt.Sprintf("%*s", countWidth, count))
 }
 
 // Pad using display cells so Unicode names share the same count column.

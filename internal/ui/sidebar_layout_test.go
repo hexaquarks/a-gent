@@ -23,7 +23,7 @@ func TestSidebarLabelsAndCountsAlign(t *testing.T) {
 			if !strings.HasPrefix(string([]rune(row)[3:]), item.label) {
 				t.Fatalf("name does not start after the fixed gutter: %q", row)
 			}
-			if !strings.HasSuffix(strings.Replace(row, "★", " ", 1), "  1  ") || lipgloss.Width(row) != model.sidebarWidth() {
+			if !strings.HasSuffix(strings.Replace(row, "★", " ", 1), "  1") || lipgloss.Width(row) != model.sidebarWidth() {
 				t.Fatalf("count is misaligned: %q", row)
 			}
 		}
@@ -107,12 +107,15 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 				t.Fatalf("pinning moved or truncated another field: %q versus %q", pinned, unpinned)
 			}
 			countText := fmt.Sprintf("%*d", max(3, len(fmt.Sprint(count))), count)
+			if !strings.HasSuffix(pinned, "★"+countText) {
+				t.Fatalf("favorite star must precede the count: %q", pinned)
+			}
 			for _, row := range []string{
 				pinned, unpinned,
 				ansi.Strip(model.sidebarItemView(sidebarItem{label: name, provider: name}, 0, count)),
 				ansi.Strip(model.sidebarItemView(sidebarItem{label: name, view: activeView}, 0, count)),
 			} {
-				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(strings.Replace(row, "★", " ", 1), countText+"  ") {
+				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(strings.Replace(row, "★", " ", 1), countText) {
 					t.Fatalf("count was truncated or moved: %q", row)
 				}
 				if !strings.HasPrefix(row, "  ") || !strings.Contains(row, "…") {

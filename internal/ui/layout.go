@@ -12,7 +12,7 @@ const (
 	// PopupWidth and PopupHeight keep the dashboard's wide proportions stable
 	// across terminal sizes. tmux clamps these dimensions to the available space.
 	PopupWidth  = 120
-	PopupHeight = 26
+	PopupHeight = 28
 	// PopupContentHeight equals the popup height because the app draws its border.
 	PopupContentHeight = PopupHeight
 )
