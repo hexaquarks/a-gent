@@ -297,7 +297,7 @@ func (model Model) detailWithPreview() string {
 		return clipLines(model.detailView(), width) + "\n" + mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
 	}
 	previewWidth := min(42, width*3/8)
-	metadataWidth := width - previewWidth - 1
+	metadataWidth := width - previewWidth - 2
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
 	metadata := lipgloss.NewStyle().
@@ -306,7 +306,7 @@ func (model Model) detailWithPreview() string {
 	previewHeight := max(lipgloss.Height(metadata), model.inlinePreviewHeight()+2)
 	preview := lipgloss.NewStyle().Padding(0, 1).Render(model.inlinePreviewPanel(previewWidth-2, previewHeight))
 	divider := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.TrimSuffix(strings.Repeat("│\n", previewHeight), "\n"))
-	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, divider, preview)
+	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", divider, preview)
 }
 
 // inlinePreviewPanel gives every preview state a heading aligned with metadata.
@@ -315,9 +315,12 @@ func (model Model) inlinePreviewPanel(width, height int) string {
 	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
 	var lines []string
 	if selected && (cached.edit != nil || model.showActivity(session, cached)) {
-		lines = strings.Split(model.previewView(width, height, false), "\n")
+		lines = strings.Split(model.previewView(width-2, height, false), "\n")
 	} else {
-		lines = append([]string{accentStyle.Render("PREVIEW")}, strings.Split(model.previewView(width, height-1, false), "\n")...)
+		lines = append([]string{accentStyle.Render("PREVIEW")}, strings.Split(model.previewView(width-2, height-1, false), "\n")...)
+	}
+	for index, line := range lines {
+		lines[index] = " " + line + " "
 	}
 	lines[0] = sectionBar(ansi.Strip(lines[0]), width, accentStyle)
 	return strings.Join(lines, "\n")
