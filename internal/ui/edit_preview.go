@@ -300,13 +300,17 @@ func (model Model) detailWithPreview() string {
 	metadataWidth := width - previewWidth - 1
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
-	// The preview's top border occupies a row. Inset the metadata by that
-	// row so the two heading texts share a baseline.
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
-		Render("\n" + clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
+		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
+	// Upper block strokes sit at the cell's top edge, beside the filled
+	// metadata heading. Standard rounded corners join at mid-cell instead.
+	previewBorder := lipgloss.RoundedBorder()
+	previewBorder.Top = "▔"
+	previewBorder.TopLeft = "▔"
+	previewBorder.TopRight = "▔"
 	previewStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(previewBorder).
 		BorderForeground(lipgloss.Color(colorDivider))
 	preview := previewStyle.Render(model.previewView(previewWidth-previewStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", preview)
