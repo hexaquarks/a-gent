@@ -300,14 +300,18 @@ func (model Model) detailWithPreview() string {
 	metadataWidth := width - previewWidth - 1
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
+	if len(metadataLines) > 1 && metadataLines[1] == "" {
+		metadataLines = append(metadataLines[:1], metadataLines[2:]...)
+	}
+	// The preview's top border occupies a row. Inset the metadata by that
+	// row so the two heading texts share a baseline. Move the heading's blank
+	// row above it to keep the session fields clear of the bottom border.
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
-		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
+		Render("\n" + clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
 	previewStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(colorDivider))
 	preview := previewStyle.Render(model.previewView(previewWidth-previewStyle.GetHorizontalFrameSize(), model.inlinePreviewHeight(), false))
-	// The reference has a flat metadata panel. Its heading starts on the same
-	// terminal row as the preview's top border, with no extra inset above it.
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", preview)
 }

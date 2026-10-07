@@ -109,6 +109,9 @@ func TestDashboardReferenceLayout(t *testing.T) {
 	}
 	headingRow := -1
 	for index, line := range strings.Split(plain, "\n") {
+		if strings.Contains(line, "SELECTED SESSION") && !strings.Contains(line, "LAST EDIT") {
+			t.Error("selected-session and preview headings must share the same text row")
+		}
 		if lipgloss.Width(line) != PopupWidth {
 			t.Errorf("row %d is %d cells wide", index, lipgloss.Width(line))
 		}

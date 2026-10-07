@@ -157,7 +157,7 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 	fixture.capture("updates-acknowledged")
 }
 
-// The reference frames only the preview; the metadata heading shares its top row.
+// Only the preview is framed, and populated preview titles align with metadata.
 func assertReferenceDetailLayout(t *testing.T, screen string) {
 	t.Helper()
 	lines := strings.Split(screen, "\n")
@@ -173,13 +173,18 @@ func assertReferenceDetailLayout(t *testing.T, screen string) {
 			bottom = row
 		}
 	}
-	if heading < 0 || bottom <= heading || sessionRow <= heading || sessionRow > bottom {
+	if heading < 1 || bottom <= heading || sessionRow <= heading || sessionRow > bottom {
 		t.Fatalf("reference detail layout is missing or clipped:\n%s", screen)
 	}
-	topLine, bottomLine := lines[heading], lines[bottom]
+	for row, line := range lines {
+		if (strings.Contains(line, "LAST EDIT") || strings.Contains(line, "LIVE ACTIVITY")) && row != heading {
+			t.Fatalf("preview title and selected-session heading must share a row:\n%s", screen)
+		}
+	}
+	topLine, bottomLine := lines[heading-1], lines[bottom]
 	if strings.Count(topLine, "╭") != 1 || strings.Count(topLine, "╮") != 1 ||
 		strings.Count(bottomLine, "╰") != 1 || strings.Count(bottomLine, "╯") != 1 {
-		t.Fatalf("only the preview should be framed, starting beside the metadata heading:\n%s", screen)
+		t.Fatalf("only the preview should be framed, starting above the heading text:\n%s", screen)
 	}
 	for _, corners := range [][2]string{{"╭", "╰"}, {"╮", "╯"}} {
 		topIndex := strings.Index(topLine, corners[0])

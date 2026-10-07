@@ -13,8 +13,8 @@
 │    claude          1   │      codex       Add Claude session discovery             ● Idle                        8m  │
 │    codex           5   │      codex       Untitled session                         ● Idle                       13m  │
 │                        │─────────────────────────────────────────────────────────────────────────────────────────────│
-│  PROJECTS (4)          │  SELECTED SESSION                                         ╭────────────────────────────────╮│
-│    mihailanghel…   1 ★ │                                                           │LAST EDIT                 1m ago││
+│  PROJECTS (4)          │                                                           ╭────────────────────────────────╮│
+│    mihailanghel…   1 ★ │  SELECTED SESSION                                         │LAST EDIT                 1m ago││
 │  ● a-gent          2   │  Restore response navigation                              │internal/navigation.go          ││
 │  ● codex-audit     1   │                                                           │@@ openSession                  ││
 │  ● swiftyprompt    2   │  Agent      codex                                         │ if session != nil {            ││
