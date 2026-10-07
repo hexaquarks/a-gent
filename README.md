@@ -6,6 +6,10 @@ a-gent is a small terminal dashboard for keeping track of Codex and Claude Code
 sessions across projects. See which agents are working or waiting for you, preview
 their activity and file edits, and jump to their tmux panes.
 
+<p align="center">
+  <img src="assets/dashboard.png" width="700" alt="a-gent dashboard showing pinned projects, unread session updates, and a color-coded edit preview" />
+</p>
+
 ## Install
 
 Requires Go 1.24 or newer and Make:
