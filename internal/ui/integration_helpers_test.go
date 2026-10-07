@@ -132,6 +132,12 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 	for i, arg := range command {
 		command[i] = shellQuote(arg)
 	}
+	// Record the child's exit code directly: some tmux versions leave
+	// pane_dead_status empty even after the terminal process has finished.
+	exitPath := filepath.Join(fixture.root, "exit-status")
+	launchCommand := strings.Join(command, " ") +
+		"; dashboard_exit_status=$?; printf '%s' \"$dashboard_exit_status\" > " + shellQuote(exitPath) +
+		"; exit \"$dashboard_exit_status\""
 	t.Cleanup(func() {
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -144,14 +150,14 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 			fixture.key("q")
 			deadline := time.Now().Add(5 * time.Second)
 			for time.Now().Before(deadline) {
-				state, err := fixture.tmuxOutput("display-message", "-p", "-t", "dashboard:0.0", "#{pane_dead}:#{pane_dead_status}")
-				if err != nil {
+				status, err := os.ReadFile(exitPath)
+				if err != nil && !os.IsNotExist(err) {
 					t.Errorf("inspect dashboard exit: %v", err)
 					break
 				}
-				if strings.HasPrefix(state, "1:") {
-					if strings.TrimSpace(state) != "1:0" {
-						t.Errorf("dashboard failed on exit: %s", state)
+				if len(status) > 0 {
+					if string(status) != "0" {
+						t.Errorf("dashboard failed on exit: %s", status)
 						fixture.capture("exit-failure")
 					}
 					break
@@ -163,7 +169,7 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 			}
 		}
 	})
-	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "dashboard", "-x", fmt.Sprint(fixture.width), "-y", fmt.Sprint(fixture.height), strings.Join(command, " "))
+	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "dashboard", "-x", fmt.Sprint(fixture.width), "-y", fmt.Sprint(fixture.height), launchCommand)
 	fixture.tmux("set-option", "-g", "status", "off")
 	fixture.tmux("set-window-option", "-g", "remain-on-exit", "on")
 	fixture.tmux("set-window-option", "-g", "window-size", "manual")
