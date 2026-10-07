@@ -169,7 +169,7 @@ func assertReferenceDetailLayout(t *testing.T, screen string) {
 		if strings.Contains(line, "Session ") {
 			sessionRow = row
 		}
-		if strings.Contains(line, "╯") && !strings.HasPrefix(line, "╰") {
+		if strings.Contains(line, "🭿") {
 			bottom = row
 		}
 	}
@@ -182,18 +182,20 @@ func assertReferenceDetailLayout(t *testing.T, screen string) {
 		}
 	}
 	topLine, bottomLine := lines[heading], lines[bottom]
-	if !strings.Contains(topLine, "▔▔") || strings.Contains(topLine, "╭") ||
-		strings.Count(bottomLine, "╰") != 1 || strings.Count(bottomLine, "╯") != 1 {
+	if strings.Count(topLine, "🭽") != 1 || strings.Count(topLine, "🭾") != 1 ||
+		strings.Count(bottomLine, "🭼") != 1 || strings.Count(bottomLine, "🭿") != 1 {
 		t.Fatalf("only the preview should be framed, starting beside the heading band:\n%s", screen)
 	}
-	for _, corners := range [][2]string{{"▔", "╰"}, {"▔", "╯"}} {
+	for _, corners := range [][2]string{{"🭽", "🭼"}, {"🭾", "🭿"}} {
 		topIndex := strings.Index(topLine, corners[0])
-		if corners[1] == "╯" {
-			topIndex = strings.LastIndex(topLine, corners[0])
-		}
 		bottomIndex := strings.Index(bottomLine, corners[1])
 		if lipgloss.Width(topLine[:topIndex]) != lipgloss.Width(bottomLine[:bottomIndex]) {
 			t.Fatal("preview corners do not share the same columns")
+		}
+	}
+	for _, line := range lines[heading+1 : bottom] {
+		if strings.Count(line, "▏") != 1 || strings.Count(line, "▕") != 1 {
+			t.Fatalf("preview sides must span every interior row:\n%s", screen)
 		}
 	}
 }

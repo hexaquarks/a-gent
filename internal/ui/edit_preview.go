@@ -303,12 +303,12 @@ func (model Model) detailWithPreview() string {
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
 		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	// Upper block strokes sit at the cell's top edge, beside the filled
-	// metadata heading. Standard rounded corners join at mid-cell instead.
-	previewBorder := lipgloss.RoundedBorder()
-	previewBorder.Top = "▔"
-	previewBorder.TopLeft = "▔"
-	previewBorder.TopRight = "▔"
+	// One-eighth blocks join at the cell edges, keeping the frame continuous
+	// and its top aligned with the filled metadata heading.
+	previewBorder := lipgloss.Border{
+		Top: "▔", Bottom: "▁", Left: "▏", Right: "▕",
+		TopLeft: "🭽", TopRight: "🭾", BottomLeft: "🭼", BottomRight: "🭿",
+	}
 	previewStyle := lipgloss.NewStyle().
 		Border(previewBorder).
 		BorderForeground(lipgloss.Color(colorDivider))
