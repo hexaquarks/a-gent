@@ -99,7 +99,7 @@ func (model Model) visibleProjectRange() (int, int) {
 
 // Reserve room for views, three agent types, and section spacing above projects.
 func (model Model) projectRowCapacity() int {
-	return max(1, min(maximumProjectRows, model.sidebarHeight()-14))
+	return max(1, min(maximumProjectRows, model.sidebarHeight()-model.projectTop()-3))
 }
 
 // Attention takes priority over running work; unread changes are shown next.
@@ -191,4 +191,8 @@ func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		model.sidebarCursor = model.projectItemStart()
 	}
 	return model, nil
+}
+
+func (model Model) projectTop() int {
+	return max(9, min(11, model.sidebarHeight()-4))
 }

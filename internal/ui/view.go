@@ -2,10 +2,11 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 )
 
 // View renders the current UI state after Bubble Tea calls Update.
@@ -17,24 +18,15 @@ func (model Model) View() string {
 	tableView := model.sessionTableView()
 	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
 	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(model.detailWithPreview())
-	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
+	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
 	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
-
-	dataStatus := "live data"
-	if model.lastError != nil {
-		dataStatus = "partial data"
+	if !model.sidebarVisible() {
+		body = rightColumn
 	}
 
-	headerText := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		accentStyle.Render("a-gent"),
-		mutedStyle.Render(fmt.Sprintf("  /  %d sessions  /  ", summary.total)),
-		runningStyle.Render(fmt.Sprintf("%d running", summary.running)),
-		mutedStyle.Render("  /  "+dataStatus),
-	)
 	contentWidth := lipgloss.Width(body)
-	header := headerStyle.Width(contentWidth).Render(headerText)
+	header := model.headerView(summary, contentWidth)
 	footer := model.footerView(contentWidth)
 
 	view := appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, header, body, footer))
@@ -62,17 +54,24 @@ func (model Model) detailView() string {
 		stateText = "Stale · last known data"
 	}
 
-	return fmt.Sprintf(
-		"%s\n%s  %s\n%s\n%s %s\n%s %s",
-		title,
-		providerStyle(selectedSession.Provider).Render(safeDisplayText(selectedSession.Provider)),
-		statusStyle(sessionState(selectedSession)).Render("● "+safeDisplayText(stateText)),
-		mainTextStyle.Render(safeDisplayText(selectedSession.Name)),
-		mutedStyle.Render("Directory:"),
-		mainTextStyle.Render(safeDisplayText(selectedSession.WorkingDirectory)),
-		mutedStyle.Render("Session:"),
-		mutedStyle.Render(safeDisplayText(selectedSession.ID)),
-	)
+	directory := safeDisplayText(selectedSession.WorkingDirectory)
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if directory == home || strings.HasPrefix(directory, home+string(filepath.Separator)) {
+			directory = "~" + strings.TrimPrefix(directory, home)
+		}
+	}
+	fields := []struct{ label, value string }{
+		{"Agent", providerStyle(selectedSession.Provider).Bold(true).Render(safeDisplayText(selectedSession.Provider))},
+		{"Status", statusStyle(sessionState(selectedSession)).Render("● " + safeDisplayText(stateText))},
+		{"Project", mainTextStyle.Render(safeDisplayText(projectName(selectedSession.WorkingDirectory)))},
+		{"Directory", mutedStyle.Render(directory)},
+		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
+	}
+	lines := []string{title, "", mainTextStyle.Bold(true).Render(" " + safeDisplayText(selectedSession.Name)), ""}
+	for _, field := range fields {
+		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (model Model) detailHeadingView() string {
@@ -80,15 +79,36 @@ func (model Model) detailHeadingView() string {
 }
 
 func (model Model) detailHeadingAtWidth(width int) string {
-	title := "SELECTED SESSION"
-	session, ok := model.selectedSession()
-	if !ok || !model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
-		return model.panelTitleStyle().Render(title)
-	}
+	return sectionBar(" SELECTED SESSION", width, model.panelTitleStyle())
+}
 
-	indicator := accentStyle.Render("●") + " " + mutedStyle.Render("Unseen state change")
-	titleWidth := max(0, width-lipgloss.Width(indicator)-2)
-	title = runewidth.Truncate(title, titleWidth, "…")
-	gap := strings.Repeat(" ", max(0, width-lipgloss.Width(title)-lipgloss.Width(indicator)))
-	return model.panelTitleStyle().Render(title) + gap + indicator
+func (model Model) headerView(summary sessionSummary, width int) string {
+	brand := accentStyle.Render("a-gent") + mutedStyle.Render(fmt.Sprintf("  /  %d sessions", summary.total))
+	badges := []string{
+		summaryBadge(fmt.Sprintf("%d running", summary.running), colorRunning, "#202D1C"),
+		summaryBadge(fmt.Sprintf("%d needs input", summary.waiting), colorAttention, "#30291B"),
+		summaryBadge(fmt.Sprintf("%d unseen", len(model.unreadSessions)), colorAccent, "#152B30"),
+	}
+	status := runningStyle.Render("●") + mutedStyle.Render(" live")
+	if model.lastError != nil {
+		status = waitingStyle.Render("●") + mutedStyle.Render(" partial")
+	}
+	contentWidth := width - headerStyle.GetHorizontalFrameSize()
+	left := brand
+	for _, badge := range badges {
+		candidate := left + "  " + badge
+		if lipgloss.Width(candidate)+lipgloss.Width(status)+2 <= contentWidth {
+			left = candidate
+		}
+	}
+	return headerStyle.Width(width).Render(alignedLine(left, status, contentWidth))
+}
+
+func summaryBadge(text, foreground, background string) string {
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(foreground)).Background(lipgloss.Color(background)).Padding(0, 1).Render(text)
+}
+
+func alignedLine(left, right string, width int) string {
+	left = clipLines(left, max(1, width-lipgloss.Width(right)-1))
+	return left + strings.Repeat(" ", max(0, width-lipgloss.Width(left)-lipgloss.Width(right))) + right
 }

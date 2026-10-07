@@ -45,6 +45,7 @@ func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
 	if strings.Contains(screen, "failed.go") || !strings.Contains(screen, "+verified change") {
 		t.Fatalf("wrong completed edit:\n%s", screen)
 	}
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("idle-diff")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
@@ -67,31 +68,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
 	}
-	separatorEnd, boxEnd := -1, -1
-	boxBottom, directoryRow, sessionRow := -1, -1, -1
-	for row, line := range strings.Split(screen, "\n") {
-		if strings.Contains(line, "│─") {
-			separatorEnd = lipgloss.Width(strings.TrimRight(line, " "))
-		}
-		if strings.Contains(line, "╮") {
-			boxEnd = lipgloss.Width(strings.TrimRight(line, " "))
-		}
-		if strings.Contains(line, "╯") {
-			boxBottom = row
-		}
-		if strings.Contains(line, "Directory:") {
-			directoryRow = row
-		}
-		if strings.Contains(line, "Session:") {
-			sessionRow = row
-		}
-	}
-	if boxEnd < 0 || boxEnd != separatorEnd {
-		t.Fatalf("preview ends at %d; separator ends at %d", boxEnd, separatorEnd)
-	}
-	if sessionRow != boxBottom || directoryRow != boxBottom-1 {
-		t.Fatalf("identity fields do not align with preview bottom: directory=%d session=%d bottom=%d", directoryRow, sessionRow, boxBottom)
-	}
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
@@ -114,13 +91,15 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture := newDashboardFixture(t)
-	fixture.waitText("Waiting for output")
+	screen := fixture.waitText("Waiting for output")
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
 	}
-	screen := fixture.waitText("Preview unavailable")
+	screen = fixture.waitText("Preview unavailable")
+	assertReferenceDetailLayout(t, screen)
 	for _, redundant := range []string{"Checked ", "EDIT PREVIEW", "LIVE ACTIVITY", "v: expand"} {
 		if strings.Contains(screen, redundant) {
 			t.Fatalf("unavailable preview contains redundant content %q", redundant)
@@ -131,6 +110,82 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture.setState("codex", agent.StateIdle)
-	fixture.waitText("No edits yet")
+	screen = fixture.waitText("No edits yet")
+	assertReferenceDetailLayout(t, screen)
 	fixture.capture("no-edits")
+}
+
+func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.key("f")
+	fixture.waitText("HELD")
+	fixture.appendOutput("codex", "OUTPUT_WHILE_HELD")
+	fixture.waitText("OUTPUT_WHILE_HELD")
+	// A newer timestamp must update live status without moving existing rows.
+	session := fixture.sessions["claude"]
+	session.LastActiveAt = time.Now()
+	fixture.sessions["claude"] = session
+	fixture.setState("claude", agent.StateWaiting)
+	screen := fixture.waitText("1 needs input")
+	if strings.Index(screen, "codex fixture") > strings.Index(screen, "claude fixture") {
+		t.Fatal("held rows reordered after a provider update")
+	}
+	fixture.capture("held-live-output")
+	fixture.key("f")
+	screen = fixture.waitFor("resumed activity order", 4*time.Second, func(screen string) bool {
+		return strings.Contains(screen, "LIVE") && strings.Index(screen, "claude fixture") < strings.Index(screen, "codex fixture")
+	})
+	if !strings.Contains(screen, "OUTPUT_WHILE_HELD") {
+		t.Fatal("resuming order lost the selected preview")
+	}
+	fixture.key("Tab")
+	fixture.key("j") // Active
+	fixture.key("j") // Recent
+	fixture.key("j") // Updates
+	fixture.key("Enter")
+	fixture.key("Tab")
+	screen = fixture.waitText("SESSIONS (1 of 1)")
+	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") || !strings.Contains(screen, "1 unseen") {
+		t.Fatalf("Updates does not isolate the changed session:\n%s", screen)
+	}
+	fixture.capture("updates-filter")
+	fixture.key("Enter")
+	screen = fixture.waitText("No sessions match this filter")
+	if !strings.Contains(screen, "0 unseen") {
+		t.Fatal("acknowledgement did not update the header count")
+	}
+	fixture.capture("updates-acknowledged")
+}
+
+// The reference frames only the preview; the metadata heading shares its top row.
+func assertReferenceDetailLayout(t *testing.T, screen string) {
+	t.Helper()
+	lines := strings.Split(screen, "\n")
+	heading, bottom, sessionRow := -1, -1, -1
+	for row, line := range lines {
+		if strings.Contains(line, "SELECTED SESSION") {
+			heading = row
+		}
+		if strings.Contains(line, "Session ") {
+			sessionRow = row
+		}
+		if strings.Contains(line, "╯") && !strings.HasPrefix(line, "╰") {
+			bottom = row
+		}
+	}
+	if heading < 0 || bottom <= heading || sessionRow <= heading || sessionRow > bottom {
+		t.Fatalf("reference detail layout is missing or clipped:\n%s", screen)
+	}
+	topLine, bottomLine := lines[heading], lines[bottom]
+	if strings.Count(topLine, "╭") != 1 || strings.Count(topLine, "╮") != 1 ||
+		strings.Count(bottomLine, "╰") != 1 || strings.Count(bottomLine, "╯") != 1 {
+		t.Fatalf("only the preview should be framed, starting beside the metadata heading:\n%s", screen)
+	}
+	for _, corners := range [][2]string{{"╭", "╰"}, {"╮", "╯"}} {
+		topIndex := strings.Index(topLine, corners[0])
+		bottomIndex := strings.Index(bottomLine, corners[1])
+		if lipgloss.Width(topLine[:topIndex]) != lipgloss.Width(bottomLine[:bottomIndex]) {
+			t.Fatal("preview corners do not share the same columns")
+		}
+	}
 }

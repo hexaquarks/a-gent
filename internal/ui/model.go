@@ -49,6 +49,8 @@ type Model struct {
 	noticeRevision   int
 	width            int
 	height           int
+	orderHeld        bool
+	heldOrder        []sessionIdentity
 	sort             sessionSort
 	tableSessionIDs  []sessionIdentity
 	unreadSessions   map[sessionIdentity]bool
@@ -167,10 +169,20 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			model.updateTableRows()
 			return model, nil
+		case "f":
+			model.orderHeld = !model.orderHeld
+			model.heldOrder = nil
+			if model.orderHeld {
+				model.rememberSessionOrder()
+			}
+			model.updateTableRows()
+			return model, nil
 		case "s":
 			model.cycleSortColumn()
 			return model, nil
 		case "S":
+			model.orderHeld = false
+			model.heldOrder = nil
 			model.sort.descending = !model.sort.descending
 			model.updateTableRows()
 			return model, nil
@@ -214,10 +226,13 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return model, nil
 			}
-			if !model.sidebarFocus {
-				model.markSelectedSessionRead()
-			}
-			return model.navigateSelectedSession()
+			// Capture the destination before acknowledgement can remove the row
+			// from Updates and select the next unread session.
+			next, command := model.navigateSelectedSession()
+			model = next.(Model)
+			model.markSelectedSessionRead()
+			model.updateTableRows()
+			return model, command
 		}
 	case polling.Update:
 		model.applyProviderUpdate(message)

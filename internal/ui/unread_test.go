@@ -35,7 +35,7 @@ func refreshUnreadTestModel(model Model, sessions ...agent.Session) Model {
 	return model
 }
 
-func TestUnseenLabelIsConditionalAndRightAligned(t *testing.T) {
+func TestUnreadGutterIsConditionalAndHeadingFits(t *testing.T) {
 	for _, width := range []int{62, 100, 150} {
 		t.Run(fmt.Sprint(width), func(t *testing.T) {
 			model := NewModel(nil)
@@ -44,32 +44,24 @@ func TestUnseenLabelIsConditionalAndRightAligned(t *testing.T) {
 			first := agent.Session{ID: "a", Provider: "codex", Name: "Alpha", State: agent.StateRunning}
 			second := agent.Session{ID: "b", Provider: "codex", Name: "Beta", State: agent.StateIdle}
 			model = refreshUnreadTestModel(model, first, second)
-			if strings.Contains(model.detailView(), "Unseen state change") {
-				t.Fatal("read session shows the unseen label")
+			if strings.Contains(model.sessionGutter(first, true, ""), "●") {
+				t.Fatal("initial session is marked unread")
 			}
 			first.State = agent.StateIdle
 			model = refreshUnreadTestModel(model, first, second)
-			panel := ansi.Strip(detailStyle.Width(model.table.Width()).Render(model.detailView()))
-			lines := strings.Split(panel, "\n")
-			labelRow := detailStyle.GetBorderTopSize() + detailStyle.GetPaddingTop()
-			if !strings.HasSuffix(lines[labelRow], "● Unseen state change"+strings.Repeat(" ", detailStyle.GetPaddingRight())) {
-				t.Fatalf("unseen label is not at the top right:\n%s", panel)
+			if !strings.Contains(model.sessionGutter(first, true, ""), "●") {
+				t.Fatal("completion did not mark the session unread")
 			}
-			if lipgloss.Width(lines[labelRow]) != model.table.Width() {
-				t.Fatalf("heading overflowed its panel: %q", lines[labelRow])
+			heading := ansi.Strip(model.detailHeadingView())
+			if lipgloss.Width(heading) != model.table.Width()-detailStyle.GetHorizontalFrameSize() || strings.Contains(heading, "\n") {
+				t.Fatalf("heading overflowed its panel: %q", heading)
 			}
-			model.table.SetCursor(1)
-			if strings.Contains(model.detailView(), "Unseen state change") {
-				t.Fatal("another session's unread dot shows a label on a read session")
+			if strings.Contains(model.sessionGutter(second, false, ""), "●") {
+				t.Fatal("unread mark leaked to another session")
 			}
-			model.table.SetCursor(0)
 			model.markSelectedSessionRead()
-			if strings.Contains(model.detailView(), "Unseen state change") {
-				t.Fatal("acknowledging the session left the unseen label visible")
-			}
-			model = refreshUnreadTestModel(model)
-			if strings.Contains(model.detailView(), "Unseen state change") {
-				t.Fatal("empty panel shows the unseen label")
+			if strings.Contains(model.sessionGutter(first, true, ""), "●") {
+				t.Fatal("acknowledging the session left its unread dot visible")
 			}
 		})
 	}
@@ -143,11 +135,11 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 	first.State = agent.StateWaiting
 	program.Send(polling.Update{Provider: "codex", Sessions: []agent.Session{first, second}})
 	before := next()
-	if before.unread != 1 || !strings.Contains(before.view, "● Alpha") || !strings.Contains(before.view, "Unseen state change") {
+	if before.unread != 1 || !strings.Contains(before.view, "●  codex") {
 		t.Fatalf("unread session is not visible before hover:\n%s", before.view)
 	}
 	for y, line := range strings.Split(before.view, "\n") {
-		x := strings.Index(line, "● Alpha")
+		x := strings.Index(line, "●  codex")
 		if x < 0 {
 			continue
 		}
@@ -168,21 +160,21 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 		t.Fatal(err)
 	}
 	other := next()
-	if other.unread != 1 || strings.Contains(other.view, "Unseen state change") {
+	if other.unread != 1 {
 		t.Fatal("selecting a read session cleared another dot or showed the unseen label")
 	}
 	if _, err := io.WriteString(writer, "\x1b[A"); err != nil {
 		t.Fatal(err)
 	}
 	read := next()
-	if read.unread != 1 || !strings.Contains(read.view, "● Alpha") || !strings.Contains(read.view, "Unseen state change") {
+	if read.unread != 1 || !strings.Contains(read.view, "●  codex") {
 		t.Fatal("moving the keyboard highlight cleared the dot or unseen label")
 	}
 	if _, err := io.WriteString(writer, "\r"); err != nil {
 		t.Fatal(err)
 	}
 	acknowledged := next()
-	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "● Alpha") || strings.Contains(acknowledged.view, "Unseen state change") {
+	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "●  codex") {
 		t.Fatal("Enter did not clear both dot and label")
 	}
 }
@@ -261,7 +253,7 @@ func TestUnreadDotSurvivesSortingFilteringAndKeyboardBrowsing(t *testing.T) {
 	model.sort = sessionSort{column: "Session", descending: true}
 	model.updateTableRows()
 	identity := sessionIdentity{provider: "codex", id: "b"}
-	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(0, model.table.Columns())), "● Beta") {
+	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(0, model.table.Columns())), "●  codex") {
 		t.Fatal("sorting or filtering lost the unread dot")
 	}
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
@@ -339,10 +331,10 @@ func TestUnreadDotKeepsSessionNamesAligned(t *testing.T) {
 	model := NewModel(nil)
 	session := agent.Session{ID: "one", Provider: "codex", Name: "Example"}
 	model.unreadSessions = map[sessionIdentity]bool{{provider: "codex", id: "one"}: true}
-	unread := ansi.Strip(model.sessionNameCell(session, 16, lipgloss.Color(colorSelection)))
+	unread := ansi.Strip(model.sessionGutter(session, false, lipgloss.Color(colorSelection)) + renderTableCell(session.Provider, 12, providerStyle(session.Provider), lipgloss.Color(colorSelection)))
 	model.unreadSessions = nil
-	read := ansi.Strip(model.sessionNameCell(session, 16, lipgloss.Color(colorSelection)))
-	if lipgloss.Width(strings.Split(unread, "Example")[0]) != lipgloss.Width(strings.Split(read, "Example")[0]) || lipgloss.Width(unread) != 16 || lipgloss.Width(read) != 16 {
+	read := ansi.Strip(model.sessionGutter(session, false, lipgloss.Color(colorSelection)) + renderTableCell(session.Provider, 12, providerStyle(session.Provider), lipgloss.Color(colorSelection)))
+	if lipgloss.Width(strings.Split(unread, "codex")[0]) != lipgloss.Width(strings.Split(read, "codex")[0]) || lipgloss.Width(unread) != 16 || lipgloss.Width(read) != 16 {
 		t.Fatalf("clearing dot shifted or resized the name: %q, %q", unread, read)
 	}
 }

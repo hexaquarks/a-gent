@@ -42,7 +42,7 @@ func TestFormatLastActiveAt(t *testing.T) {
 	}
 }
 
-func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
+func TestRunningSessionActivityUsesProviderTimestamp(t *testing.T) {
 	for _, width := range []int{34, 70, 120} {
 		model := NewModel(nil)
 		model.table.SetWidth(width)
@@ -55,11 +55,15 @@ func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
 			updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{session}})
 			model = updated.(Model)
 			columns := model.table.Columns()
-			if got := model.table.Rows()[0][len(columns)-1]; got != "Now" {
-				t.Fatalf("width %d: running activity = %q, want Now", width, got)
+			expected := strings.TrimSuffix(formatLastActiveAt(timestamp, time.Now()), " ago")
+			if timestamp.IsZero() {
+				expected = "Now"
+			}
+			if got := model.table.Rows()[0][len(columns)-1]; got != expected {
+				t.Fatalf("width %d: running activity = %q, want %s", width, got, expected)
 			}
 			row := ansi.Strip(model.sessionRowView(0, columns))
-			if !strings.HasSuffix(strings.TrimSpace(row), "Now") {
+			if !strings.HasSuffix(strings.TrimSpace(row), expected) {
 				t.Fatalf("width %d: rendered activity is not Now: %q", width, row)
 			}
 			if !model.sessions[0].LastActiveAt.Equal(timestamp) {
@@ -72,7 +76,7 @@ func TestRunningSessionActivityStaysNowAcrossRefreshes(t *testing.T) {
 			session.LastActiveAt = time.Now().Add(-125 * time.Minute)
 			updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{session}})
 			model = updated.(Model)
-			if row := model.sessionRowView(0, model.table.Columns()); !strings.HasSuffix(strings.TrimSpace(ansi.Strip(row)), "2h ago") {
+			if row := model.sessionRowView(0, model.table.Columns()); !strings.HasSuffix(strings.TrimSpace(ansi.Strip(row)), "2h") {
 				t.Fatalf("width %d: %s session did not resume elapsed activity: %q", width, state, row)
 			}
 		}
@@ -102,7 +106,7 @@ func TestLastActiveColumnAcrossTableWidths(t *testing.T) {
 		if columns[len(columns)-1].Title != "Last active" {
 			t.Fatalf("width %d: activity column is not last", width)
 		}
-		if actual := model.table.Rows()[0][len(columns)-1]; actual != "2h ago" {
+		if actual := model.table.Rows()[0][len(columns)-1]; actual != "2h" {
 			t.Fatalf("width %d: activity cell = %q, want 2h ago", width, actual)
 		}
 
@@ -111,7 +115,7 @@ func TestLastActiveColumnAcrossTableWidths(t *testing.T) {
 			t.Fatalf("width %d: activity header is truncated: %q", width, header)
 		}
 		row := model.sessionRowView(0, columns)
-		if !strings.Contains(row, "2h ago") || lipgloss.Width(row) != width-panelStyle.GetHorizontalFrameSize() {
+		if !strings.Contains(row, "2h") || lipgloss.Width(row) != width-panelStyle.GetHorizontalFrameSize() {
 			t.Fatalf("width %d: unexpected activity row (%d cells): %q", width, lipgloss.Width(row), row)
 		}
 	}
@@ -124,7 +128,7 @@ func TestActivityAgeUsesCurrentSessionTimestamp(t *testing.T) {
 
 	// Rendering reads the timestamp rather than a previously formatted table cell.
 	model.sessions[0].LastActiveAt = time.Now().Add(-185 * time.Minute)
-	if row := model.sessionRowView(0, model.table.Columns()); !strings.Contains(row, "3h ago") {
+	if row := model.sessionRowView(0, model.table.Columns()); !strings.Contains(row, "3h") {
 		t.Fatalf("activity age is stale: %q", row)
 	}
 }

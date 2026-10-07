@@ -3,7 +3,6 @@ package tmux
 import (
 	"os/exec"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -37,11 +36,11 @@ func TestPopupCommandPassesTheOriginatingClient(t *testing.T) {
 	}
 }
 
-func TestPopupUsesRoundedThemeBorder(t *testing.T) {
-	actual := popupArguments(23, "/projects/a-gent", "A_GENT_TMUX_POPUP=1 a-gent")
+func TestPopupUsesFixedDimensionsAndTheApplicationBorder(t *testing.T) {
+	actual := popupArguments(120, 28, "/projects/a-gent", "A_GENT_TMUX_POPUP=1 a-gent")
 	expected := []string{
-		"display-popup", "-E", "-b", "rounded", "-s", "bg=#0D1117,fg=#D7DEE8", "-S", "fg=#293442",
-		"-w", "70%", "-h", strconv.Itoa(23), "-d", "/projects/a-gent", "-T", "", "A_GENT_TMUX_POPUP=1 a-gent",
+		"display-popup", "-E", "-B", "-s", "bg=#0C1112,fg=#EDF2F4",
+		"-w", "120", "-h", "28", "-d", "/projects/a-gent", "-T", "", "A_GENT_TMUX_POPUP=1 a-gent",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("popup arguments = %#v, want %#v", actual, expected)

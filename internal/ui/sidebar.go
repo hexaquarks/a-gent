@@ -27,6 +27,7 @@ const (
 	attentionView sidebarView = "Attention"
 	activeView    sidebarView = "Active"
 	recentView    sidebarView = "Recent"
+	updatesView   sidebarView = "Updates"
 	allView       sidebarView = "All"
 )
 
@@ -48,13 +49,13 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	if model.sidebarFocus {
 		titleStyle = accentStyle
 	}
-	lines := []string{titleStyle.Render("VIEWS")}
+	lines := []string{sectionBar(" VIEWS", model.sidebarWidth(), titleStyle)}
 	for index, item := range items[:len(sidebarViews())] {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
 	// Reserve the same project area even when filtering leaves fewer rows.
-	projectTop := model.sidebarHeight() - model.projectRowCapacity() - 3
+	projectTop := model.projectTop()
 	providers := model.providers()
 	if len(providers) > 0 {
 		title := "AGENTS"
@@ -65,7 +66,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 			}
 			title = fmt.Sprintf("AGENTS (%d) %s", len(providers), arrow)
 		}
-		lines = append(lines, "", titleStyle.Render(title))
+		lines = append(lines, "", sectionBar(" "+title, model.sidebarWidth(), titleStyle))
 		start := len(sidebarViews())
 		end := model.projectItemStart()
 		available := max(1, projectTop-len(lines)-1-len(model.failedProviders()))
@@ -84,7 +85,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	for len(lines) < projectTop {
 		lines = append(lines, "")
 	}
-	lines = append(lines, titleStyle.Render(fmt.Sprintf("PROJECTS (%d)", len(model.projects()))))
+	lines = append(lines, sectionBar(fmt.Sprintf(" PROJECTS (%d)", len(model.projects())), model.sidebarWidth(), titleStyle))
 
 	start, end := model.visibleProjectRange()
 	for index := start; index < end; index++ {
@@ -94,14 +95,14 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	if model.projectSearching && start == end {
 		lines = append(lines, mutedStyle.Render("No matching projects"))
 	}
-	for len(lines) < projectTop+1+model.projectRowCapacity() {
+	for len(lines) < model.sidebarHeight()-2 {
 		lines = append(lines, "")
 	}
 	hidden := len(model.matchingProjects()) - (end - start)
 	if hidden > 0 {
 		lines = append(lines, accentStyle.Render(fmt.Sprintf("+ %d more…", hidden)))
 	} else {
-		lines = append(lines, "")
+		lines = append(lines, lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.Repeat("─", model.sidebarWidth())))
 	}
 	if model.projectSearching {
 		lines = append(lines, accentStyle.Render("/ "+runewidth.Truncate(model.projectQuery, model.sidebarWidth()-2, "…")))
@@ -121,11 +122,14 @@ func (model Model) sidebarHeight() int {
 
 // Keep the body height stable when the selected-session details are empty.
 func (model Model) bodyHeight() int {
-	return max(model.table.Height()+11, model.height-4)
+	if model.height > 0 {
+		return max(1, model.height-6)
+	}
+	return maximumSessionRows + model.inlinePreviewHeight() + 8
 }
 
 func sidebarViews() []sidebarView {
-	return []sidebarView{attentionView, activeView, recentView, allView}
+	return []sidebarView{attentionView, activeView, recentView, updatesView, allView}
 }
 
 func (model Model) sidebarItems() []sidebarItem {
@@ -165,7 +169,7 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	}
 	marker := " "
 	if selected {
-		marker = "•"
+		marker = "●"
 	}
 	if focused {
 		marker = "›"
@@ -185,6 +189,10 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if selected {
 		countStyle = style
 	}
+	if selected {
+		style = style.Background(lipgloss.Color(colorSelection))
+		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
+	}
 	if focused {
 		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
@@ -194,15 +202,16 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 // Every row reserves the same gutter, pin slot, and count column before
 // allocating space to the name. Larger totals widen all count cells together.
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
-	const gutterWidth = 2
+	const gutterWidth = 3
 	const pinWidth = 1
-	const nameToPinSpacing = 3
+	const nameToPinSpacing = 1
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth
+	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - 1
 	label := sidebarLabel(name, max(0, nameWidth))
-	return markerStyle.Render(marker+" ") +
-		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
-		countStyle.Render(fmt.Sprintf("%*s", countWidth, count))
+	return markerStyle.Render(" "+marker+" ") +
+		style.Render(label+strings.Repeat(" ", nameToPinSpacing)) +
+		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)) +
+		style.Render(" "+pin)
 }
 
 // Pad using display cells so Unicode names share the same count column.
@@ -218,7 +227,9 @@ func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
 	case activeView:
 		return summary.running
 	case recentView:
-		return summary.idle
+		return summary.total - summary.running
+	case updatesView:
+		return len(model.unreadSessions)
 	default:
 		return summary.total
 	}
@@ -325,6 +336,9 @@ func (model Model) filteredSessions() []agent.Session {
 		if project != "" && session.WorkingDirectory != project {
 			continue
 		}
+		if project == "" && view == updatesView && !model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
+			continue
+		}
 		if project == "" && !matchesView(session, view) {
 			continue
 		}
@@ -341,9 +355,8 @@ func matchesView(session agent.Session, view sidebarView) bool {
 	case activeView:
 		return sessionState(session) == agent.StateRunning
 	case recentView:
-		// The provider has no activity timestamp. Idle sessions are the completed
-		// sessions available to represent the recent view.
-		return sessionState(session) == agent.StateIdle
+		// Keep sessions that have stopped running, including requests for input.
+		return sessionState(session) != agent.StateRunning
 	default:
 		return true
 	}

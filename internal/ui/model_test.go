@@ -59,7 +59,7 @@ func TestEnterDoesNothingWhenNavigationIsUnsupported(t *testing.T) {
 	if command != nil {
 		t.Fatal("unsupported navigation returned a command")
 	}
-	if strings.Contains(model.footerText(), "enter:") {
+	if strings.Contains(model.footerText(), "enter ") {
 		t.Fatal("footer advertises navigation outside a supported terminal")
 	}
 }
@@ -192,13 +192,13 @@ func TestSessionTableSeparatesTitleHeaderAndRows(t *testing.T) {
 	model := NewModel(nil)
 	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
 	tableView := model.sessionTableView()
-	if !strings.Contains(tableView, "Status") || !strings.Contains(tableView, "\n\n") || !strings.Contains(tableView, "› codex") {
+	if !strings.Contains(tableView, "Status") || !strings.Contains(tableView, "\n\n") || !strings.Contains(tableView, "›    codex") {
 		t.Fatalf("table header and body do not have visual separation:\n%s", tableView)
 	}
 	view := model.View()
 	titleLine, headerLine := -1, -1
 	for lineNumber, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, "SESSIONS (1-1 of 1)") {
+		if strings.Contains(line, "SESSIONS (1 of 1)") {
 			titleLine = lineNumber
 		}
 		if strings.Contains(line, "Agent") && strings.Contains(line, "Status") {
@@ -215,7 +215,7 @@ func TestSelectionMarkerRemainsVisibleWhenSidebarHasFocus(t *testing.T) {
 	model.sessions = []agent.Session{{Name: "Example", Provider: "codex", State: agent.StateRunning}}
 	model.sidebarFocus = true
 	row := model.sessionRowView(0, model.table.Columns())
-	if !strings.Contains(row, "› codex") {
+	if !strings.Contains(row, "›    codex") {
 		t.Fatalf("selected row lacks its marker while sidebar has focus: %q", row)
 	}
 }
@@ -234,7 +234,7 @@ func TestSelectionCursorKeepsAgentNamesAligned(t *testing.T) {
 		selected := ansi.Strip(model.sessionRowView(0, columns))
 		model.table.SetCursor(1)
 		unselected := ansi.Strip(model.sessionRowView(0, columns))
-		if !strings.HasPrefix(selected, "› claude") || !strings.HasPrefix(unselected, "  claude") {
+		if !strings.HasPrefix(selected, "›    claude") || !strings.HasPrefix(unselected, "     claude") {
 			t.Fatalf("width %d: agent name shifted or truncated: selected %q, unselected %q", width, selected, unselected)
 		}
 		if []rune(selected)[0] != '›' || string([]rune(selected)[1:]) != string([]rune(unselected)[1:]) {
@@ -263,8 +263,8 @@ func TestPopupHeightFitsTheReservedSessionRows(t *testing.T) {
 	if got := lipgloss.Height(view); got != PopupContentHeight {
 		t.Fatalf("popup content height = %d, want %d", got, PopupContentHeight)
 	}
-	if PopupHeight-PopupContentHeight != 2 {
-		t.Fatalf("popup border height = %d, want 2", PopupHeight-PopupContentHeight)
+	if PopupHeight != PopupContentHeight {
+		t.Fatalf("popup border height = %d, want 0", PopupHeight-PopupContentHeight)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
 	}
-	if !strings.Contains(sidebar, "● a-gent           2") {
+	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " ● a-gent") || !strings.HasSuffix(row, "  2  ") {
 		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
 	}
 }
@@ -302,7 +302,7 @@ func TestViewsFilterSessions(t *testing.T) {
 	}{
 		{view: attentionView, wantIDs: []string{"failed", "waiting"}},
 		{view: activeView, wantIDs: []string{"running"}},
-		{view: recentView, wantIDs: []string{"finished"}},
+		{view: recentView, wantIDs: []string{"failed", "finished", "waiting"}},
 		{view: allView, wantIDs: []string{"failed", "finished", "running", "waiting"}},
 	}
 

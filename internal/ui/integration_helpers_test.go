@@ -95,7 +95,7 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(socketDirectory) })
-	fixture := &dashboardFixture{t: t, root: t.TempDir(), socket: filepath.Join(socketDirectory, "tmux"), width: 120, height: 30}
+	fixture := &dashboardFixture{t: t, root: t.TempDir(), socket: filepath.Join(socketDirectory, "tmux"), width: ui.PopupWidth, height: ui.PopupContentHeight}
 	fixture.artifacts = filepath.Join(fixture.root, "screens")
 	if destination := os.Getenv("A_GENT_TEST_ARTIFACTS"); destination != "" {
 		fixture.artifacts = filepath.Join(destination, strings.ReplaceAll(t.Name(), "/", "-"))
@@ -163,7 +163,7 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 			}
 		}
 	})
-	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "dashboard", "-x", "120", "-y", "30", strings.Join(command, " "))
+	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "dashboard", "-x", fmt.Sprint(fixture.width), "-y", fmt.Sprint(fixture.height), strings.Join(command, " "))
 	fixture.tmux("set-option", "-g", "status", "off")
 	fixture.tmux("set-window-option", "-g", "remain-on-exit", "on")
 	fixture.tmux("set-window-option", "-g", "window-size", "manual")
@@ -218,7 +218,7 @@ func (fixture *dashboardFixture) selectProvider(provider string) {
 		key = "G"
 	}
 	fixture.key(key)
-	fixture.waitText("Directory: /fixture/" + provider)
+	fixture.waitText("Directory  /fixture/" + provider)
 }
 func (fixture *dashboardFixture) setState(provider string, state agent.State) {
 	fixture.t.Helper()
@@ -301,7 +301,7 @@ func (fixture *dashboardFixture) capture(name string) {
 	_ = encoder.Encode(map[string]any{
 		"version": 2, "width": fixture.width, "height": fixture.height,
 		"theme": map[string]string{
-			"fg": "#D7DEE8", "bg": "#0D1117",
+			"fg": "#EDF2F4", "bg": "#0C1112",
 			"palette": "#000000:#cd0000:#00cd00:#cdcd00:#0000ee:#cd00cd:#00cdcd:#e5e5e5:" +
 				"#7f7f7f:#ff0000:#00ff00:#ffff00:#5c5cff:#ff00ff:#00ffff:#ffffff",
 		},

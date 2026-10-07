@@ -7,25 +7,28 @@ import (
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
-	colorBackground = "#0D1117"
-	colorMainText   = "#D7DEE8"
-	colorSecondary  = "#8996AA"
-	colorAccent     = "#69D3E7"
-	colorSelection  = "#203949"
-	colorAgent      = "#BB9AF7"
-	colorRunning    = "#9ECE6A"
-	colorAttention  = "#E0AF68"
-	colorError      = "#F7768E"
-	colorDivider    = "#293442"
+	colorBackground = "#0C1112"
+	colorMainText   = "#EDF2F4"
+	colorSecondary  = "#A7B3C5"
+	colorAccent     = "#59DFF0"
+	colorSelection  = "#183740"
+	colorAgent      = "#BC80FF"
+	colorRunning    = "#A3EF78"
+	colorAttention  = "#FFCA64"
+	colorError      = "#FF6D7A"
+	colorSection    = "#202B2D"
+	colorDivider    = "#354548"
 )
 
 var (
 	appStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color(colorBackground)).
-			Padding(0, 1)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(colorDivider))
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(colorMainText)).
@@ -45,13 +48,13 @@ var (
 	panelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorMainText)).
 			Background(lipgloss.Color(colorBackground)).
-			Padding(0, 1)
+			Padding(1, 1, 0, 1)
 	detailStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color(colorBackground)).
 			BorderTop(true).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color(colorDivider)).
-			Padding(1, 1, 0, 1)
+			Padding(0, 1)
 	mutedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorSecondary))
 	sectionStyle = lipgloss.NewStyle().
@@ -108,6 +111,9 @@ func displayState(state agent.State) string {
 		return "Unavailable"
 	}
 
+	if state == agent.StateWaiting {
+		return "Needs input"
+	}
 	return strings.ToUpper(string(state[:1])) + string(state[1:])
 }
 
@@ -117,12 +123,17 @@ func providerStyle(provider string) lipgloss.Style {
 	switch strings.ToLower(provider) {
 	case "codex":
 	case "claude":
-		color = "#FFAF87"
+		color = "#FF997D"
 	default:
-		palette := []string{colorAccent, "#7DCFFF", "#73DACA", "#E0AF68", "#F7768E"}
+		palette := []string{colorAccent, "#7DCFFF", "#73DACA", "#FFCA64", "#FF6D7A"}
 		hash := fnv.New32a()
 		_, _ = hash.Write([]byte(strings.ToLower(provider)))
 		color = palette[int(hash.Sum32())%len(palette)]
 	}
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+}
+
+// Section bars fill their panel, including the space after the heading.
+func sectionBar(text string, width int, style lipgloss.Style) string {
+	return style.Background(lipgloss.Color(colorSection)).Width(width).MaxWidth(width).Render(ansi.Truncate(text, max(1, width), "…"))
 }
