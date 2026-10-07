@@ -27,10 +27,10 @@ func (model Model) sessionTableView() string {
 		if column.Title == "Last active" {
 			style = style.Align(lipgloss.Right)
 		}
-		headerCells[index] = renderTableCell(title, column.Width, style, lipgloss.Color(colorSection))
+		headerCells[index] = renderTableCell(title, column.Width, style, lipgloss.Color(colorTableHeader))
 	}
 
-	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorSection)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...), ""}
+	rows := []string{renderSelectionCursor(false, lipgloss.Color(colorTableHeader)) + lipgloss.JoinHorizontal(lipgloss.Top, headerCells...)}
 	start, end := model.visibleSessionRange()
 	for index := start; index < end; index++ {
 		rows = append(rows, model.sessionRowView(index, columns))
@@ -49,8 +49,8 @@ func (model Model) sessionTableView() string {
 			if index >= thumbStart && index < thumbStart+thumbSize {
 				glyph, style = "┃", accentStyle
 			}
-			row := rows[index+2]
-			rows[index+2] = ansi.Truncate(row, lipgloss.Width(row)-1, "") + style.Render(glyph)
+			row := rows[index+1]
+			rows[index+1] = ansi.Truncate(row, lipgloss.Width(row)-1, "") + style.Render(glyph)
 		}
 	}
 	return strings.Join(rows, "\n")
@@ -95,7 +95,7 @@ func (model Model) sessionRowView(index int, columns []table.Column) string {
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
 		if column.Title == "Session" {
-			cells[columnIndex] = renderTableCell(session.Name, column.Width, mainTextStyle.Bold(selected), background)
+			cells[columnIndex] = renderTableCell(sessionDisplayName(session), column.Width, mainTextStyle.Bold(selected), background)
 			continue
 		}
 		if column.Title == "Last active" {
@@ -172,9 +172,9 @@ func (model Model) emptySessionMessage() string {
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
-		return session.Provider, providerStyle(session.Provider)
+		return session.Provider, providerStyle(session.Provider).Bold(true)
 	case "Session":
-		return session.Name, mainTextStyle
+		return sessionDisplayName(session), mainTextStyle
 	case "Directory":
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
@@ -242,4 +242,12 @@ func (model *Model) updateTableRows() {
 			}
 		}
 	}
+}
+
+// sessionDisplayName supplies a label when a provider has not named a session.
+func sessionDisplayName(session agent.Session) string {
+	if strings.TrimSpace(safeDisplayText(session.Name)) == "" {
+		return "Untitled session"
+	}
+	return session.Name
 }

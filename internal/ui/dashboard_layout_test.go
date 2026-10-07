@@ -65,7 +65,7 @@ func referenceDashboard() Model {
 		{
 			ID:               "codex-untitled",
 			Provider:         "codex",
-			Name:             "Untitled session",
+			Name:             "",
 			State:            agent.StateIdle,
 			WorkingDirectory: "/projects/swiftyprompt",
 			LastActiveAt:     now.Add(-785 * time.Second),
@@ -100,7 +100,7 @@ func TestDashboardReferenceLayout(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"1 running", "1 needs input", "2 unseen", "Updates", "SESSIONS (6 of 6)",
-		"Needs input", "SELECTED SESSION", "LAST EDIT", "internal/navigation.go",
+		"Untitled session", "Needs input", "SELECTED SESSION", "LAST EDIT", "internal/navigation.go",
 		"@@ openSession", "+3 −1", "v expand", "hold order", model.sessions[2].ID,
 	} {
 		if !strings.Contains(plain, expected) {
@@ -122,8 +122,8 @@ func TestDashboardReferenceLayout(t *testing.T) {
 			}
 		}
 	}
-	if headingRow < 0 {
-		t.Fatal("missing sidebar heading")
+	if headingRow != 3 {
+		t.Fatal("sidebar and session headings must immediately follow the top divider")
 	}
 	writeReferenceCapture(t, view, plain)
 	expected, err := os.ReadFile("testdata/dashboard_reference.txt")

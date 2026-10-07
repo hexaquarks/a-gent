@@ -67,7 +67,7 @@ func (model Model) detailView() string {
 		{"Directory", mutedStyle.Render(directory)},
 		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
 	}
-	lines := []string{title, "", mainTextStyle.Bold(true).Render(" " + safeDisplayText(selectedSession.Name)), ""}
+	lines := []string{title, "", mainTextStyle.Bold(true).Render(" " + safeDisplayText(sessionDisplayName(selectedSession))), ""}
 	for _, field := range fields {
 		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
 	}

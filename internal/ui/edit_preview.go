@@ -300,12 +300,8 @@ func (model Model) detailWithPreview() string {
 	metadataWidth := width - previewWidth - 1
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
-	if len(metadataLines) > 1 && metadataLines[1] == "" {
-		metadataLines = append(metadataLines[:1], metadataLines[2:]...)
-	}
 	// The preview's top border occupies a row. Inset the metadata by that
-	// row so the two heading texts share a baseline. Move the heading's blank
-	// row above it to keep the session fields clear of the bottom border.
+	// row so the two heading texts share a baseline.
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
 		Render("\n" + clipLines(strings.Join(metadataLines, "\n"), metadataWidth))

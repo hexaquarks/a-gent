@@ -45,7 +45,7 @@ type sidebarItem struct {
 
 func (model Model) renderSidebar(summary sessionSummary) string {
 	items := model.sidebarItems()
-	titleStyle := sectionStyle
+	titleStyle := sectionStyle.Foreground(lipgloss.Color(colorSecondary))
 	if model.sidebarFocus {
 		titleStyle = accentStyle
 	}
@@ -180,13 +180,16 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 		countText = ""
 	}
 	countStyle := style
+	if item.provider != "" {
+		countStyle = mutedStyle
+	}
 	if item.view == attentionView {
 		countStyle = waitingStyle
 	}
 	if item.view == activeView {
 		countStyle = runningStyle
 	}
-	if selected {
+	if selected && item.provider == "" {
 		countStyle = style
 	}
 	if selected {

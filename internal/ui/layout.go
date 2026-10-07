@@ -48,7 +48,7 @@ func (model *Model) resizeTable() {
 
 	tableHeight := maximumSessionRows
 	if model.height > 0 {
-		tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-model.inlinePreviewHeight()-8))
+		tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-model.inlinePreviewHeight()-6))
 		if model.table.Width() < 66 {
 			tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-16))
 		}
@@ -87,7 +87,7 @@ func (model Model) inlinePreviewHeight() int {
 	if model.height == 0 {
 		return 10
 	}
-	return min(10, max(7, model.height-20))
+	return min(11, max(8, model.height-19))
 }
 
 func (model Model) sidebarVisible() bool {
