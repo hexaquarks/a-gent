@@ -36,6 +36,9 @@ func (model Model) View() string {
 	if model.height > 0 && lipgloss.Height(view) > model.height {
 		view = strings.Join(strings.Split(view, "\n")[:model.height], "\n")
 	}
+	if model.newAgent != nil {
+		return model.newAgentView(view)
+	}
 	return view
 }
 

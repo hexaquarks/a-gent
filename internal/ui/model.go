@@ -33,6 +33,9 @@ type Model struct {
 	providerErrors   map[string]error
 	sessions         []agent.Session
 	navigator        SessionNavigator
+	launcher         AgentLauncher
+	newAgent         *newAgentDialog
+	launchCancel     context.CancelFunc
 	selectedView     sidebarView
 	selectedProject  string
 	selectedProvider string
@@ -128,6 +131,8 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			model.cancelNavigation()
 			return model, tea.Quit
+		case "n", "N":
+			return model.openNewAgent(message.String() == "N")
 		case "/":
 			model.sidebarPreview = nil
 			model.updateTableRows()
@@ -245,6 +250,18 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		model.sidebarCursor = min(model.sidebarCursor, len(model.sidebarItems())-1)
 		return model, awaitProviderUpdate(model.updates)
+	case agentLaunchMessage:
+		model.cancelLaunch()
+		if message.err != nil {
+			if model.newAgent != nil {
+				dialog := *model.newAgent
+				dialog.starting = false
+				dialog.err = message.err
+				model.newAgent = &dialog
+			}
+			return model, nil
+		}
+		return model, tea.Quit
 	case sessionNavigationMessage:
 		model.cancelNavigation()
 		if message.err != nil {

@@ -33,6 +33,7 @@ func (model Model) footerText() string {
 		shortcut("f", holdLabel),
 		shortcut("v", "preview"),
 		shortcut("q", "quit"),
+		shortcut("n/N", "agent pane/window"),
 	)
 	width := model.width - appStyle.GetHorizontalFrameSize() - footerStyle.GetHorizontalFrameSize()
 	if model.width > 0 && lipgloss.Width(strings.Join(parts, "   ")) > width {
@@ -49,7 +50,7 @@ func (model Model) footerText() string {
 		if model.navigator != nil {
 			keys = append(keys, "enter")
 		}
-		keys = append(keys, "s", "f", "v", "q")
+		keys = append(keys, "s", "f", "v", "q", "n/N")
 		if lipgloss.Width(strings.Join(keys, " ")) > width {
 			for index, key := range keys {
 				if key == "enter" {
