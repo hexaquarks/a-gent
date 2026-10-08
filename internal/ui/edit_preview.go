@@ -76,7 +76,10 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case previewTick:
 		command = previewTimer()
 	case tea.KeyMsg:
-		// Search owns text input, including the preview shortcut.
+		// Dialogs and search own text input, including the preview shortcut.
+		if model.newAgent != nil {
+			return model.updateNewAgent(message)
+		}
 		if model.projectSearching {
 			next, cmd := model.update(message)
 			model = next.(Model)

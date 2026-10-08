@@ -42,6 +42,10 @@ func run() error {
 		modelOptions = append(modelOptions, ui.WithSessionNavigator(navigator))
 	}
 
+	if launcher := tmux.NewLauncher(); launcher != nil {
+		modelOptions = append(modelOptions, ui.WithAgentLauncher(launcher))
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	modelOptions = append(modelOptions, ui.WithApplicationContext(ctx))
 	// Workers wait for the UI to receive each result so updates cannot pile up.

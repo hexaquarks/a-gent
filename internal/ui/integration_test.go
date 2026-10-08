@@ -170,3 +170,38 @@ func assertPreviewHeading(t *testing.T, screen, title string) {
 	}
 	t.Fatalf("preview heading %q is missing or on a different row:\n%s", title, screen)
 }
+
+func TestIntegrationNewAgentDialog(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("codex fixture")
+	fixture.key("n")
+	screen := fixture.waitText("NEW AGENT")
+	if !strings.Contains(screen, "/fixture/codex") {
+		t.Fatalf("wrong project:\n%s", screen)
+	}
+	fixture.capture("new-agent-codex")
+	fixture.key("Right")
+	fixture.capture("new-agent-claude")
+	fixture.key("Enter")
+	fixture.waitText("inside tmux")
+	fixture.capture("new-agent-error")
+	fixture.width, fixture.height = 80, 24
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
+	fixture.waitText("tab j/k s f v q n/N")
+	fixture.capture("new-agent-narrow")
+	fixture.key("Escape")
+	fixture.waitFor("dialog closed", 4*time.Second, func(screen string) bool { return !strings.Contains(screen, "NEW AGENT") })
+}
+
+func TestIntegrationNewAgentWindowDialog(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("codex fixture")
+	fixture.key("N")
+	fixture.waitText("Open in a new tmux window")
+	fixture.capture("new-agent-window")
+	fixture.key("Escape")
+	fixture.waitFor("window dialog closed", 4*time.Second, func(screen string) bool { return !strings.Contains(screen, "NEW AGENT") })
+	fixture.key("n")
+	fixture.waitText("Open in a new tmux pane")
+	fixture.key("Escape")
+}
