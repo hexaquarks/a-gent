@@ -186,9 +186,10 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 		// Use the provider timestamp when available; an active session without
 		// a timestamp still has a meaningful fallback.
 		if sessionState(session) == agent.StateRunning && session.LastActiveAt.IsZero() {
-			return "Now", mutedStyle
+			return "Now", runningStyle
 		}
-		return strings.TrimSuffix(formatLastActiveAt(session.LastActiveAt, time.Now()), " ago"), mutedStyle
+		now := time.Now()
+		return strings.TrimSuffix(formatLastActiveAt(session.LastActiveAt, now), " ago"), lastActiveStyle(session.LastActiveAt, now)
 	default:
 		return "", lipgloss.NewStyle()
 	}
