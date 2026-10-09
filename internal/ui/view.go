@@ -66,7 +66,7 @@ func (model Model) detailView() string {
 	fields := []struct{ label, value string }{
 		{"Agent", providerStyle(selectedSession.Provider).Bold(true).Render(safeDisplayText(selectedSession.Provider))},
 		{"Status", statusStyle(sessionState(selectedSession)).Render("● " + safeDisplayText(stateText))},
-		{"Project", mainTextStyle.Render(safeDisplayText(projectName(selectedSession.WorkingDirectory)))},
+		{"Project", model.projectStyle(selectedSession.WorkingDirectory).Render(safeDisplayText(projectName(selectedSession.WorkingDirectory)))},
 		{"Directory", mutedStyle.Render(directory)},
 		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
 	}

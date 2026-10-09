@@ -68,10 +68,12 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 		t.Fatal("session switch retained another provider's output")
 	}
 	assertPreviewHeading(t, screen, "LIVE ACTIVITY")
+	assertProjectColumn(t, screen, true)
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
-	fixture.waitText("v · Assistant: CLAUDE_ONLY")
+	screen = fixture.waitText("v · Assistant: CLAUDE_ONLY")
+	assertProjectColumn(t, screen, false)
 	fixture.capture("narrow-activity")
 	fixture.key("v")
 	screen = fixture.waitText("LIVE ACTIVITY · Esc")
@@ -86,6 +88,19 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if strings.Contains(screen, "CLAUDE_ONLY") {
 		t.Fatal("returning to a cached session mixed providers")
 	}
+}
+
+func assertProjectColumn(t *testing.T, screen string, visible bool) {
+	t.Helper()
+	for _, line := range strings.Split(screen, "\n") {
+		if strings.Contains(line, "Agent") && strings.Contains(line, "Last active") {
+			if strings.Contains(line, "Project") != visible {
+				t.Fatalf("project column visibility should be %t:\n%s", visible, screen)
+			}
+			return
+		}
+	}
+	t.Fatalf("session table header is missing:\n%s", screen)
 }
 
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
@@ -146,6 +161,8 @@ func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
 	fixture.key("Down") // Updates
 	fixture.key("Enter")
 	fixture.key("Tab")
+	// Active also has one row; wait for the chosen filter before reading results.
+	fixture.waitText("● Updates")
 	screen = fixture.waitText("SESSIONS (1 of 1)")
 	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") || !strings.Contains(screen, "1 unseen") {
 		t.Fatalf("Updates does not isolate the changed session:\n%s", screen)

@@ -88,25 +88,21 @@ func TestProjectPinsPersistAndSortFirst(t *testing.T) {
 	}
 }
 
-func TestProjectIndicatorsAndNames(t *testing.T) {
+func TestProjectFolderAndNames(t *testing.T) {
 	model := NewModel(nil)
-	model.sessions = []agent.Session{{ID: "run", WorkingDirectory: "/long", State: agent.StateRunning}, {ID: "wait", WorkingDirectory: "/long", State: agent.StateWaiting}}
-	_, style := model.projectIndicator("/long")
-	if style.GetForeground() != waitingStyle.GetForeground() {
-		t.Fatal("running status hides attention")
+	model.sessions = []agent.Session{{ID: "run", WorkingDirectory: "/long", State: agent.StateRunning}}
+	item := sidebarItem{label: "非常に長いプロジェクト名-example", project: "/long"}
+	row := model.projectItemView(item, false, false)
+	if !strings.Contains(row, "\uf07b") {
+		t.Fatal("project row is missing its folder icon")
 	}
-	model.sessions = model.sessions[:1]
-	_, style = model.projectIndicator("/long")
-	if style.GetForeground() != runningStyle.GetForeground() {
-		t.Fatal("running project lacks green indicator")
+	for _, state := range []agent.State{agent.StateIdle, agent.StateWaiting, agent.StateError} {
+		model.sessions[0].State = state
+		if model.projectItemView(item, false, false) != row {
+			t.Fatal("project identity changed with session status")
+		}
 	}
-	model.sessions[0].State = agent.StateIdle
-	model.unreadSessions = map[sessionIdentity]bool{{id: "run"}: true}
-	_, style = model.projectIndicator("/long")
-	if style.GetForeground() != accentStyle.GetForeground() {
-		t.Fatal("unread project lacks cyan indicator")
-	}
-	row := model.projectItemView(sidebarItem{label: "非常に長いプロジェクト名-example", project: "/long"}, true, true)
+	row = model.projectItemView(item, true, true)
 	if lipgloss.Width(row) != sidebarContentWidth-sidebarStyle.GetHorizontalPadding() {
 		t.Fatalf("project width = %d", lipgloss.Width(row))
 	}

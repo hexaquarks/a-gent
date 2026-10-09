@@ -94,7 +94,7 @@ func sessionSortValue(session agent.Session, column string) string {
 		return session.Provider
 	case "Status":
 		return displayState(sessionState(session))
-	case "Directory":
+	case "Project", "Directory":
 		if session.WorkingDirectory == "" {
 			return ""
 		}

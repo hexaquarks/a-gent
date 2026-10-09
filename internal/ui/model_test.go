@@ -282,7 +282,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
 	}
-	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " ● a-gent") || !strings.HasSuffix(row, "  2 ") {
+	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " \uf07b a-gent") || !strings.HasSuffix(row, "  2 ") {
 		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
 	}
 }
