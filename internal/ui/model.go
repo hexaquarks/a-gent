@@ -52,8 +52,6 @@ type Model struct {
 	noticeRevision   int
 	width            int
 	height           int
-	orderHeld        bool
-	heldOrder        []sessionIdentity
 	sort             sessionSort
 	tableSessionIDs  []sessionIdentity
 	unreadSessions   map[sessionIdentity]bool
@@ -174,20 +172,10 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			model.updateTableRows()
 			return model, nil
-		case "f":
-			model.orderHeld = !model.orderHeld
-			model.heldOrder = nil
-			if model.orderHeld {
-				model.rememberSessionOrder()
-			}
-			model.updateTableRows()
-			return model, nil
 		case "s":
 			model.cycleSortColumn()
 			return model, nil
 		case "S":
-			model.orderHeld = false
-			model.heldOrder = nil
 			model.sort.descending = !model.sort.descending
 			model.updateTableRows()
 			return model, nil
