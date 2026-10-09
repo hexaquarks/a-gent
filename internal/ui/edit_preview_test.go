@@ -207,6 +207,23 @@ func TestProjectSearchOwnsPreviewShortcut(t *testing.T) {
 	}
 }
 
+func TestQuitClosesExpandedPreviewBeforeDashboard(t *testing.T) {
+	model := NewModel(nil)
+	model.width, model.height = 80, 24
+	model.previewExpanded = true
+
+	updated, command := model.Update(runeKey('q'))
+	model = updated.(Model)
+	if command != nil || model.previewExpanded || !strings.Contains(model.View(), "SELECTED SESSION") {
+		t.Fatal("q did not return from the preview to the dashboard")
+	}
+
+	_, command = model.Update(runeKey('q'))
+	if command == nil || command() != tea.Quit() {
+		t.Fatal("q did not quit from the dashboard")
+	}
+}
+
 func TestPreviewTimerReadsNewCompletedEditWithoutSessionUpdate(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "rollout.jsonl")
 	if err := os.WriteFile(path, nil, 0600); err != nil {

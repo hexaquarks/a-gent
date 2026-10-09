@@ -46,6 +46,10 @@ func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
 	}
 	assertPreviewHeading(t, screen, "LAST EDIT")
 	fixture.capture("idle-diff")
+	fixture.key("v")
+	fixture.waitText("EDIT PREVIEW · Esc/q")
+	fixture.key("q")
+	fixture.waitText("SELECTED SESSION")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
@@ -76,12 +80,12 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	assertProjectColumn(t, screen, false)
 	fixture.capture("narrow-activity")
 	fixture.key("v")
-	screen = fixture.waitText("LIVE ACTIVITY · Esc")
+	screen = fixture.waitText("LIVE ACTIVITY · Esc/q")
 	if !strings.Contains(screen, "CLAUDE_ONLY") {
 		t.Fatal("expanded feed lost the selected output")
 	}
 	fixture.capture("expanded-activity")
-	fixture.key("Escape")
+	fixture.key("q")
 	fixture.waitText("SELECTED SESSION")
 	fixture.selectProvider("codex")
 	screen = fixture.waitText("CODEX_ONLY")
@@ -198,8 +202,11 @@ func TestIntegrationNewAgentDialog(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.waitText("tab j/k s v q n/N")
 	fixture.capture("new-agent-narrow")
-	fixture.key("Escape")
+	fixture.key("q")
 	fixture.waitFor("dialog closed", 4*time.Second, func(screen string) bool { return !strings.Contains(screen, "NEW AGENT") })
+	fixture.key("n")
+	fixture.waitText("NEW AGENT")
+	fixture.key("Escape")
 }
 
 func TestIntegrationNewAgentWindowDialog(t *testing.T) {
@@ -208,7 +215,7 @@ func TestIntegrationNewAgentWindowDialog(t *testing.T) {
 	fixture.key("N")
 	fixture.waitText("Open in a new tmux window")
 	fixture.capture("new-agent-window")
-	fixture.key("Escape")
+	fixture.key("q")
 	fixture.waitFor("window dialog closed", 4*time.Second, func(screen string) bool { return !strings.Contains(screen, "NEW AGENT") })
 	fixture.key("n")
 	fixture.waitText("Open in a new tmux pane")

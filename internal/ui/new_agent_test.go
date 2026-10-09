@@ -91,6 +91,24 @@ func TestNewAgentUsesFocusedProjectAndCancels(t *testing.T) {
 	}
 }
 
+func TestQuitClosesNewAgentDialogBeforeDashboard(t *testing.T) {
+	model := NewModel(nil)
+	model.width, model.height = 80, 24
+
+	updated, _ := model.Update(runeKey('n'))
+	model = updated.(Model)
+	updated, command := model.Update(runeKey('q'))
+	model = updated.(Model)
+	if command != nil || model.newAgent != nil || !strings.Contains(model.View(), "SELECTED SESSION") {
+		t.Fatal("q did not return from the new agent dialog to the dashboard")
+	}
+
+	_, command = model.Update(runeKey('q'))
+	if command == nil || command() != tea.Quit() {
+		t.Fatal("q did not quit from the dashboard")
+	}
+}
+
 func TestCapitalNLaunchesNewWindow(t *testing.T) {
 	launcher := &fakeLauncher{}
 	model := NewModel(nil, WithAgentLauncher(launcher))
