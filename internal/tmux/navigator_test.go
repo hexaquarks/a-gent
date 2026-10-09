@@ -58,6 +58,57 @@ func TestNavigatorDoesNotGuessBetweenMatchingPanes(t *testing.T) {
 	}
 }
 
+func TestNavigatorFindsShellLaunchedAgentAmongProjectPanes(t *testing.T) {
+	var target string
+	navigator := Navigator{
+		clientName: "client-1",
+		processes: func(context.Context) (map[int]process, error) {
+			return map[int]process{
+				10: {parentID: 1, command: "zsh"},
+				11: {parentID: 10, command: "node /opt/bin/codex"},
+				12: {parentID: 11, command: "/opt/bin/codex"},
+				20: {parentID: 1, command: "zsh"},
+				21: {parentID: 20, command: "nvim codex"},
+			}, nil
+		},
+		runCommand: func(_ context.Context, command string, arguments ...string) ([]byte, error) {
+			if command == "list-panes" {
+				return []byte("%1\t/project\t\t10\n%2\t/project\t\t20\n"), nil
+			}
+			target = arguments[len(arguments)-1]
+			return nil, nil
+		},
+	}
+	if err := navigator.Navigate(context.Background(), agent.Session{Provider: "codex", WorkingDirectory: "/project"}); err != nil {
+		t.Fatal(err)
+	}
+	if target != "%1" {
+		t.Fatalf("target = %q, want %%1", target)
+	}
+}
+
+func TestNavigatorRejectsTwoShellLaunchedAgentsInOneProject(t *testing.T) {
+	navigator := Navigator{
+		processes: func(context.Context) (map[int]process, error) {
+			return map[int]process{
+				10: {parentID: 1, command: "zsh"},
+				11: {parentID: 10, command: "codex"},
+				20: {parentID: 1, command: "zsh"},
+				21: {parentID: 20, command: "codex"},
+			}, nil
+		},
+		runCommand: func(_ context.Context, command string, _ ...string) ([]byte, error) {
+			if command != "list-panes" {
+				t.Fatal("switched to an ambiguous pane")
+			}
+			return []byte("%1\t/project\t\t10\n%2\t/project\t\t20\n"), nil
+		},
+	}
+	if err := navigator.Navigate(context.Background(), agent.Session{Provider: "codex", WorkingDirectory: "/project"}); err == nil {
+		t.Fatal("expected an ambiguous-pane error")
+	}
+}
+
 func TestNavigatorReturnsTheTmuxSwitchError(t *testing.T) {
 	switchError := errors.New("no such client")
 	navigator := Navigator{
