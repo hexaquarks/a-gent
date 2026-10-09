@@ -2,6 +2,7 @@ package ui
 
 import (
 	"hash/fnv"
+	"slices"
 	"strings"
 
 	"a-gent/internal/agent"
@@ -132,6 +133,35 @@ func providerStyle(provider string) lipgloss.Style {
 		color = palette[int(hash.Sum32())%len(palette)]
 	}
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+}
+
+// projectStyle assigns the preferred colors first, using all project paths so
+// filtering, pinning, and session sorting do not change their colors.
+func (model Model) projectStyle(directory string) lipgloss.Style {
+	if directory == "" {
+		return mutedStyle
+	}
+	// Pink, blue, and mint come first; cyan, violet, and status colors already
+	// carry meaning elsewhere in the dashboard.
+	palette := [...]string{
+		"#F28FC4", "#82B1FF", "#65D6AD", "#E6D9B2", "#D4A76A",
+		"#A9C4B5", "#FFA86B", "#9CA8FF", "#BEDC7F", "#63D6E6",
+	}
+	projects := model.projects()
+	slices.Sort(projects)
+	colorIndex := 0
+	for _, project := range projects {
+		if project == "" {
+			continue
+		}
+		if project == directory {
+			return lipgloss.NewStyle().
+				Foreground(lipgloss.Color(palette[colorIndex%len(palette)])).
+				Bold(true)
+		}
+		colorIndex++
+	}
+	return mutedStyle
 }
 
 // Section bars fill their panel, including the space after the heading.

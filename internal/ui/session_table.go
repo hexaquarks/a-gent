@@ -97,6 +97,9 @@ func (model Model) sessionRowView(session agent.Session, selected bool, columns 
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
+		if column.Title == "Project" {
+			style = model.projectStyle(session.WorkingDirectory)
+		}
 		if column.Title == "Session" {
 			cells[columnIndex] = renderTableCell(sessionDisplayName(session), column.Width, mainTextStyle.Bold(selected), background)
 			continue
@@ -144,6 +147,13 @@ func (model Model) emptySessionRowView(columns []table.Column, showEmptyMessage 
 		if showEmptyMessage && columnIndex == emptyMessageColumn {
 			value = emptyMessage
 			style = mutedStyle
+			// Empty rows can use the remaining columns to keep the message readable.
+			for _, remainingColumn := range columns[columnIndex+1:] {
+				column.Width += remainingColumn.Width
+			}
+			cells[columnIndex] = renderTableCell(value, column.Width, style, lipgloss.Color(""))
+			cells = cells[:columnIndex+1]
+			break
 		}
 
 		cells[columnIndex] = renderTableCell(value, column.Width, style, lipgloss.Color(""))
@@ -178,6 +188,8 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 		return session.Provider, providerStyle(session.Provider).Bold(true)
 	case "Session":
 		return sessionDisplayName(session), mainTextStyle
+	case "Project":
+		return projectName(session.WorkingDirectory), mutedStyle
 	case "Directory":
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":

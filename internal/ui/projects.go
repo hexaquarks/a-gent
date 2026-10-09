@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"a-gent/internal/agent"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -102,45 +101,23 @@ func (model Model) projectRowCapacity() int {
 	return max(1, min(maximumProjectRows, model.sidebarHeight()-model.projectTop()-3))
 }
 
-// Attention takes priority over running work; unread changes are shown next.
-func (model Model) projectIndicator(project string) (string, lipgloss.Style) {
-	running, unread := false, false
-	for _, session := range model.sessions {
-		if session.WorkingDirectory != project {
-			continue
-		}
-		switch sessionState(session) {
-		case agent.StateWaiting, agent.StateError, agent.StateUnavailable:
-			return "●", waitingStyle
-		case agent.StateRunning:
-			running = true
-		}
-		unread = unread || model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}]
-	}
-	if running {
-		return "●", runningStyle
-	}
-	if unread {
-		return "●", accentStyle
-	}
-	return " ", mutedStyle
-}
-
 func (model Model) projectItemView(item sidebarItem, focused, selected bool) string {
 	star := " "
 	if model.pinnedProjects[item.project] {
 		star = "★"
 	}
-	marker, markerStyle := model.projectIndicator(item.project)
-	style := mutedStyle
+	markerStyle := model.projectStyle(item.project)
+	style := mainTextStyle
+	countStyle := mutedStyle
 	if selected {
-		style = accentStyle
+		style = style.Bold(true)
 	}
 	if focused {
-		style = mainTextStyle.Background(lipgloss.Color(colorSelection))
+		style = style.Background(lipgloss.Color(colorSelection))
 		markerStyle = markerStyle.Background(lipgloss.Color(colorSelection))
+		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
-	return model.renderSidebarRow(item.label, marker, star, fmt.Sprint(model.projectCount(item.project)), style, markerStyle, style)
+	return model.renderSidebarRow(item.label, "\uf07b", star, fmt.Sprint(model.projectCount(item.project)), style, markerStyle, countStyle)
 }
 
 func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {

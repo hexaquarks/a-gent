@@ -3,20 +3,20 @@
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  VIEWS                 │  SESSIONS (6 of 6)                                                  Last active ↓  |  LIVE  │
 │    Attention        1  │                                                                                             │
-│    Active           1  │      Agent       Session                                Status             Last active ↓    │
-│    Recent           5  │      claude      Investigate terminal notifications     ● Running                     2m    │
-│    Updates          2  │   ●  codex       Investigate AGENTS.md override         ● Needs input                 3m    │
-│  ● All              6  │ › ●  codex       Restore response navigation            ● Idle                        4m    │
-│                        │      codex       Align selected agent cursor            ● Idle                        5m    │
-│  AGENTS                │      codex       Add Claude session discovery           ● Idle                        8m    │
-│    claude           1  │      codex       Untitled session                       ● Idle                       13m    │
+│    Active           1  │      Agent   Session                       Project          Status         Last active ↓    │
+│    Recent           5  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
+│    Updates          2  │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
+│  ● All              6  │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
+│                        │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
+│  AGENTS                │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
+│    claude           1  │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │
 │    codex            5  │                                                                                             │
 │                        │─────────────────────────────────────────────────────────────────────────────────────────────│
 │  PROJECTS (4)          │  SELECTED SESSION                                        │  LAST EDIT               1m ago  │
-│    mihailanghe…  ★  1  │                                                          │  internal/navigation.go          │
-│  ● a-gent           2  │  Restore response navigation                             │  @@ openSession                  │
-│  ● codex-audit      1  │                                                          │   if session != nil {            │
-│  ● swiftyprompt     2  │  Agent      codex                                        │  -    navigator.Open(cwd)        │
+│   mihailanghe…  ★  1  │                                                          │  internal/navigation.go          │
+│   a-gent           2  │  Restore response navigation                             │  @@ openSession                  │
+│   codex-audit      1  │                                                          │   if session != nil {            │
+│   swiftyprompt     2  │  Agent      codex                                        │  -    navigator.Open(cwd)        │
 │                        │  Status     ● Idle                                       │  +    navigator.Navigate(        │
 │                        │  Project    swiftyprompt                                 │  +        ctx, session,          │
 │                        │  Directory  /projects/swiftyprompt                       │  +    )                          │

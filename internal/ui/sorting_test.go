@@ -51,7 +51,7 @@ func TestDefaultSortUsesActivityWithUnknownLast(t *testing.T) {
 }
 
 func TestSortColumnsAndDirections(t *testing.T) {
-	for _, column := range []string{"Session", "Agent", "Status", "Directory"} {
+	for _, column := range []string{"Session", "Agent", "Status", "Project", "Directory"} {
 		t.Run(column, func(t *testing.T) {
 			model := NewModel(nil)
 			model.sessions = []agent.Session{
@@ -168,7 +168,7 @@ func TestSortKeyCyclesVisibleColumnsAndPreservesSelection(t *testing.T) {
 }
 
 func TestCapitalSReversesCurrentSortAndPreservesSelection(t *testing.T) {
-	for _, column := range []string{"Last active", "Session", "Agent", "Status", "Directory"} {
+	for _, column := range []string{"Last active", "Session", "Agent", "Status", "Project", "Directory"} {
 		t.Run(column, func(t *testing.T) {
 			model := NewModel(nil)
 			model.sessions = []agent.Session{
@@ -225,7 +225,7 @@ func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 
 func TestResizeResetsSortWhenColumnIsHidden(t *testing.T) {
 	model := NewModel(nil)
-	model.sort = sessionSort{column: "Directory"}
+	model.sort = sessionSort{column: "Project"}
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 64, Height: PopupContentHeight})
 	model = updated.(Model)
 	if model.sort.column != "Last active" || !model.sort.descending {

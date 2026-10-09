@@ -118,18 +118,19 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(strings.Replace(row, "★", " ", 1), countText+" ") {
 					t.Fatalf("count was truncated or moved: %q", row)
 				}
-				if !strings.HasPrefix(row, "  ") || !strings.Contains(row, "…") {
+				if !(strings.HasPrefix(row, "  ") || strings.HasPrefix(row, " \uf07b ")) || !strings.Contains(row, "…") {
 					t.Fatalf("missing blank gutter or truncated name: %q", row)
 				}
-				// Ignore only the pin cell; all sections must allocate the same name width.
-				if strings.Replace(row, "★", " ", 1) != unpinned {
+				// Ignore pins and folder icons when comparing name and count alignment.
+				markers := strings.NewReplacer("★", " ", "\uf07b", " ")
+				if markers.Replace(row) != markers.Replace(unpinned) {
 					t.Fatalf("sections disagree on reserved columns: %q versus %q", row, unpinned)
 				}
 			}
 			model.sessions[0].State = agent.StateRunning
 			active := ansi.Strip(model.projectItemView(project, false, false))
-			if strings.TrimPrefix(active, " ● ") != strings.TrimPrefix(pinned, "   ") {
-				t.Fatalf("status dot moved another field: %q versus %q", active, pinned)
+			if active != pinned {
+				t.Fatalf("session status changed the project row: %q versus %q", active, pinned)
 			}
 		}
 	}
