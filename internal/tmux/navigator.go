@@ -151,14 +151,7 @@ func resolvedDirectory(directory string) string {
 }
 
 func paneRunsProvider(pane pane, provider string) bool {
-	commandParts := strings.Fields(pane.command)
-	if len(commandParts) == 0 || provider == "" {
-		return false
-	}
-
-	// Only the executable identifies the provider. An argument such as
-	// "nvim codex" must not make an editor pane look like an agent pane.
-	return filepath.Base(commandParts[0]) == provider
+	return processRunsProvider(pane.command, provider)
 }
 
 func runTmuxCommand(context context.Context, command string, arguments ...string) ([]byte, error) {

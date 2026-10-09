@@ -3,6 +3,8 @@ package tmux
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -134,7 +136,9 @@ func TestPaneRunsProviderChecksTheExecutable(t *testing.T) {
 	}{
 		{command: "codex", expected: true},
 		{command: "/usr/local/bin/codex --resume", expected: true},
+		{command: "node /usr/local/bin/codex", expected: true},
 		{command: "nvim codex"},
+		{command: "node script.js codex"},
 		{command: "echo codex"},
 		{command: "codex-other"},
 		{command: ""},
@@ -276,6 +280,7 @@ func TestNavigatorDoesNotGuessForMissingOrSharedTerminal(t *testing.T) {
 func TestNavigatorDoesNotFallBackAfterProcessExit(t *testing.T) {
 	navigator := Navigator{
 		processParents: func(context.Context) (map[int]int, error) { return map[int]int{}, nil },
+		processTTY:     func(context.Context, int) (string, error) { return "", nil },
 		runCommand: func(_ context.Context, command string, _ ...string) ([]byte, error) {
 			if command != "list-panes" {
 				t.Fatal("switched to an unrelated session")
@@ -286,6 +291,19 @@ func TestNavigatorDoesNotFallBackAfterProcessExit(t *testing.T) {
 	processID := 42
 	if err := navigator.Navigate(context.Background(), agent.Session{Provider: "claude", WorkingDirectory: "/project", ProcessID: &processID}); err == nil {
 		t.Fatal("matched an exited session")
+	}
+}
+
+func TestMatchingPanesResolvesDirectorySymlinks(t *testing.T) {
+	directory := t.TempDir()
+	alias := filepath.Join(t.TempDir(), "project-link")
+	if err := os.Symlink(directory, alias); err != nil {
+		t.Fatal(err)
+	}
+	panes := []pane{{id: "%1", directory: directory, command: "codex"}}
+	matches := matchingPanes(panes, nil, agent.Session{Provider: "codex", WorkingDirectory: alias})
+	if len(matches) != 1 || matches[0].id != "%1" {
+		t.Fatalf("matches = %+v", matches)
 	}
 }
 

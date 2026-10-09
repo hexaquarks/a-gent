@@ -69,22 +69,14 @@ func processRunsProvider(command, provider string) bool {
 // Records each process's parent so we can find the tmux pane containing an agent
 // started inside a shell.
 func readProcessParents(ctx context.Context) (map[int]int, error) {
-	output, err := exec.CommandContext(ctx, "ps", "-A", "-o", "pid=,ppid=").Output()
+	processes, err := readProcesses(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("read session processes: %w", err)
+		return nil, err
 	}
 
-	parents := make(map[int]int)
-	for _, line := range strings.Split(string(output), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			continue
-		}
-		pid, pidErr := strconv.Atoi(fields[0])
-		parentProcessID, parentErr := strconv.Atoi(fields[1])
-		if pidErr == nil && parentErr == nil {
-			parents[pid] = parentProcessID
-		}
+	parents := make(map[int]int, len(processes))
+	for pid, candidate := range processes {
+		parents[pid] = candidate.parentID
 	}
 
 	return parents, nil
