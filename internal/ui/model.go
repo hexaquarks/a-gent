@@ -28,6 +28,7 @@ type Model struct {
 	previewCancel    context.CancelFunc
 	previewExpanded  bool
 	previewScroll    int
+	previewFrame     int
 	table            table.Model
 	updates          <-chan polling.Update
 	providerErrors   map[string]error

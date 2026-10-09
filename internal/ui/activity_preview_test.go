@@ -61,3 +61,27 @@ func TestActivityLayoutAndRightEdge(t *testing.T) {
 		}
 	}
 }
+
+func TestActivityExpandShortcutUsesFooter(t *testing.T) {
+	model := NewModel(nil, WithPreviewSources(codex.NewAdapter()))
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one", State: agent.StateRunning}}})
+	key := sessionIdentity{provider: "codex", id: "one"}
+	model.previewCache = map[sessionIdentity]previewEntry{key: {
+		loaded: true, checked: time.Now(),
+		activity: &agent.Activity{Label: "Assistant", Text: "Latest output", At: time.Now()},
+	}}
+
+	view := ansi.Strip(model.previewView(40, 8, false))
+	lines := strings.Split(view, "\n")
+	if strings.TrimSpace(lines[0]) != "LIVE ACTIVITY" || !strings.Contains(lines[len(lines)-1], "Codex is thinking") ||
+		!strings.Contains(lines[len(lines)-1], "v expand") || strings.Count(view, "v expand") != 1 {
+		t.Fatal(view)
+	}
+
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one", State: agent.StateIdle}}})
+	view = ansi.Strip(model.previewView(40, 8, false))
+	lines = strings.Split(view, "\n")
+	if !strings.Contains(lines[len(lines)-1], "v expand") || strings.Contains(view, "is thinking") {
+		t.Fatal(view)
+	}
+}

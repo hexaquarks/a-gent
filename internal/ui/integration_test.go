@@ -68,6 +68,12 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	fixture.waitText("CODEX_ONLY")
 	fixture.selectProvider("claude")
 	screen := fixture.waitText("CLAUDE_ONLY")
+	if !strings.Contains(screen, "Claude is thinking") {
+		t.Fatal("running Claude session has no thinking indicator")
+	}
+	if strings.Contains(screen, "LIVE ACTIVITY · v") || !strings.Contains(screen, "v expand") {
+		t.Fatal("live activity shortcut is not at the bottom of the preview")
+	}
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
 	}
@@ -76,7 +82,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
-	screen = fixture.waitText("v · Assistant: CLAUDE_ONLY")
+	screen = fixture.waitText("v expand · Assistant:")
 	assertProjectColumn(t, screen, false)
 	fixture.capture("narrow-activity")
 	fixture.key("v")
@@ -110,6 +116,9 @@ func assertProjectColumn(t *testing.T, screen string, visible bool) {
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	screen := fixture.waitText("Waiting for output")
+	if !strings.Contains(screen, "Codex is thinking") {
+		t.Fatal("running Codex session has no thinking indicator")
+	}
 	assertPreviewHeading(t, screen, "PREVIEW")
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
@@ -129,6 +138,9 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	}
 	fixture.setState("codex", agent.StateIdle)
 	screen = fixture.waitText("No edits yet")
+	if strings.Contains(screen, "Codex is thinking") {
+		t.Fatal("idle session kept thinking indicator")
+	}
 	assertPreviewHeading(t, screen, "PREVIEW")
 	fixture.capture("no-edits")
 }
