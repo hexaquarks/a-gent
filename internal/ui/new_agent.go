@@ -60,7 +60,7 @@ func (model Model) updateNewAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return model, nil
 	}
 	switch key.String() {
-	case "esc":
+	case "esc", "q":
 		model.newAgent = nil
 	case "left", "right", "tab", "h", "l":
 		if dialog.provider == "codex" {
@@ -124,7 +124,7 @@ func (model Model) newAgentView(background string) string {
 		mutedStyle.Render("Provider   ") + strings.Join(providers, "  "),
 		mutedStyle.Render("           ←/→ choose provider"), "",
 		mainTextStyle.Render("Open in a new tmux " + destination), "",
-		accentStyle.Render("Enter") + mutedStyle.Render(" start    ") + accentStyle.Render("Esc") + mutedStyle.Render(" cancel"),
+		accentStyle.Render("Enter") + mutedStyle.Render(" start    ") + accentStyle.Render("Esc/q") + mutedStyle.Render(" cancel"),
 	}
 	if dialog.starting {
 		lines[len(lines)-1] = accentStyle.Render("Starting agent…")

@@ -17,7 +17,7 @@ func (model Model) showActivity(session agent.Session, cached previewEntry) bool
 func (model Model) activityView(session agent.Session, cached previewEntry, width, height int, expanded bool) string {
 	title := "LIVE ACTIVITY · v"
 	if expanded {
-		title = "LIVE ACTIVITY · Esc: return · j/k: scroll"
+		title = "LIVE ACTIVITY · Esc/q: return · j/k: scroll"
 	}
 	status := "Working · awaiting output"
 	if time.Since(cached.activity.At) < 5*time.Second {

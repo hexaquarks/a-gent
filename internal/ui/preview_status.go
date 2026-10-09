@@ -28,6 +28,6 @@ func (model Model) emptyPreviewView(message string, width, height int, expanded 
 	if !expanded {
 		return lipgloss.NewStyle().MaxHeight(height).Render(lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, text))
 	}
-	title := accentStyle.Render(ansi.Truncate("PREVIEW · Esc: return", width, "…"))
+	title := accentStyle.Render(ansi.Truncate("PREVIEW · Esc/q: return", width, "…"))
 	return lipgloss.NewStyle().Width(width).MaxHeight(height).Render(title + "\n" + lipgloss.Place(width, max(0, height-1), lipgloss.Center, lipgloss.Center, text))
 }

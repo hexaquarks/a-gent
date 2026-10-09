@@ -94,7 +94,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if model.previewExpanded {
 			switch message.String() {
-			case "esc":
+			case "esc", "q":
 				model.previewExpanded = false
 				return model, nil
 			case "j", "down":
@@ -103,7 +103,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			case "k", "up":
 				model.previewScroll = max(0, model.previewScroll-1)
 				return model, nil
-			case "q", "ctrl+c":
+			case "ctrl+c":
 			default:
 				return model, nil
 			}
@@ -173,7 +173,7 @@ func (model Model) previewView(width, height int, expanded bool) string {
 	}
 	title := "LAST EDIT"
 	if expanded {
-		title = "EDIT PREVIEW · Esc: return · j/k: scroll"
+		title = "EDIT PREVIEW · Esc/q: return · j/k: scroll"
 	}
 	lines := []string{accentStyle.Render(ansi.Truncate(title, width, "…"))}
 	edit := cached.edit
