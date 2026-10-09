@@ -90,6 +90,31 @@ func readProcessParents(ctx context.Context) (map[int]int, error) {
 	return parents, nil
 }
 
+// readProcessTTY identifies the terminal of a live process even if it was reparented.
+func readProcessTTY(ctx context.Context, processID int) (string, error) {
+	output, err := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(processID), "-o", "tty=").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// A missing or detached terminal cannot identify a pane safely.
+func panesForTerminal(panes []pane, terminal string) []pane {
+	if terminal == "" || terminal == "??" || terminal == "?" {
+		return nil
+	}
+
+	terminal = strings.TrimPrefix(terminal, "/dev/")
+	var matches []pane
+	for _, pane := range panes {
+		if strings.TrimPrefix(pane.terminal, "/dev/") == terminal {
+			matches = append(matches, pane)
+		}
+	}
+	return matches
+}
+
 // Finds the pane by following the agent's parent processes back to the process
 // tmux started. Stops if a process repeats so an invalid chain cannot loop forever.
 func panesForProcess(panes []pane, parents map[int]int, processID int) []pane {

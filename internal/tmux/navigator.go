@@ -22,6 +22,7 @@ type Navigator struct {
 	runCommand     commandRunner
 	processParents func(context.Context) (map[int]int, error)
 	processes      func(context.Context) (map[int]process, error)
+	processTTY     func(context.Context, int) (string, error)
 }
 
 type pane struct {
@@ -29,6 +30,7 @@ type pane struct {
 	directory string
 	command   string
 	processID int
+	terminal  string
 }
 
 // NewNavigator returns nil outside a tmux popup or when its originating tmux
@@ -44,10 +46,11 @@ func NewNavigator() *Navigator {
 		runCommand:     commandRunner(runTmuxCommand),
 		processParents: readProcessParents,
 		processes:      readProcesses,
+		processTTY:     readProcessTTY,
 	}
 }
 
-// Navigate opens the session's pane using its process ID when available.
+// Navigate opens the session's pane using its process ID or terminal when available.
 // Otherwise, it requires a single pane running that provider in the same directory.
 func (navigator *Navigator) Navigate(ctx context.Context, session agent.Session) error {
 	if session.WorkingDirectory == "" && session.ProcessID == nil {
@@ -69,6 +72,16 @@ func (navigator *Navigator) Navigate(ctx context.Context, session agent.Session)
 			return err
 		}
 		targets = panesForProcess(panes, parents, *session.ProcessID)
+		if len(targets) == 0 {
+			readTTY := navigator.processTTY
+			if readTTY == nil {
+				readTTY = readProcessTTY
+			}
+			terminal, err := readTTY(ctx, *session.ProcessID)
+			if err == nil {
+				targets = panesForTerminal(panes, terminal)
+			}
+		}
 	} else {
 		processReader := navigator.processes
 		if processReader == nil {
@@ -95,19 +108,22 @@ func (navigator *Navigator) Navigate(ctx context.Context, session agent.Session)
 }
 
 func (navigator *Navigator) panes(context context.Context) ([]pane, error) {
-	output, err := navigator.runCommand(context, "list-panes", "-a", "-F", "#{pane_id}\t#{pane_current_path}\t#{pane_start_command}\t#{pane_pid}")
+	output, err := navigator.runCommand(context, "list-panes", "-a", "-F",
+		"#{pane_id}\t#{pane_current_path}\t#{pane_start_command}\t#{pane_pid}\t#{pane_tty}")
 	if err != nil {
 		return nil, fmt.Errorf("list tmux panes: %w", err)
 	}
 
 	var panes []pane
 	for _, line := range strings.Split(strings.TrimSuffix(string(output), "\n"), "\n") {
-		values := strings.SplitN(line, "\t", 4)
-		if len(values) != 4 || values[0] == "" || values[1] == "" {
+		values := strings.SplitN(line, "\t", 5)
+		if len(values) != 5 || values[0] == "" || values[1] == "" {
 			continue
 		}
 		processID, _ := strconv.Atoi(values[3])
-		panes = append(panes, pane{id: values[0], directory: values[1], command: values[2], processID: processID})
+		panes = append(panes, pane{
+			id: values[0], directory: values[1], command: values[2], processID: processID, terminal: values[4],
+		})
 	}
 
 	return panes, nil
