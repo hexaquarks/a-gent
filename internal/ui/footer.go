@@ -24,13 +24,8 @@ func (model Model) footerText() string {
 	if model.navigator != nil {
 		parts = append(parts, shortcut("enter", "open"))
 	}
-	holdLabel := "hold order"
-	if model.orderHeld {
-		holdLabel = "live order"
-	}
 	parts = append(parts,
 		shortcut("s", "sort"),
-		shortcut("f", holdLabel),
 		shortcut("v", "preview"),
 		shortcut("q", "quit"),
 		shortcut("n/N", "agent pane/window"),
@@ -41,16 +36,11 @@ func (model Model) footerText() string {
 		if lipgloss.Width(compact) <= width {
 			return compact
 		}
-		compact = strings.Replace(compact, "hold order", "hold", 1)
-		compact = strings.Replace(compact, "live order", "live", 1)
-		if lipgloss.Width(compact) <= width {
-			return compact
-		}
 		keys := []string{"tab", "j/k"}
 		if model.navigator != nil {
 			keys = append(keys, "enter")
 		}
-		keys = append(keys, "s", "f", "v", "q", "n/N")
+		keys = append(keys, "s", "v", "q", "n/N")
 		if lipgloss.Width(strings.Join(keys, " ")) > width {
 			for index, key := range keys {
 				if key == "enter" {

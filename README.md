@@ -50,8 +50,7 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 - Use the sidebar to filter by project, provider, or session state. Press Enter
   to apply a filter.
 - Press `/` to search projects and `p` to pin or unpin a project in the sidebar.
-- Press `s` to change the sort column, `S` to reverse it, or `f` to hold the current
-  order while sessions keep updating.
+- Press `s` to change the sort column or `S` to reverse it.
 - Press `v` to expand the preview and Escape to return; press `q` to quit.
 
 ## Local development

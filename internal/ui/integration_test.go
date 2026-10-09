@@ -129,31 +129,23 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture.capture("no-edits")
 }
 
-func TestIntegrationHeldOrderAndUpdates(t *testing.T) {
+func TestIntegrationLiveOrderAndUpdates(t *testing.T) {
 	fixture := newDashboardFixture(t)
-	fixture.key("f")
-	fixture.waitText("HELD")
-	fixture.appendOutput("codex", "OUTPUT_WHILE_HELD")
-	fixture.waitText("OUTPUT_WHILE_HELD")
-	// A newer timestamp must update live status without moving existing rows.
+	fixture.appendOutput("codex", "LIVE_OUTPUT")
+	fixture.waitText("LIVE_OUTPUT")
+	// A newer timestamp updates status and moves the session into activity order.
 	session := fixture.sessions["claude"]
 	session.LastActiveAt = time.Now()
 	fixture.sessions["claude"] = session
 	fixture.setState("claude", agent.StateWaiting)
-	screen := fixture.waitText("1 needs input")
-	codexRow, claudeRow := strings.Index(screen, "codex fixture"), strings.Index(screen, "claude fixture")
-	if codexRow < 0 || claudeRow < 0 || codexRow >= claudeRow {
-		t.Fatal("held rows reordered after a provider update")
-	}
-	fixture.capture("held-live-output")
-	fixture.key("f")
-	screen = fixture.waitFor("resumed activity order", 4*time.Second, func(screen string) bool {
+	screen := fixture.waitFor("live activity order", 4*time.Second, func(screen string) bool {
 		codexRow, claudeRow := strings.Index(screen, "codex fixture"), strings.Index(screen, "claude fixture")
-		return strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
+		return strings.Contains(screen, "1 needs input") && strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
 	})
-	if !strings.Contains(screen, "OUTPUT_WHILE_HELD") {
-		t.Fatal("resuming order lost the selected preview")
+	if !strings.Contains(screen, "LIVE_OUTPUT") {
+		t.Fatal("reordering sessions lost the selected preview")
 	}
+	fixture.capture("live-order-and-output")
 	fixture.key("Tab")
 	// Arrow sequences stay separate when the terminal batches rapid key presses.
 	fixture.key("Down") // Active
@@ -204,7 +196,7 @@ func TestIntegrationNewAgentDialog(t *testing.T) {
 	fixture.capture("new-agent-error")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
-	fixture.waitText("tab j/k s f v q n/N")
+	fixture.waitText("tab j/k s v q n/N")
 	fixture.capture("new-agent-narrow")
 	fixture.key("Escape")
 	fixture.waitFor("dialog closed", 4*time.Second, func(screen string) bool { return !strings.Contains(screen, "NEW AGENT") })

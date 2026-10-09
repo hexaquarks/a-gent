@@ -219,9 +219,6 @@ func renderTableCell(value string, width int, textStyle lipgloss.Style, backgrou
 }
 
 func (model *Model) updateTableRows() {
-	if model.orderHeld {
-		model.rememberSessionOrder()
-	}
 	// Read identity from the previous rows; the provider data or sort order
 	// may already have changed, so the old cursor no longer identifies it.
 	var selectedID sessionIdentity

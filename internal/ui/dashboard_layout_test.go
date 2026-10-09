@@ -158,7 +158,7 @@ func TestCompactFooterKeepsAllActionsAndFrameVisible(t *testing.T) {
 			t.Fatalf("%v: dashboard frame was clipped:\n%s", size, view)
 		}
 		footer := lines[len(lines)-2]
-		for _, key := range []string{"tab", "j/k", "enter", "s", "f", "v", "q"} {
+		for _, key := range []string{"tab", "j/k", "enter", "s", "v", "q"} {
 			if key == "enter" && size[0] < 40 {
 				key = "↵"
 			}

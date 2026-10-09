@@ -30,37 +30,29 @@ func TestUpdatesFilterTracksAcknowledgementAndProviderIdentity(t *testing.T) {
 	}
 }
 
-func TestHoldOrderKeepsLiveDataAndAppendsNewSessions(t *testing.T) {
+func TestProviderUpdateReordersSessionsAndPreservesSelection(t *testing.T) {
 	model := NewModel(nil)
 	model.sessions = []agent.Session{
 		{ID: "a", Provider: "codex", State: agent.StateRunning, LastActiveAt: time.Unix(200, 0)},
 		{ID: "b", Provider: "codex", State: agent.StateIdle, LastActiveAt: time.Unix(100, 0)},
 	}
 	model.updateTableRows()
-	model = sendSortKey(model, runeKey('f'))
 	updated, _ := model.Update(polling.Update{Provider: "codex", Sessions: []agent.Session{
 		{ID: "a", State: agent.StateIdle, LastActiveAt: time.Unix(200, 0)},
 		{ID: "b", State: agent.StateRunning, LastActiveAt: time.Unix(300, 0)},
 		{ID: "c", State: agent.StateIdle, LastActiveAt: time.Unix(400, 0)},
 	}})
 	model = updated.(Model)
-	assertSessionOrder(t, model, "a", "b", "c")
+	assertSessionOrder(t, model, "c", "b", "a")
 	if selected, _ := model.selectedSession(); selected.State != agent.StateIdle || len(model.unreadSessions) != 1 {
-		t.Fatal("holding order prevented status or unread updates")
+		t.Fatal("provider update lost the selected session or unread state")
 	}
 	model.selectedView = activeView
 	assertSessionOrder(t, model, "b")
 	model.selectedView = allView
-	assertSessionOrder(t, model, "a", "b", "c")
-	model = sendSortKey(model, runeKey('f'))
 	assertSessionOrder(t, model, "c", "b", "a")
 	if selected, _ := model.selectedSession(); selected.ID != "a" {
-		t.Fatal("resuming live order lost selection")
-	}
-	model = sendSortKey(model, runeKey('f'))
-	model = sendSortKey(model, runeKey('s'))
-	if model.orderHeld {
-		t.Fatal("choosing a new sort did not resume live order")
+		t.Fatal("provider update lost selection")
 	}
 }
 

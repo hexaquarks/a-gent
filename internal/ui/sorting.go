@@ -29,26 +29,7 @@ func (sort sessionSort) arrow() string {
 }
 
 func (model Model) sortSessions(sessions []agent.Session) {
-	positions := make(map[sessionIdentity]int, len(model.heldOrder))
-	if model.orderHeld {
-		for index, identity := range model.heldOrder {
-			positions[identity] = index
-		}
-	}
 	slices.SortStableFunc(sessions, func(left, right agent.Session) int {
-		if model.orderHeld {
-			leftPosition, leftKnown := positions[sessionIdentity{provider: left.Provider, id: left.ID}]
-			rightPosition, rightKnown := positions[sessionIdentity{provider: right.Provider, id: right.ID}]
-			if leftKnown != rightKnown {
-				if leftKnown {
-					return -1
-				}
-				return 1
-			}
-			if leftKnown {
-				return cmp.Compare(leftPosition, rightPosition)
-			}
-		}
 		comparison := 0
 		if model.sort.column == "Last active" {
 			// Unknown activity stays last in both directions.
@@ -106,8 +87,6 @@ func sessionSortValue(session agent.Session, column string) string {
 
 // Cycle through the columns in their displayed order, wrapping at the end.
 func (model *Model) cycleSortColumn() {
-	model.orderHeld = false
-	model.heldOrder = nil
 	columns := model.table.Columns()
 	if len(columns) == 0 {
 		return
@@ -127,24 +106,10 @@ func (model *Model) cycleSortColumn() {
 
 func (model Model) sessionHeadingView() string {
 	width := model.table.Width() - panelStyle.GetHorizontalFrameSize()
-	mode := "LIVE"
-	if model.orderHeld {
-		mode = "HELD"
-	}
 	sortLabel := model.sort.column + " " + model.sort.arrow()
 	indicator := sectionBar(sortLabel, lipgloss.Width(sortLabel), accentStyle) +
 		sectionBar("  |  ", 5, mutedStyle) +
-		sectionBar(mode+" ", 5, accentStyle)
+		sectionBar("LIVE ", 5, accentStyle)
 	title := sectionBar(" "+model.sessionTitle(), max(1, width-lipgloss.Width(indicator)), model.panelTitleStyle())
 	return title + indicator
-}
-
-// Remember the whole snapshot so filtering does not alter held positions.
-func (model *Model) rememberSessionOrder() {
-	sessions := slices.Clone(model.sessions)
-	model.sortSessions(sessions)
-	model.heldOrder = nil
-	for _, session := range sessions {
-		model.heldOrder = append(model.heldOrder, sessionIdentity{provider: session.Provider, id: session.ID})
-	}
 }
