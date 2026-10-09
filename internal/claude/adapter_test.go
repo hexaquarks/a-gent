@@ -36,6 +36,9 @@ func TestDecodeSessions(t *testing.T) {
 	if sessions[1].ID != "job:job-1" || sessions[1].State != agent.StateRunning || sessions[2].State != agent.StateWaiting {
 		t.Fatalf("background sessions = %+v", sessions[1:])
 	}
+	if sessions[1].ProcessID == nil || *sessions[1].ProcessID != 0 {
+		t.Fatal("processless background job must not navigate by project directory")
+	}
 }
 
 func TestActivityMapping(t *testing.T) {
