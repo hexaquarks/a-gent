@@ -15,7 +15,7 @@ func (model Model) showActivity(session agent.Session, cached previewEntry) bool
 }
 
 func (model Model) activityView(session agent.Session, cached previewEntry, width, height int, expanded bool) string {
-	title := "LIVE ACTIVITY · v"
+	title := "LIVE ACTIVITY"
 	if expanded {
 		title = "LIVE ACTIVITY · Esc/q: return · j/k: scroll"
 	}
@@ -44,6 +44,9 @@ func (model Model) activityView(session agent.Session, cached previewEntry, widt
 	}
 	wrapped := strings.Split(ansi.Wrap(strings.Join(textLines, "\n"), width, ""), "\n")
 	capacity := max(0, height-len(lines)-1)
+	if !expanded && capacity > 0 {
+		capacity-- // Keep room for a truncation notice above the footer.
+	}
 	start := max(0, len(wrapped)-capacity)
 	if expanded {
 		start = min(model.previewScroll, max(0, len(wrapped)-capacity))
@@ -52,15 +55,30 @@ func (model Model) activityView(session agent.Session, cached previewEntry, widt
 	for _, line := range wrapped[start:end] {
 		lines = append(lines, mainTextStyle.Render(line))
 	}
-	if start > 0 || end < len(wrapped) {
-		label := "… truncated · v: expand"
+	truncated := start > 0 || end < len(wrapped)
+	if truncated {
+		label := "… truncated"
 		if expanded {
 			label = fmt.Sprintf("… lines %d–%d/%d", start+1, end, len(wrapped))
 		}
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(label, width, "…")))
 	}
-	if len(lines) < height && !cached.checked.IsZero() {
-		lines = append(lines, mutedStyle.Render(ansi.Truncate("Checked "+cached.checked.Format("15:04:05"), width, "…")))
+	footer := ""
+	if !cached.checked.IsZero() {
+		footer = mutedStyle.Render(ansi.Truncate("Checked "+cached.checked.Format("15:04:05"), width, "…"))
+	}
+	if !expanded {
+		if !model.previewThinking(session, cached) && width > lipgloss.Width(previewExpandShortcut()) {
+			footer = alignedLine(footer, previewExpandShortcut(), width)
+		}
+		if footer != "" && len(lines) < height {
+			for len(lines) < height-1 {
+				lines = append(lines, "")
+			}
+			lines = append(lines, footer)
+		}
+	} else if len(lines) < height && footer != "" {
+		lines = append(lines, footer)
 	}
 	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).Render(strings.Join(lines, "\n"))
 }

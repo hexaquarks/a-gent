@@ -151,6 +151,58 @@ func TestPreviewStatesAndTerminalBounds(t *testing.T) {
 	}
 }
 
+func TestThinkingIndicatorTracksRunningSession(t *testing.T) {
+	model := NewModel(nil, WithPreviewSources(codex.NewAdapter()))
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one", Provider: "codex", State: agent.StateRunning}}})
+	key := sessionIdentity{provider: "codex", id: "one"}
+	model.previewCache = map[sessionIdentity]previewEntry{key: {loaded: true, checked: time.Now()}}
+
+	for _, entry := range []previewEntry{
+		{loaded: true, checked: time.Now()},
+		{loaded: true, checked: time.Now(), edit: &agent.Edit{Filename: "file.go", Diff: "+change"}},
+		{loaded: true, checked: time.Now(), activity: &agent.Activity{Label: "Assistant", Text: "Working", At: time.Now()}},
+	} {
+		model.previewCache[key] = entry
+		for _, expanded := range []bool{false, true} {
+			view := ansi.Strip(model.previewView(40, 8, expanded))
+			lines := strings.Split(view, "\n")
+			if !strings.Contains(lines[len(lines)-1], "Codex is thinking") {
+				t.Fatalf("indicator is not at preview bottom: %s", view)
+			}
+			if !expanded && !strings.Contains(lines[len(lines)-1], "v expand") {
+				t.Fatalf("expand shortcut is not at preview bottom: %s", view)
+			}
+		}
+	}
+
+	before := ansi.Strip(model.previewView(40, 8, false))
+	updated, _ := model.Update(previewTick{})
+	model = updated.(Model)
+	after := ansi.Strip(model.previewView(40, 8, false))
+	if before == after || !strings.Contains(after, "Codex is thinking") {
+		t.Fatal("thinking animation did not advance")
+	}
+
+	for _, state := range []agent.State{agent.StateWaiting, agent.StateIdle} {
+		model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one", Provider: "codex", State: state}}})
+		if strings.Contains(ansi.Strip(model.previewView(40, 8, false)), "is thinking") {
+			t.Fatalf("thinking indicator remained for %s", state)
+		}
+	}
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one", State: agent.StateRunning}}})
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Err: errors.New("offline")})
+	if strings.Contains(ansi.Strip(model.previewView(40, 8, false)), "is thinking") {
+		t.Fatal("stale session kept thinking indicator")
+	}
+	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one", State: agent.StateRunning}}})
+	entry := model.previewCache[key]
+	entry.err = errors.New("preview unavailable")
+	model.previewCache[key] = entry
+	if strings.Contains(ansi.Strip(model.previewView(40, 8, false)), "is thinking") {
+		t.Fatal("failed preview kept thinking indicator")
+	}
+}
+
 func TestCompactHunkShowsChangesAfterContext(t *testing.T) {
 	model := NewModel(nil)
 	model.applyProviderUpdate(polling.Update{Provider: "codex", Sessions: []agent.Session{{ID: "one"}}})

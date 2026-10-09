@@ -74,6 +74,7 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		model.previewCache[message.key] = cached
 	case previewTick:
+		model.previewFrame++
 		command = previewTimer()
 	case tea.KeyMsg:
 		// Dialogs and search own text input, including the preview shortcut.
@@ -163,6 +164,46 @@ func (model *Model) syncPreview() tea.Cmd {
 func (model Model) previewView(width, height int, expanded bool) string {
 	width = max(1, width)
 	height = max(1, height)
+	session, ok := model.selectedSession()
+	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+	if ok && model.previewThinking(session, cached) {
+		indicator := model.thinkingIndicator(session.Provider, width)
+		if !expanded && width > lipgloss.Width(indicator)+lipgloss.Width(previewExpandShortcut()) {
+			indicator = alignedLine(indicator, previewExpandShortcut(), width)
+		}
+		if height == 1 {
+			return indicator
+		}
+		content := model.previewContentView(width, height-1, expanded)
+		return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).Render(content + "\n" + indicator)
+	}
+	return model.previewContentView(width, height, expanded)
+}
+
+func (model Model) previewThinking(session agent.Session, cached previewEntry) bool {
+	return session.State == agent.StateRunning && !session.Stale && cached.err == nil &&
+		model.previewSources[session.Provider] != nil
+}
+
+func previewExpandShortcut() string {
+	return shortcutKeyStyle.Render("v") + mutedStyle.Render(" expand")
+}
+
+func (model Model) thinkingIndicator(provider string, width int) string {
+	frames := [...]string{"◐", "◓", "◑", "◒"}
+	frame := runningStyle.Render(frames[model.previewFrame%len(frames)])
+	if width < 3 {
+		return frame
+	}
+	name := safeDisplayText(provider)
+	if name != "" {
+		name = strings.ToUpper(name[:1]) + name[1:]
+	}
+	label := ansi.Truncate(name+" is thinking", max(0, width-2), "…")
+	return frame + " " + mutedStyle.Render(label)
+}
+
+func (model Model) previewContentView(width, height int, expanded bool) string {
 	session, ok := model.selectedSession()
 	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
 	if model.showActivity(session, cached) {
@@ -258,7 +299,11 @@ func (model Model) previewView(width, height int, expanded bool) string {
 		if truncated {
 			label += " … truncated"
 		}
-		lines = append(lines, alignedLine(mutedStyle.Render(label), shortcutKeyStyle.Render("v")+mutedStyle.Render(" expand"), width))
+		shortcut := previewExpandShortcut()
+		if model.previewThinking(session, cached) {
+			shortcut = ""
+		}
+		lines = append(lines, alignedLine(mutedStyle.Render(label), shortcut, width))
 	} else if truncated {
 		label := fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(label, width, "…")))
@@ -292,9 +337,15 @@ func (model Model) detailWithPreview() string {
 			label = "v: expand · " + status + " · " + ansi.Truncate(safeDisplayText(filepath.Base(cached.edit.Filename)), nameWidth, "…")
 		}
 		if model.showActivity(session, cached) {
-			label = "v · " + cached.activity.Label + ": " + safeDisplayText(cached.activity.Text)
+			label = "v expand · " + cached.activity.Label + ": " + safeDisplayText(cached.activity.Text)
 		}
-		return clipLines(model.detailView(), width) + "\n" + mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
+		if selected && model.previewThinking(session, cached) {
+			indicator := model.thinkingIndicator(session.Provider, width)
+			label = alignedLine(mutedStyle.Render(ansi.Truncate(safeDisplayText(label), max(1, width-lipgloss.Width(indicator)-1), "…")), indicator, width)
+		} else {
+			label = mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
+		}
+		return clipLines(model.detailView(), width) + "\n" + label
 	}
 	previewWidth := min(42, width*3/8)
 	metadataWidth := width - previewWidth - 2
