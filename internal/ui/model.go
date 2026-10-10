@@ -57,6 +57,10 @@ type Model struct {
 	tableSessionIDs  []sessionIdentity
 	unreadSessions   map[sessionIdentity]bool
 
+	readyPulses       map[sessionIdentity]time.Time
+	readyPulseTime    time.Time
+	readyPulseTicking bool
+
 	appContext       context.Context
 	navigationCancel context.CancelFunc
 }
@@ -238,7 +242,24 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.updateTableRows()
 		}
 		model.sidebarCursor = min(model.sidebarCursor, len(model.sidebarItems())-1)
-		return model, awaitProviderUpdate(model.updates)
+		var pulseCommand tea.Cmd
+		if len(model.readyPulses) > 0 && !model.readyPulseTicking {
+			model.readyPulseTicking = true
+			pulseCommand = readyPulseTimer()
+		}
+		return model, tea.Batch(awaitProviderUpdate(model.updates), pulseCommand)
+	case readyPulseMessage:
+		model.readyPulseTime = time.Time(message)
+		for identity, started := range model.readyPulses {
+			if model.readyPulseTime.Sub(started) >= readyPulseDuration {
+				delete(model.readyPulses, identity)
+			}
+		}
+		model.readyPulseTicking = len(model.readyPulses) > 0
+		if model.readyPulseTicking {
+			return model, readyPulseTimer()
+		}
+		return model, nil
 	case agentLaunchMessage:
 		model.cancelLaunch()
 		if message.err != nil {

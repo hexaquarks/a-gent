@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"a-gent/internal/agent"
 	"a-gent/internal/polling"
@@ -51,6 +52,7 @@ func (model *Model) applyProviderUpdate(update polling.Update) {
 	}
 
 	model.updateUnreadSessions(sessions)
+	model.updateReadyPulses(sessions, time.Now())
 	model.sessions = sessions
 	model.clearMissingProjectFilter()
 

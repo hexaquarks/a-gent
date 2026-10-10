@@ -93,6 +93,7 @@ func (model Model) sessionRowView(session agent.Session, selected bool, columns 
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
+	background = model.readyPulseBackground(session, background)
 
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
