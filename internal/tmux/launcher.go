@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
+
+	"a-gent/internal/agent"
 	"strings"
 )
 
@@ -32,7 +35,7 @@ func NewLauncher() *Launcher {
 
 // Launch opens an interactive provider CLI in directory, in a new pane or window.
 func (launcher *Launcher) Launch(ctx context.Context, provider, directory string, newWindow bool) error {
-	if provider != "codex" && provider != "claude" {
+	if !slices.Contains(agent.InteractiveProviders(), provider) {
 		return fmt.Errorf("unsupported provider: %s", provider)
 	}
 	info, err := os.Stat(directory)

@@ -163,3 +163,19 @@ func TestQuitCancelsPendingAgentLaunch(t *testing.T) {
 		t.Fatal("launch continued after quit")
 	}
 }
+
+func TestNewAgentCyclesProvidersBothDirections(t *testing.T) {
+	model := NewModel(nil)
+	next, _ := model.openNewAgent(true)
+	model = next.(Model)
+	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
+	model = next.(Model)
+	if model.newAgent.provider != "claude" {
+		t.Fatal("left did not wrap to the last provider")
+	}
+	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyRight})
+	model = next.(Model)
+	if model.newAgent.provider != "codex" {
+		t.Fatal("right did not wrap to the first provider")
+	}
+}

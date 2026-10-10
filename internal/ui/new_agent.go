@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
+
+	"a-gent/internal/agent"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -63,11 +66,13 @@ func (model Model) updateNewAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		model.newAgent = nil
 	case "left", "right", "tab", "h", "l":
-		if dialog.provider == "codex" {
-			dialog.provider = "claude"
-		} else {
-			dialog.provider = "codex"
+		providers := agent.InteractiveProviders()
+		direction := 1
+		if key.String() == "left" || key.String() == "h" {
+			direction = -1
 		}
+		index := slices.Index(providers, dialog.provider)
+		dialog.provider = providers[(index+direction+len(providers))%len(providers)]
 		dialog.err = nil
 	case "enter":
 		if model.launcher == nil {
@@ -106,8 +111,8 @@ func (model Model) newAgentView(background string) string {
 	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(directory, home+string(os.PathSeparator)) {
 		directory = "~" + strings.TrimPrefix(directory, home)
 	}
-	providers := make([]string, 0, 2)
-	for _, provider := range []string{"codex", "claude"} {
+	providers := make([]string, 0, len(agent.InteractiveProviders()))
+	for _, provider := range agent.InteractiveProviders() {
 		style := providerStyle(provider).Padding(0, 1)
 		if provider == dialog.provider {
 			style = style.Foreground(lipgloss.Color(colorBackground)).Background(lipgloss.Color(colorAccent)).Bold(true)
