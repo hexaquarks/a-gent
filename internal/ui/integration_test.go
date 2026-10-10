@@ -5,6 +5,7 @@ package ui_test
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -232,4 +233,47 @@ func TestIntegrationNewAgentWindowDialog(t *testing.T) {
 	fixture.key("n")
 	fixture.waitText("Open in a new tmux pane")
 	fixture.key("Escape")
+}
+
+func TestIntegrationReadyPulse(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.setState("codex", agent.StateIdle)
+	fixture.waitText("1 unseen")
+	backgroundCodes := regexp.MustCompile(`48;2;\d+;\d+;\d+`)
+	row := func() string {
+		screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "codex fixture") && strings.Contains(line, "Idle") {
+				// Ignore the changing Last active timestamp; inspect only backgrounds.
+				colors := backgroundCodes.FindAllString(line, -1)
+				if len(colors) == 0 {
+					t.Fatal("idle session has no truecolor background")
+				}
+				return strings.Join(colors, " ")
+			}
+		}
+		t.Fatal("idle session row missing")
+		return ""
+	}
+	initial := row()
+	fixture.waitFor("animated row background", time.Second, func(string) bool { return row() != initial })
+	// Capture near the crest of the pulse for visual review.
+	crest := time.Now().Add(500 * time.Millisecond)
+	fixture.waitFor("pulse crest", 2*time.Second, func(string) bool { return time.Now().After(crest) })
+	fixture.capture("ready-pulse")
+	glowing := row()
+	settled := time.Now().Add(1600 * time.Millisecond)
+	fixture.waitFor("pulse settled", 3*time.Second, func(string) bool { return time.Now().After(settled) })
+	normal := row()
+	if normal == glowing {
+		t.Fatal("row background did not fade")
+	}
+	fixture.capture("ready-settled")
+	stable := time.Now().Add(300 * time.Millisecond)
+	fixture.waitFor("settled background remains stable", time.Second, func(string) bool {
+		if row() != normal {
+			t.Fatal("settled row continued animating")
+		}
+		return time.Now().After(stable)
+	})
 }
