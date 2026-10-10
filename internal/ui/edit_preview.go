@@ -77,6 +77,14 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.previewFrame++
 		command = previewTimer()
 	case tea.KeyMsg:
+		if model.helpOpen {
+			return model.updateHelp(message)
+		}
+		if message.String() == "?" && !model.projectSearching {
+			model.helpOpen = true
+			model.helpScroll = 0
+			return model, nil
+		}
 		// Dialogs and search own text input, including the preview shortcut.
 		if model.newAgent != nil {
 			return model.updateNewAgent(message)

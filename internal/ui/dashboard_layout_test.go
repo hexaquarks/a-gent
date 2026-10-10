@@ -147,7 +147,7 @@ func writeReferenceCapture(t *testing.T, view, plain string) {
 	}
 }
 
-func TestCompactFooterKeepsAllActionsAndFrameVisible(t *testing.T) {
+func TestCompactFooterKeepsEssentialActionsAndFrameVisible(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {64, 20}, {40, 16}, {24, 10}} {
 		model := referenceDashboard()
 		updated, _ := model.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
@@ -158,10 +158,7 @@ func TestCompactFooterKeepsAllActionsAndFrameVisible(t *testing.T) {
 			t.Fatalf("%v: dashboard frame was clipped:\n%s", size, view)
 		}
 		footer := lines[len(lines)-2]
-		for _, key := range []string{"tab", "j/k", "enter", "s", "v", "q"} {
-			if key == "enter" && size[0] < 40 {
-				key = "↵"
-			}
+		for _, key := range []string{"tab", "enter", "q", "?"} {
 			if !strings.Contains(footer, key) {
 				t.Errorf("%v: footer lost %s: %q", size, key, footer)
 			}

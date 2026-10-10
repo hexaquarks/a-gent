@@ -210,8 +210,8 @@ func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 		if !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "LIVE") {
 			t.Fatalf("width %d: missing sort indicators or shortcut:\n%s", width, view)
 		}
-		if footer := ansi.Strip(model.footerText()); !strings.Contains(footer, "s") || strings.Contains(footer, "hold") {
-			t.Fatal("sorting shortcuts are not visible")
+		if footer := ansi.Strip(model.footerText()); !strings.Contains(footer, "?") || strings.Contains(footer, "sort") {
+			t.Fatal("footer should point to help for sorting shortcuts")
 		}
 		for _, column := range model.table.Columns() {
 			model.sort = sessionSort{column: column.Title}
