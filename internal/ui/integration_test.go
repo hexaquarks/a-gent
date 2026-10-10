@@ -239,7 +239,8 @@ func TestIntegrationReadyPulse(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	fixture.setState("codex", agent.StateIdle)
 	fixture.waitText("1 unseen")
-	backgroundCodes := regexp.MustCompile(`48;2;\d+;\d+;\d+`)
+	// tmux versions emit RGB or indexed colors, with semicolon or colon separators.
+	backgroundCodes := regexp.MustCompile(`48[;:](?:2[;:]{1,2}\d+[;:]\d+[;:]\d+|5[;:]\d+)`)
 	row := func() string {
 		screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
 		for _, line := range strings.Split(screen, "\n") {
@@ -247,7 +248,7 @@ func TestIntegrationReadyPulse(t *testing.T) {
 				// Ignore the changing Last active timestamp; inspect only backgrounds.
 				colors := backgroundCodes.FindAllString(line, -1)
 				if len(colors) == 0 {
-					t.Fatal("idle session has no truecolor background")
+					t.Fatalf("idle session has no background color: %q", line)
 				}
 				return strings.Join(colors, " ")
 			}
