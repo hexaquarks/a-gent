@@ -61,7 +61,7 @@ func (model *Model) applyProviderUpdate(update polling.Update) {
 		providerErrors = append(providerErrors, fmt.Errorf("%s: %w", provider, model.providerErrors[provider]))
 	}
 	model.lastError = errors.Join(providerErrors...)
-	model.updateTableRows()
+	model.resizeTable()
 }
 
 func (model Model) failedProviders() []string {

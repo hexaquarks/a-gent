@@ -135,3 +135,21 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 		}
 	}
 }
+
+func TestThreeProviderNamesFitDashboard(t *testing.T) {
+	model := NewModel(nil)
+	model.width, model.height = PopupWidth, PopupContentHeight
+	for _, provider := range []string{"codex", "claude", "longprovider"} {
+		model.sessions = append(model.sessions, agent.Session{ID: provider, Provider: provider, Name: "Example"})
+	}
+	model.resizeTable()
+	if !strings.Contains(ansi.Strip(model.sessionTableView()), "longprovider") {
+		t.Fatal("table truncated a provider name that should fit")
+	}
+	sidebar := ansi.Strip(model.renderSidebar(summarizeSessions(model.sessions)))
+	for _, provider := range []string{"codex", "claude", "longprovider"} {
+		if !strings.Contains(sidebar, provider) {
+			t.Fatalf("sidebar omitted %s", provider)
+		}
+	}
+}

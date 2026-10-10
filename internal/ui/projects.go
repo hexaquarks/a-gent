@@ -171,5 +171,10 @@ func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (model Model) projectTop() int {
-	return max(9, min(11, model.sidebarHeight()-4))
+	top := 11
+	// Keep the three default providers visible without requiring sidebar focus.
+	if len(model.providers()) == 3 {
+		top++
+	}
+	return max(9, min(top, model.sidebarHeight()-4))
 }

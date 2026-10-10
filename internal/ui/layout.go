@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/charmbracelet/bubbles/table"
+import (
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/x/ansi"
+)
 
 const (
 	selectionCursorWidth = 4
@@ -28,7 +31,7 @@ func (model *Model) resizeTable() {
 	}
 	tableWidth = max(tableWidth, 8)
 
-	columns := tableColumns(tableWidth)
+	columns := tableColumns(tableWidth, model.providers()...)
 	model.table.SetWidth(tableWidth)
 	// Bubbles renders immediately on SetColumns; old rows may have more cells.
 	model.table.SetRows(nil)
@@ -57,7 +60,7 @@ func (model *Model) resizeTable() {
 	model.table.SetHeight(tableHeight + 1)
 }
 
-func tableColumns(tableWidth int) []table.Column {
+func tableColumns(tableWidth int, providers ...string) []table.Column {
 	tableWidth -= panelStyle.GetHorizontalFrameSize() + selectionCursorWidth + scrollbarGutterWidth
 	if tableWidth < 27 {
 		return []table.Column{{Title: "Session", Width: max(1, tableWidth)}}
@@ -65,10 +68,13 @@ func tableColumns(tableWidth int) []table.Column {
 	// Fit the provider names, longest status, and activity heading without
 	// reserving extra padding that would shorten session titles.
 	const (
-		agentWidth      = 8
 		statusWidth     = 15
 		lastActiveWidth = 15
 	)
+	agentWidth := 8
+	for _, provider := range providers {
+		agentWidth = max(agentWidth, min(16, ansi.StringWidth(safeDisplayText(provider))+2))
+	}
 	if tableWidth < 44 {
 		return []table.Column{
 			{Title: "Agent", Width: agentWidth},
