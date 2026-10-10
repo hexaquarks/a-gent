@@ -213,7 +213,7 @@ func TestIntegrationNewAgentDialog(t *testing.T) {
 	fixture.capture("new-agent-error")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
-	fixture.waitText("tab j/k s v q n/N")
+	fixture.waitText("help")
 	fixture.capture("new-agent-narrow")
 	fixture.key("q")
 	fixture.waitFor("dialog closed", 4*time.Second, func(screen string) bool { return !strings.Contains(screen, "NEW AGENT") })
@@ -277,4 +277,40 @@ func TestIntegrationReadyPulse(t *testing.T) {
 		}
 		return time.Now().After(stable)
 	})
+}
+
+func TestIntegrationKeyboardHelp(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.key("?")
+	fixture.waitText("KEYBOARD HELP")
+	fixture.capture("help-top")
+	fixture.key("End")
+	fixture.waitText("Quit dashboard")
+	fixture.capture("help-bottom")
+	fixture.key("q")
+	fixture.waitFor("help closed", time.Second, func(screen string) bool { return !strings.Contains(screen, "KEYBOARD HELP") })
+	fixture.capture("compact-footer")
+	fixture.key("v")
+	fixture.waitText("Esc/q")
+	fixture.key("?")
+	fixture.waitText("KEYBOARD HELP")
+	fixture.key("Escape")
+	fixture.waitFor("help returned to preview", time.Second, func(screen string) bool {
+		return !strings.Contains(screen, "KEYBOARD HELP") && strings.Contains(screen, "Esc/q")
+	})
+	fixture.key("q")
+	fixture.waitText("SELECTED SESSION")
+	fixture.key("?")
+	fixture.width, fixture.height = 80, 24
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
+	fixture.waitText("KEYBOARD HELP")
+	fixture.capture("help-narrow")
+	fixture.width, fixture.height = 40, 16
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "40", "-y", "16")
+	fixture.waitText("↑/↓ scroll")
+	fixture.capture("help-small")
+	fixture.key("End")
+	fixture.waitText("Quit dashboard")
+	fixture.key("q")
+	fixture.waitFor("narrow help closed", time.Second, func(screen string) bool { return !strings.Contains(screen, "KEYBOARD HELP") })
 }

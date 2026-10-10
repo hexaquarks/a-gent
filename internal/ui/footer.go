@@ -20,37 +20,34 @@ func (model Model) footerText() string {
 	if model.projectSearching {
 		return strings.Join([]string{shortcut("enter", "select project"), shortcut("esc", "cancel"), shortcut("↑/↓", "browse")}, "   ")
 	}
-	parts := []string{shortcut("tab", "focus"), shortcut("j/k", "browse")}
+	parts := []string{shortcut("tab", "focus")}
 	if model.navigator != nil {
 		parts = append(parts, shortcut("enter", "open"))
 	}
-	parts = append(parts,
-		shortcut("s", "sort"),
-		shortcut("v", "preview"),
-		shortcut("q", "quit"),
-		shortcut("n/N", "agent pane/window"),
-	)
+	parts = append(parts, shortcut("q", "quit"))
+	left := strings.Join(parts, "   ")
+	right := shortcut("?", "help")
 	width := model.width - appStyle.GetHorizontalFrameSize() - footerStyle.GetHorizontalFrameSize()
-	if model.width > 0 && lipgloss.Width(strings.Join(parts, "   ")) > width {
-		compact := strings.Join(parts, " ")
-		if lipgloss.Width(compact) <= width {
-			return compact
-		}
-		keys := []string{"tab", "j/k"}
+	if model.width == 0 {
+		width = lipgloss.Width(left) + lipgloss.Width(right) + 3
+	}
+	if lipgloss.Width(left)+lipgloss.Width(right)+1 > width {
+		left = strings.Join(parts, " ")
+	}
+	if lipgloss.Width(left)+lipgloss.Width(right)+1 > width {
+		keys := []string{"tab"}
 		if model.navigator != nil {
 			keys = append(keys, "enter")
 		}
-		keys = append(keys, "s", "v", "q", "n/N")
-		if lipgloss.Width(strings.Join(keys, " ")) > width {
-			for index, key := range keys {
-				if key == "enter" {
-					keys[index] = "↵"
-				}
-			}
+		keys = append(keys, "q")
+		left = strings.Join(keys, " ")
+		if lipgloss.Width(left)+2 > width {
+			left = strings.Replace(left, "enter", "↵", 1)
 		}
-		return shortcutKeyStyle.Render(strings.Join(keys, " "))
+		left = shortcutKeyStyle.Render(left)
+		right = shortcutKeyStyle.Render("?")
 	}
-	return strings.Join(parts, "   ")
+	return alignedLine(left, right, max(1, width))
 }
 
 func (model Model) footerView(width int) string {

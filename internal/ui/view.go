@@ -7,12 +7,17 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // View renders the current UI state after Bubble Tea calls Update.
 func (model Model) View() string {
 	if model.previewExpanded {
-		return model.previewView(max(1, model.width), max(1, model.height), true)
+		view := model.previewView(max(1, model.width), max(1, model.height), true)
+		if model.helpOpen {
+			return model.helpView(view)
+		}
+		return view
 	}
 	summary := summarizeSessions(model.sessions)
 	tableView := model.sessionTableView()
@@ -37,7 +42,10 @@ func (model Model) View() string {
 		view = strings.Join(strings.Split(view, "\n")[:model.height], "\n")
 	}
 	if model.newAgent != nil {
-		return model.newAgentView(view)
+		view = model.newAgentView(view)
+	}
+	if model.helpOpen {
+		return model.helpView(view)
 	}
 	return view
 }
@@ -114,4 +122,24 @@ func summaryBadge(text, foreground, background string) string {
 func alignedLine(left, right string, width int) string {
 	left = clipLines(left, max(1, width-lipgloss.Width(right)-1))
 	return left + strings.Repeat(" ", max(0, width-lipgloss.Width(left)-lipgloss.Width(right))) + right
+}
+
+// overlayPanel preserves terminal column boundaries around a centered panel.
+func (model Model) overlayPanel(background, box string) string {
+	boxLines := strings.Split(box, "\n")
+	rows := strings.Split(background, "\n")
+	height := max(1, model.height)
+	for len(rows) < height {
+		rows = append(rows, "")
+	}
+	x := max(0, (model.width-lipgloss.Width(box))/2)
+	y := max(0, (height-len(boxLines))/2)
+	for index, line := range boxLines {
+		if y+index >= height {
+			break
+		}
+		row := lipgloss.NewStyle().Width(max(1, model.width)).Render(rows[y+index])
+		rows[y+index] = ansi.Cut(row, 0, x) + line + ansi.Cut(row, x+lipgloss.Width(box), model.width)
+	}
+	return clipLines(strings.Join(rows[:height], "\n"), max(1, model.width))
 }

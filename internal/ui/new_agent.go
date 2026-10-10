@@ -134,20 +134,5 @@ func (model Model) newAgentView(background string) string {
 	}
 	content := lipgloss.NewStyle().Width(contentWidth).Render(strings.Join(lines, "\n"))
 	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color(colorAccent)).Background(lipgloss.Color(colorBackground)).Padding(1, 2).Render(content)
-	boxLines := strings.Split(box, "\n")
-	rows := strings.Split(background, "\n")
-	height := max(1, model.height)
-	for len(rows) < height {
-		rows = append(rows, "")
-	}
-	x := max(0, (model.width-lipgloss.Width(box))/2)
-	y := max(0, (height-len(boxLines))/2)
-	for index, line := range boxLines {
-		if y+index >= height {
-			break
-		}
-		row := lipgloss.NewStyle().Width(max(1, model.width)).Render(rows[y+index])
-		rows[y+index] = ansi.Cut(row, 0, x) + line + ansi.Cut(row, x+lipgloss.Width(box), model.width)
-	}
-	return clipLines(strings.Join(rows[:height], "\n"), max(1, model.width))
+	return model.overlayPanel(background, box)
 }
