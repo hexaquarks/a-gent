@@ -133,6 +133,9 @@ func TestIntegrationOpenCodeStatus(t *testing.T) {
 	fixture.waitText("Status     ● Idle")
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.width, fixture.height = 80, 24
-	fixture.waitText("OpenCode fixture")
+	fixture.waitFor("narrow OpenCode layout", 4*time.Second, func(screen string) bool {
+		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "Preview not supported") &&
+			!strings.Contains(screen, "│  PREVIEW")
+	})
 	fixture.capture("opencode-narrow")
 }
