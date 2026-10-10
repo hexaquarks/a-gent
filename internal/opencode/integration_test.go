@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -198,7 +199,7 @@ func TestIntegrationInstalledOpenCode(t *testing.T) {
 		return false
 	})
 	unblock()
-	wait("native idle state", func() bool {
+	wait("native idle state and public output", func() bool {
 		sessions, err := adapter.Sessions(ctx)
 		if err != nil {
 			return false
@@ -207,9 +208,11 @@ func TestIntegrationInstalledOpenCode(t *testing.T) {
 			if entry.ID != running.ID || entry.State != agent.StateIdle {
 				continue
 			}
-			return true
+			preview, err := adapter.LatestPreview(ctx, entry)
+			return err == nil && preview.Activity != nil &&
+				strings.Contains(preview.Activity.Text, "Installed OpenCode fixture completed")
 		}
 		return false
 	})
-	t.Log("Installed CLI discovery, native running → idle verified")
+	t.Log("Installed CLI discovery, native running → idle, and public preview verified")
 }
