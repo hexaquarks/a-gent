@@ -23,7 +23,7 @@ func (fixture *dashboardFixture) setupOpenCode() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := openCodeFixtureState(directory, "busy", false)
+	state := openCodeFixtureState(directory, "busy", "opencode-update-0", false)
 	fixture.writeOpenCodeState(state)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Query().Get("directory") != directory {
@@ -67,7 +67,7 @@ func (fixture *dashboardFixture) setupOpenCode() {
 	t.Setenv("OPENCODE_SERVER_PASSWORD", "")
 }
 
-func openCodeFixtureState(directory, status string, waiting bool) map[string]any {
+func openCodeFixtureState(directory, status, output string, waiting bool) map[string]any {
 	timestamp := time.Now().Add(time.Second).UnixMilli()
 	statuses := map[string]any{}
 	if status != "idle" {
@@ -87,6 +87,13 @@ func openCodeFixtureState(directory, status string, waiting bool) map[string]any
 		"/session/status": statuses,
 		"/permission":     permission,
 		"/question":       []any{},
+		"/session/ses_fixture/message": []any{
+			map[string]any{"info": map[string]any{"sessionID": "ses_fixture", "role": "assistant", "time": map[string]int64{"created": timestamp}},
+				"parts": []any{
+					map[string]any{"sessionID": "ses_fixture", "type": "reasoning", "text": "PRIVATE_MUST_STAY_HIDDEN"},
+					map[string]any{"sessionID": "ses_fixture", "type": "text", "text": output, "time": map[string]int64{"start": timestamp}},
+				}},
+		},
 	}
 }
 
@@ -105,6 +112,43 @@ func (fixture *dashboardFixture) writeOpenCodeState(state map[string]any) {
 	}
 }
 
+func TestIntegrationOpenCodeStatusAndRealtimePreview(t *testing.T) {
+	fixture := newDashboardFixtureWithOpenCode(t, true)
+	directory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.key("g") // The OpenCode fixture has the most recent native activity.
+	fixture.waitText("opencode-update-0")
+	for sequence := 1; sequence <= 3; sequence++ {
+		output := fmt.Sprintf("opencode-update-%d", sequence)
+		fixture.writeOpenCodeState(openCodeFixtureState(directory, "busy", output, false))
+		screen := fixture.waitText(output)
+		if strings.Contains(screen, "PRIVATE_MUST_STAY_HIDDEN") || strings.Contains(screen, "HISTORY_MUST_STAY_HIDDEN") {
+			t.Fatalf("OpenCode leaked history or reasoning:\n%s", screen)
+		}
+	}
+	fixture.capture("opencode-live")
+	fixture.writeOpenCodeState(openCodeFixtureState(directory, "busy", "Waiting for permission", true))
+	fixture.waitText("Waiting for input")
+	fixture.capture("opencode-waiting")
+	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "opencode-completed", false))
+	fixture.waitText("Last output · idle")
+	fixture.waitText("opencode-completed")
+	fixture.capture("opencode-idle")
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
+	fixture.width, fixture.height = 80, 24
+	fixture.waitFor("narrow OpenCode preview", 4*time.Second, func(screen string) bool {
+		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "opencode-completed") &&
+			!strings.Contains(screen, "│  LIVE ACTIVITY")
+	})
+	fixture.capture("opencode-narrow")
+	fixture.key("v")
+	fixture.waitText("LIVE ACTIVITY · Esc/q")
+	fixture.key("q")
+	fixture.waitText("SELECTED SESSION")
+}
+
 func TestIntegrationOpenCodeStatus(t *testing.T) {
 	fixture := newDashboardFixtureWithOpenCode(t, true)
 	directory, err := os.Getwd()
@@ -118,23 +162,23 @@ func TestIntegrationOpenCodeStatus(t *testing.T) {
 	}
 	fixture.waitText("3 running")
 	fixture.capture("opencode-running")
-	fixture.writeOpenCodeState(openCodeFixtureState(directory, "busy", true))
+	fixture.writeOpenCodeState(openCodeFixtureState(directory, "busy", "", true))
 	fixture.waitText("Needs input")
 	fixture.capture("opencode-waiting")
-	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", false))
+	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "", false))
 	fixture.waitText("Status     ● Idle")
 	fixture.capture("opencode-idle")
-	state := openCodeFixtureState(directory, "idle", false)
+	state := openCodeFixtureState(directory, "idle", "", false)
 	state["/session/status"] = nil
 	fixture.writeOpenCodeState(state)
 	fixture.waitText("Unavailable")
 	fixture.capture("opencode-unavailable")
-	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", false))
+	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "", false))
 	fixture.waitText("Status     ● Idle")
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.width, fixture.height = 80, 24
 	fixture.waitFor("narrow OpenCode layout", 4*time.Second, func(screen string) bool {
-		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "Preview not supported") &&
+		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "Status     ● Idle") &&
 			!strings.Contains(screen, "│  PREVIEW")
 	})
 	fixture.capture("opencode-narrow")
