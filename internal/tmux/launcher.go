@@ -6,9 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+	"strings"
 
 	"a-gent/internal/agent"
-	"strings"
 )
 
 // Launcher starts coding agents in the originating tmux client's workspace.
@@ -66,7 +66,12 @@ func (launcher *Launcher) Launch(ctx context.Context, provider, directory string
 		// An omitted window index lets tmux choose a free slot in the parent session.
 		target += ":"
 	}
-	if _, err := launcher.runCommand(ctx, command, "-t", target, "-c", directory, shellQuote(executable)); err != nil {
+	launchCommand := shellQuote(executable)
+	if provider == "opencode" {
+		// The TUI otherwise keeps its status API inside its worker process.
+		launchCommand += " --port 0 --hostname 127.0.0.1"
+	}
+	if _, err := launcher.runCommand(ctx, command, "-t", target, "-c", directory, launchCommand); err != nil {
 		return fmt.Errorf("start %s in tmux %s: %w", provider, destination, err)
 	}
 	return nil

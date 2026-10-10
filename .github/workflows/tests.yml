@@ -36,8 +36,8 @@ jobs:
       - name: Run static analysis
         run: go vet ./...
 
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux
+      - name: Install terminal integration dependencies
+        run: sudo apt-get update && sudo apt-get install -y tmux lsof
 
       - name: Run terminal integration tests
         run: make test-integration

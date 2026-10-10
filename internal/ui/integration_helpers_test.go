@@ -16,6 +16,7 @@ import (
 	"a-gent/internal/agent"
 	"a-gent/internal/claude"
 	"a-gent/internal/codex"
+	"a-gent/internal/opencode"
 	"a-gent/internal/polling"
 	"a-gent/internal/ui"
 
@@ -65,6 +66,9 @@ func TestIntegrationDashboardProcess(t *testing.T) {
 		fixtureProvider{"codex", filepath.Join(root, "codex-sessions.json"), codex.NewAdapter()},
 		fixtureProvider{"claude", filepath.Join(root, "claude-sessions.json"), claude.NewAdapter()},
 	}
+	if os.Getenv("A_GENT_TEST_OPENCODE") == "1" {
+		adapters = append(adapters, opencode.NewAdapter())
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	updates := make(chan polling.Update)
 	stopped := make(chan struct{})
@@ -90,6 +94,10 @@ type dashboardFixture struct {
 }
 
 func newDashboardFixture(t *testing.T) *dashboardFixture {
+	return newDashboardFixtureWithOpenCode(t, false)
+}
+
+func newDashboardFixtureWithOpenCode(t *testing.T, withOpenCode bool) *dashboardFixture {
 	t.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Fatal("integration tests require tmux on PATH")
@@ -110,6 +118,9 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 		"claude": filepath.Join(fixture.root, "claude", "projects", "fixture", fixtureSessionID+".jsonl"),
 	}
 	fixture.sessions = make(map[string]agent.Session)
+	if withOpenCode {
+		fixture.setupOpenCode()
+	}
 	for _, provider := range []string{"codex", "claude"} {
 		path := fixture.transcripts[provider]
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
@@ -178,8 +189,14 @@ func newDashboardFixture(t *testing.T) *dashboardFixture {
 	fixture.tmux("set-option", "-g", "status", "off")
 	fixture.tmux("set-window-option", "-g", "remain-on-exit", "on")
 	fixture.tmux("set-window-option", "-g", "window-size", "manual")
-	fixture.waitFor("both providers", 8*time.Second, func(screen string) bool { return strings.Contains(screen, "2 sessions") })
-	fixture.selectProvider("codex")
+	count := "2 sessions"
+	if withOpenCode {
+		count = "3 sessions"
+	}
+	fixture.waitFor("all providers", 8*time.Second, func(screen string) bool { return strings.Contains(screen, count) })
+	if !withOpenCode {
+		fixture.selectProvider("codex")
+	}
 	return fixture
 }
 

@@ -23,7 +23,7 @@ test: ## Run the Go test suite.
 	$(GO) test ./...
 
 test-integration: ## Run Go integration tests in isolated tmux terminals.
-	$(GO) test -tags=integration -count=1 -timeout=90s -v ./internal/ui ./internal/tmux -run TestIntegration
+	$(GO) test -tags=integration -count=1 -timeout=90s -v ./internal/ui ./internal/tmux ./internal/opencode -run TestIntegration
 
 vet: ## Run Go's static analysis.
 	$(GO) vet ./...

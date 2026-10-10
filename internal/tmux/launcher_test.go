@@ -72,3 +72,31 @@ func TestLauncherCreatesWindowInOriginatingSession(t *testing.T) {
 		t.Fatalf("commands: %#v", commands)
 	}
 }
+
+func TestOpenCodeLauncherEnablesLocalStatusAPI(t *testing.T) {
+	var commands [][]string
+	launcher := Launcher{
+		clientName: "client",
+		lookPath: func(provider string) (string, error) {
+			if provider != "opencode" {
+				t.Fatalf("wrong provider: %s", provider)
+			}
+			return "/tools/agent's bin/opencode", nil
+		},
+		runCommand: func(_ context.Context, command string, args ...string) ([]byte, error) {
+			commands = append(commands, append([]string{command}, args...))
+			return []byte("$3\n"), nil
+		},
+	}
+	directory := t.TempDir()
+	if err := launcher.Launch(context.Background(), "opencode", directory, true); err != nil {
+		t.Fatal(err)
+	}
+	expected := [][]string{
+		{"display-message", "-c", "client", "-p", "#{session_id}"},
+		{"new-window", "-t", "$3:", "-c", directory, shellQuote("/tools/agent's bin/opencode") + " --port 0 --hostname 127.0.0.1"},
+	}
+	if !reflect.DeepEqual(commands, expected) {
+		t.Fatalf("commands: %#v", commands)
+	}
+}
