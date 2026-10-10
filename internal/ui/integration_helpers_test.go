@@ -20,6 +20,8 @@ import (
 	"a-gent/internal/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 const fixtureSessionID = "integration-session"
@@ -56,6 +58,9 @@ func TestIntegrationDashboardProcess(t *testing.T) {
 	if root == "" {
 		t.Skip("helper process for terminal integration tests")
 	}
+	// CI can force a 16-color profile despite COLORTERM; captures need RGB
+	// to verify subtle background animation consistently across platforms.
+	lipgloss.SetColorProfile(termenv.TrueColor)
 	adapters := []agent.Adapter{
 		fixtureProvider{"codex", filepath.Join(root, "codex-sessions.json"), codex.NewAdapter()},
 		fixtureProvider{"claude", filepath.Join(root, "claude-sessions.json"), claude.NewAdapter()},
