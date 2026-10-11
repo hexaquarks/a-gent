@@ -10,6 +10,7 @@ import (
 	"a-gent/internal/claude"
 	"a-gent/internal/codex"
 	"a-gent/internal/opencode"
+	"a-gent/internal/pi"
 	"a-gent/internal/polling"
 	"a-gent/internal/tmux"
 	"a-gent/internal/ui"
@@ -36,7 +37,9 @@ func run() error {
 
 	openCodeAdapter := opencode.NewAdapter()
 	openCodeAdapter.EnableObserver()
-	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), openCodeAdapter}
+	piAdapter := pi.NewAdapter()
+	piAdapter.EnableObserver()
+	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), openCodeAdapter, piAdapter}
 	modelOptions := []ui.ModelOption{ui.WithPreviewSources(adapters...)}
 	if configDirectory, err := os.UserConfigDir(); err == nil {
 		modelOptions = append(modelOptions, ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")))

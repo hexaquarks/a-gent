@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/pi"
 )
 
 // Launcher starts coding agents in the originating tmux client's workspace.
@@ -16,6 +17,7 @@ type Launcher struct {
 	clientName string
 	runCommand commandRunner
 	lookPath   func(string) (string, error)
+	piObserver func() (string, error)
 }
 
 // NewLauncher returns nil when there is no tmux client to open a workspace in.
@@ -70,6 +72,17 @@ func (launcher *Launcher) Launch(ctx context.Context, provider, directory string
 	if provider == "opencode" {
 		// The TUI otherwise keeps its status API inside its worker process.
 		launchCommand += " --port 0 --hostname 127.0.0.1"
+	}
+	if provider == "pi" {
+		install := launcher.piObserver
+		if install == nil {
+			install = pi.ConfigureObserver
+		}
+		path, err := install()
+		if err != nil {
+			return fmt.Errorf("prepare Pi live status: %w", err)
+		}
+		launchCommand += " --extension " + shellQuote(path)
 	}
 	if _, err := launcher.runCommand(ctx, command, "-t", target, "-c", directory, launchCommand); err != nil {
 		return fmt.Errorf("start %s in tmux %s: %w", provider, destination, err)

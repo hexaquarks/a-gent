@@ -17,6 +17,7 @@ import (
 	"a-gent/internal/claude"
 	"a-gent/internal/codex"
 	"a-gent/internal/opencode"
+	"a-gent/internal/pi"
 	"a-gent/internal/polling"
 	"a-gent/internal/ui"
 
@@ -69,6 +70,9 @@ func TestIntegrationDashboardProcess(t *testing.T) {
 	if os.Getenv("A_GENT_TEST_OPENCODE") == "1" {
 		adapters = append(adapters, opencode.NewAdapter())
 	}
+	if os.Getenv("A_GENT_TEST_PI") == "1" {
+		adapters = append(adapters, pi.NewAdapter())
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	updates := make(chan polling.Update)
 	stopped := make(chan struct{})
@@ -91,13 +95,15 @@ type dashboardFixture struct {
 	transcripts   map[string]string
 	sessions      map[string]agent.Session
 	width, height int
+	pi            *piFixtureState
+	livePi        *livePiFixture
 }
 
 func newDashboardFixture(t *testing.T) *dashboardFixture {
-	return newDashboardFixtureWithOpenCode(t, false)
+	return newDashboardFixtureWithProvider(t, "")
 }
 
-func newDashboardFixtureWithOpenCode(t *testing.T, withOpenCode bool) *dashboardFixture {
+func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFixture {
 	t.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Fatal("integration tests require tmux on PATH")
@@ -118,8 +124,14 @@ func newDashboardFixtureWithOpenCode(t *testing.T, withOpenCode bool) *dashboard
 		"claude": filepath.Join(fixture.root, "claude", "projects", "fixture", fixtureSessionID+".jsonl"),
 	}
 	fixture.sessions = make(map[string]agent.Session)
-	if withOpenCode {
+	if provider == "opencode" {
 		fixture.setupOpenCode()
+	}
+	if provider == "pi" {
+		fixture.setupPi()
+	}
+	if provider == "pi-live" {
+		fixture.setupLivePi()
 	}
 	for _, provider := range []string{"codex", "claude"} {
 		path := fixture.transcripts[provider]
@@ -133,6 +145,9 @@ func newDashboardFixtureWithOpenCode(t *testing.T, withOpenCode bool) *dashboard
 		// Keep row order stable across independently arriving provider polls.
 		if provider == "codex" {
 			session.LastActiveAt = time.Now()
+			if fixture.livePi != nil {
+				session.LastActiveAt = session.LastActiveAt.Add(-time.Minute)
+			}
 		}
 		fixture.sessions[provider] = session
 		fixture.setState(provider, agent.StateRunning)
@@ -190,11 +205,11 @@ func newDashboardFixtureWithOpenCode(t *testing.T, withOpenCode bool) *dashboard
 	fixture.tmux("set-window-option", "-g", "remain-on-exit", "on")
 	fixture.tmux("set-window-option", "-g", "window-size", "manual")
 	count := "2 sessions"
-	if withOpenCode {
+	if provider != "" {
 		count = "3 sessions"
 	}
 	fixture.waitFor("all providers", 8*time.Second, func(screen string) bool { return strings.Contains(screen, count) })
-	if !withOpenCode {
+	if provider == "" {
 		fixture.selectProvider("codex")
 	}
 	return fixture

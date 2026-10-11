@@ -113,7 +113,7 @@ func (fixture *dashboardFixture) writeOpenCodeState(state map[string]any) {
 }
 
 func TestIntegrationOpenCodeStatusAndRealtimePreview(t *testing.T) {
-	fixture := newDashboardFixtureWithOpenCode(t, true)
+	fixture := newDashboardFixtureWithProvider(t, "opencode")
 	directory, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -150,7 +150,7 @@ func TestIntegrationOpenCodeStatusAndRealtimePreview(t *testing.T) {
 }
 
 func TestIntegrationOpenCodeStatus(t *testing.T) {
-	fixture := newDashboardFixtureWithOpenCode(t, true)
+	fixture := newDashboardFixtureWithProvider(t, "opencode")
 	directory, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
