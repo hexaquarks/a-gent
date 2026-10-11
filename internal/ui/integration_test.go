@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"a-gent/internal/agent"
+	"github.com/mattn/go-runewidth"
 )
 
 func TestIntegrationFeedUpdatesInRealtime(t *testing.T) {
@@ -34,6 +35,42 @@ func TestIntegrationFeedUpdatesInRealtime(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIntegrationNewAgentProviderLayout(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.key("n")
+	fixture.waitText("NEW AGENT")
+	for _, width := range []int{120, 80, 50} {
+		fixture.width, fixture.height = width, 24
+		fixture.tmux("resize-window", "-t", "dashboard:0", "-x", fmt.Sprint(width), "-y", "24")
+		screen := fixture.waitFor("provider choices within dialog", 4*time.Second, func(screen string) bool {
+			if runewidth.StringWidth(strings.Split(screen, "\n")[0]) != width {
+				return false
+			}
+			for _, provider := range agent.InteractiveProviders() {
+				if !strings.Contains(screen, provider) {
+					return false
+				}
+			}
+			for _, line := range strings.Split(screen, "\n") {
+				if strings.Contains(line, "codex") && strings.Contains(line, "claude") {
+					return strings.Contains(line, "│") && (width < 80 || strings.Contains(line, "hermes"))
+				}
+			}
+			return false
+		})
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "hermes") && !strings.Contains(line, "│") {
+				t.Fatalf("provider escaped dialog border:\n%s", screen)
+			}
+		}
+		fixture.capture(fmt.Sprintf("new-agent-%d", width))
+	}
+	fixture.key("Left")
+	fixture.waitText("hermes")
+	fixture.key("q")
+	fixture.waitText("SELECTED SESSION")
 }
 
 func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {

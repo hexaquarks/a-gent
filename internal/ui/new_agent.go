@@ -111,14 +111,26 @@ func (model Model) newAgentView(background string) string {
 	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(directory, home+string(os.PathSeparator)) {
 		directory = "~" + strings.TrimPrefix(directory, home)
 	}
-	providers := make([]string, 0, len(agent.InteractiveProviders()))
+	var providerRows []string
+	providerRow := ""
 	for _, provider := range agent.InteractiveProviders() {
 		style := providerStyle(provider).Padding(0, 1)
 		if provider == dialog.provider {
 			style = style.Foreground(lipgloss.Color(colorBackground)).Background(lipgloss.Color(colorAccent)).Bold(true)
 		}
-		providers = append(providers, style.Render(provider))
+		choice := style.Render(provider)
+		// Wrap whole choices ourselves so terminal wrapping cannot split a name
+		// or leave the selected provider outside the dialog border.
+		if providerRow != "" && lipgloss.Width(providerRow)+2+lipgloss.Width(choice) > contentWidth {
+			providerRows = append(providerRows, providerRow)
+			providerRow = ""
+		}
+		if providerRow != "" {
+			providerRow += "  "
+		}
+		providerRow += choice
 	}
+	providerRows = append(providerRows, providerRow)
 	destination := "pane"
 	if dialog.newWindow {
 		destination = "window"
@@ -126,8 +138,9 @@ func (model Model) newAgentView(background string) string {
 	lines := []string{
 		accentStyle.Render("NEW AGENT"), "",
 		field("Project", projectName(dialog.directory)), field("Directory", directory), "",
-		mutedStyle.Render("Provider   ") + strings.Join(providers, "  "),
-		mutedStyle.Render("           ←/→ choose provider"), "",
+		mutedStyle.Render("Provider"),
+		strings.Join(providerRows, "\n"),
+		mutedStyle.Render("←/→ choose provider"), "",
 		mainTextStyle.Render("Open in a new tmux " + destination), "",
 		accentStyle.Render("Enter") + mutedStyle.Render(" start    ") + accentStyle.Render("Esc/q") + mutedStyle.Render(" cancel"),
 	}
