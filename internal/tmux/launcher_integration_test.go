@@ -19,7 +19,7 @@ func TestIntegrationLauncherStartsProviderInProject(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Fatal("integration tests require tmux")
 	}
-	for _, provider := range []string{"codex", "claude", "opencode", "pi"} {
+	for _, provider := range []string{"codex", "claude", "opencode", "pi", "hermes"} {
 		for _, newWindow := range []bool{false, true} {
 			name := "pane"
 			if newWindow {
@@ -53,9 +53,10 @@ func TestIntegrationLauncherStartsProviderInProject(t *testing.T) {
 					t.Fatal(err)
 				}
 				launcher := Launcher{
-					clientName: "fixture-client",
-					piObserver: func() (string, error) { return filepath.Join(root, "observer.ts"), nil },
-					lookPath:   func(string) (string, error) { return executable, nil },
+					clientName:     "fixture-client",
+					hermesObserver: func() (string, error) { return "observer.py", nil },
+					piObserver:     func() (string, error) { return filepath.Join(root, "observer.ts"), nil },
+					lookPath:       func(string) (string, error) { return executable, nil },
 					runCommand: func(ctx context.Context, command string, args ...string) ([]byte, error) {
 						if command == "display-message" {
 							// The isolated server has no attached client; resolve its known workspace.

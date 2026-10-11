@@ -133,3 +133,36 @@ func TestPiLauncherLoadsObserverAndCreatesNewWindow(t *testing.T) {
 		t.Fatal("launched Pi without observable status")
 	}
 }
+
+func TestHermesLauncherLoadsObserverAndCreatesNewWindow(t *testing.T) {
+	var commands [][]string
+	launcher := Launcher{
+		clientName:     "client",
+		lookPath:       func(string) (string, error) { return "/tools/hermes", nil },
+		hermesObserver: func() (string, error) { return "/home/agent's plugin/__init__.py", nil },
+		runCommand: func(_ context.Context, command string, args ...string) ([]byte, error) {
+			commands = append(commands, append([]string{command}, args...))
+			return []byte("$3\n"), nil
+		},
+	}
+	directory := t.TempDir()
+	if err := launcher.Launch(context.Background(), "hermes", directory, true); err != nil {
+		t.Fatal(err)
+	}
+	expected := [][]string{
+		{"display-message", "-c", "client", "-p", "#{session_id}"},
+		{"new-window", "-t", "$3:", "-c", directory,
+			shellQuote("/tools/hermes")},
+	}
+	if !reflect.DeepEqual(commands, expected) {
+		t.Fatalf("commands: %#v", commands)
+	}
+	commands = nil
+	launcher.hermesObserver = func() (string, error) { return "", errors.New("unwritable cache") }
+	if err := launcher.Launch(context.Background(), "hermes", directory, true); err == nil {
+		t.Fatal("ignored observer error")
+	}
+	if len(commands) != 1 {
+		t.Fatal("launched Hermes without observable status")
+	}
+}
