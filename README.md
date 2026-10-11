@@ -8,27 +8,13 @@
   <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/hexaquarks/a-gent?logo=go" /></a>
 </p>
 
-a-gent is a small terminal dashboard for keeping track of Codex, Claude Code,
-OpenCode, Pi, and Hermes sessions across projects. See which agents are working or
-waiting for you, preview their activity and file edits, and jump to their tmux panes.
+a-gent is a small terminal dashboard for keeping track of your favorite coding
+agents across projects. See which agents are working or waiting for you, preview
+their activity and file edits, and jump to their tmux panes.
 
 <p align="center">
   <img src="assets/dashboard.png" width="700" alt="a-gent dashboard showing pinned projects, unread session updates, and a color-coded edit preview" />
 </p>
-
-## Install
-
-Requires Go 1.24 or newer and Make:
-
-```sh
-git clone https://github.com/hexaquarks/a-gent.git
-cd a-gent
-make install
-```
-
-> [!TIP]
-> The binary is installed to `~/.local/bin`. Add that directory to your `PATH`,
-> or choose another destination with `make install BIN_DIR=/path/to/bin`.
 
 ## Supported adapters
 
@@ -43,26 +29,39 @@ make install
 Install the agents you use through the links above and make their commands
 available on your `PATH`:
 
-| Adapter | Command |
-| --- | --- |
-| Codex | `codex` |
-| Claude Code | `claude` |
-| OpenCode | `opencode` |
-| Pi | `pi` |
-| Hermes | `hermes` |
+| Adapter | Command | Compatibility |
+| --- | --- | --- |
+| Codex | `codex` | Sessions launched with `--no-daemon` are not shown. |
+| Claude Code | `claude` | Must support `claude agents --json`. |
+| OpenCode | `opencode` | — |
+| Pi | `pi` | — |
+| Hermes | `hermes` | — |
 
 Sessions are discovered automatically, including those started from a shell.
 All five adapters support activity and edit previews, and launching a new
 interactive instance in a tmux pane or window from the dashboard.
 
 > [!IMPORTANT]
-> For Claude Code, update your CLI if `claude agents --json` is unavailable.
->
-> After the first a-gent launch, restart any already-running OpenCode and Hermes
-> sessions. In Pi, run `/reload` or restart. New sessions need no extra setup.
+> a-gent automatically installs the OpenCode and Hermes plugins and the Pi
+> extension. After your first launch, restart existing OpenCode and Hermes
+> sessions; in Pi, run `/reload` or restart.
 
 > [!NOTE]
 > Pi shows running or idle; it cannot identify approval prompts from extensions.
+
+## Install
+
+Requires Go 1.24 or newer and Make:
+
+```sh
+git clone https://github.com/hexaquarks/a-gent.git
+cd a-gent
+make install
+```
+
+> [!TIP]
+> The binary is installed to `~/.local/bin`. Add that directory to your `PATH`,
+> or choose another destination with `make install BIN_DIR=/path/to/bin`.
 
 ## Usage
 
@@ -79,6 +78,7 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
   to apply a filter.
 - Press `/` to search projects and `p` to pin or unpin a project in the sidebar.
 - Press `s` to change the sort column or `S` to reverse it.
+- Press `n` to launch an agent in a new tmux pane, or `N` for a new window.
 - Press `v` to expand the preview and Escape to return; press `q` to quit.
 
 ## Local development
