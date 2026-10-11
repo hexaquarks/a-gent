@@ -3,6 +3,7 @@
 package opencode
 
 import (
+	"a-gent/internal/agent"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,8 +18,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"a-gent/internal/agent"
 )
 
 // Opt-in coverage verifies the installed CLI without credentials or a paid model.
@@ -33,7 +32,7 @@ func TestIntegrationInstalledOpenCode(t *testing.T) {
 	}
 	root := t.TempDir()
 	project := filepath.Join(root, "project")
-	if err := os.Mkdir(project, 0700); err != nil {
+	if err := os.Mkdir(project, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	project, err = filepath.EvalSymlinks(project)
@@ -96,7 +95,8 @@ func TestIntegrationInstalledOpenCode(t *testing.T) {
 	defer cancel()
 	command := exec.CommandContext(ctx, executable, "serve", "--port", "0", "--hostname", "127.0.0.1")
 	command.Dir = project
-	command.Env = append(os.Environ(),
+	command.Env = append(
+		os.Environ(),
 		"XDG_CONFIG_HOME="+filepath.Join(root, "config"), "XDG_DATA_HOME="+filepath.Join(root, "data"),
 		"XDG_CACHE_HOME="+filepath.Join(root, "cache"), "OPENCODE_CONFIG_DIR="+filepath.Join(root, "config", "opencode"),
 		"OPENCODE_CONFIG_CONTENT="+string(config), "OPENCODE_SERVER_PASSWORD=", "OPENCODE_DISABLE_AUTOUPDATE=1",

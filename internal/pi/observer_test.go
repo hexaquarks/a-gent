@@ -30,9 +30,9 @@ import assert from "node:assert/strict";
 const path = process.argv[1];
 const handlers = new Map();
 const pi = {
-  on(event, handler) {
-    handlers.set(event, handler);
-  },
+    on(event, handler) {
+        handlers.set(event, handler);
+    },
 };
 
 let idle = true;
@@ -40,24 +40,24 @@ let pending = false;
 let session = "one";
 let leaf = "first";
 const ctx = {
-  cwd: "/project",
-  isIdle: () => idle,
-  hasPendingMessages: () => pending,
-  sessionManager: {
-    getSessionId: () => session,
-    getSessionFile: () => "/project/one.jsonl",
-    getLeafId: () => leaf,
-    getSessionName: () => "Pi test",
-  },
+    cwd: "/project",
+    isIdle: () => idle,
+    hasPendingMessages: () => pending,
+    sessionManager: {
+        getSessionId: () => session,
+        getSessionFile: () => "/project/one.jsonl",
+        getLeafId: () => leaf,
+        getSessionName: () => "Pi test",
+    },
 };
 
 const observer = (await import(pathToFileURL(path))).default;
 observer(pi);
 const registrations = handlers.size;
 observer({
-  on() {
-    throw new Error("observer registered twice");
-  },
+    on() {
+        throw new Error("observer registered twice");
+    },
 });
 assert.equal(handlers.size, registrations);
 
