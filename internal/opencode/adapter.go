@@ -20,6 +20,7 @@ import (
 
 // Adapter implements read-only discovery and status for local OpenCode processes.
 type Adapter struct {
+	setupErr error
 	discover func(context.Context) ([]instance, error)
 	client   *http.Client
 	state    *adapterState
@@ -71,6 +72,9 @@ type pendingRequest struct {
 
 // Sessions returns live instances and sessions observed in their own runtime.
 func (adapter Adapter) Sessions(ctx context.Context) ([]agent.Session, error) {
+	if adapter.setupErr != nil {
+		return nil, adapter.setupErr
+	}
 	instances, err := adapter.discover(ctx)
 	if err != nil {
 		return nil, err
@@ -133,7 +137,7 @@ func (adapter Adapter) instanceSessions(
 	ctx context.Context, instance instance, previous []agent.Session,
 ) ([]agent.Session, error) {
 	if instance.endpoint == "" {
-		return nil, fmt.Errorf("Status requires OpenCode's local API; start with opencode --port 0")
+		return nil, fmt.Errorf("OpenCode observer is not loaded; restart OpenCode or start with --port 0")
 	}
 	if instance.directory == "" {
 		return nil, fmt.Errorf("Cannot identify OpenCode's working directory")
