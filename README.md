@@ -8,13 +8,46 @@
   <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/hexaquarks/a-gent?logo=go" /></a>
 </p>
 
-a-gent is a small terminal dashboard for keeping track of Codex and Claude Code
-sessions across projects. See which agents are working or waiting for you, preview
+a-gent is a small terminal dashboard for keeping track of your favorite coding
+agents across projects. See which agents are working or waiting for you, preview
 their activity and file edits, and jump to their tmux panes.
 
 <p align="center">
   <img src="assets/dashboard.png" width="700" alt="a-gent dashboard showing pinned projects, unread session updates, and a color-coded edit preview" />
 </p>
+
+## Supported adapters
+
+<p align="center">
+  <a href="https://github.com/openai/codex"><img alt="Codex" src="https://img.shields.io/badge/Codex-74AA9C" /></a>
+  <a href="https://github.com/anthropics/claude-code"><img alt="Claude Code" src="https://img.shields.io/badge/Claude_Code-D97757" /></a>
+  <a href="https://github.com/anomalyco/opencode"><img alt="OpenCode" src="https://img.shields.io/badge/OpenCode-4B5563" /></a>
+  <a href="https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent"><img alt="Pi" src="https://img.shields.io/badge/Pi-8B5CF6" /></a>
+  <a href="https://github.com/NousResearch/hermes-agent"><img alt="Hermes" src="https://img.shields.io/badge/Hermes-F59E0B" /></a>
+</p>
+
+Install the agents you use through the links above and make their commands
+available on your `PATH`:
+
+| Adapter | Command | Compatibility |
+| --- | --- | --- |
+| Codex | `codex` | Sessions launched with `--no-daemon` are not shown. |
+| Claude Code | `claude` | Must support `claude agents --json`. |
+| OpenCode | `opencode` | — |
+| Pi | `pi` | — |
+| Hermes | `hermes` | — |
+
+Sessions are discovered automatically, including those started from a shell.
+All five adapters support activity and edit previews, and launching a new
+interactive instance in a tmux pane or window from the dashboard.
+
+> [!IMPORTANT]
+> a-gent automatically installs the OpenCode and Hermes plugins and the Pi
+> extension. After your first launch, restart existing OpenCode and Hermes
+> sessions; in Pi, run `/reload` or restart.
+
+> [!NOTE]
+> Pi shows running or idle; it cannot identify approval prompts from extensions.
 
 ## Install
 
@@ -26,15 +59,9 @@ cd a-gent
 make install
 ```
 
-The binary is installed to `~/.local/bin`. Add that directory to your `PATH`, or
-choose another destination with `make install BIN_DIR=/path/to/bin`.
-
-## Supported adapters
-
-- Codex: requires `codex` on your `PATH` and a running local app-server daemon.
-- Claude Code: requires `claude` on your `PATH` with support for `claude agents --json`.
-
-Sessions are discovered automatically from the local providers.
+> [!TIP]
+> The binary is installed to `~/.local/bin`. Add that directory to your `PATH`,
+> or choose another destination with `make install BIN_DIR=/path/to/bin`.
 
 ## Usage
 
@@ -51,6 +78,7 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
   to apply a filter.
 - Press `/` to search projects and `p` to pin or unpin a project in the sidebar.
 - Press `s` to change the sort column or `S` to reverse it.
+- Press `n` to launch an agent in a new tmux pane, or `N` for a new window.
 - Press `v` to expand the preview and Escape to return; press `q` to quit.
 
 ## Local development
