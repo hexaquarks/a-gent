@@ -16,6 +16,7 @@ import (
 	"a-gent/internal/agent"
 	"a-gent/internal/claude"
 	"a-gent/internal/codex"
+	"a-gent/internal/hermes"
 	"a-gent/internal/opencode"
 	"a-gent/internal/pi"
 	"a-gent/internal/polling"
@@ -70,6 +71,9 @@ func TestIntegrationDashboardProcess(t *testing.T) {
 	if os.Getenv("A_GENT_TEST_OPENCODE") == "1" {
 		adapters = append(adapters, opencode.NewAdapter())
 	}
+	if os.Getenv("A_GENT_TEST_HERMES") == "1" {
+		adapters = append(adapters, hermes.NewAdapter())
+	}
 	if os.Getenv("A_GENT_TEST_PI") == "1" {
 		adapters = append(adapters, pi.NewAdapter())
 	}
@@ -97,6 +101,7 @@ type dashboardFixture struct {
 	width, height int
 	pi            *piFixtureState
 	livePi        *livePiFixture
+	liveHermes    *liveHermesFixture
 }
 
 func newDashboardFixture(t *testing.T) *dashboardFixture {
@@ -130,6 +135,9 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	if provider == "pi" {
 		fixture.setupPi()
 	}
+	if provider == "hermes-live" {
+		fixture.setupLiveHermes()
+	}
 	if provider == "pi-live" {
 		fixture.setupLivePi()
 	}
@@ -145,7 +153,7 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 		// Keep row order stable across independently arriving provider polls.
 		if provider == "codex" {
 			session.LastActiveAt = time.Now()
-			if fixture.livePi != nil {
+			if fixture.livePi != nil || fixture.liveHermes != nil {
 				session.LastActiveAt = session.LastActiveAt.Add(-time.Minute)
 			}
 		}
@@ -170,6 +178,7 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 		"; dashboard_exit_status=$?; printf '%s' \"$dashboard_exit_status\" > " + shellQuote(exitPath) +
 		"; exit \"$dashboard_exit_status\""
 	t.Cleanup(func() {
+		fixture.stopLiveHermes()
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
