@@ -34,7 +34,9 @@ func run() error {
 		return nil
 	}
 
-	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), opencode.NewAdapter()}
+	openCodeAdapter := opencode.NewAdapter()
+	openCodeAdapter.EnableObserver()
+	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), openCodeAdapter}
 	modelOptions := []ui.ModelOption{ui.WithPreviewSources(adapters...)}
 	if configDirectory, err := os.UserConfigDir(); err == nil {
 		modelOptions = append(modelOptions, ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")))

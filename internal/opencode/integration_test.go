@@ -43,7 +43,6 @@ func TestIntegrationInstalledOpenCode(t *testing.T) {
 	release := make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
-	defer unblock()
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/chat/completions" {
 			http.NotFound(w, r)
@@ -73,7 +72,10 @@ func TestIntegrationInstalledOpenCode(t *testing.T) {
 		}
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}))
-	defer model.Close()
+	t.Cleanup(func() {
+		unblock()
+		model.Close()
+	})
 	configuration := map[string]any{
 		"model":       "fixture/deterministic",
 		"small_model": "fixture/deterministic",
