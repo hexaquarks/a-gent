@@ -170,7 +170,7 @@ func TestNewAgentCyclesProvidersBothDirections(t *testing.T) {
 	model = next.(Model)
 	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
 	model = next.(Model)
-	if model.newAgent.provider != "opencode" {
+	if model.newAgent.provider != "pi" {
 		t.Fatal("left did not wrap to the last provider")
 	}
 	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyRight})
@@ -186,22 +186,40 @@ func TestNewAgentSelectsOpenCodeAndCyclesBothDirections(t *testing.T) {
 	model.width, model.height = 80, 24
 	next, _ := model.openNewAgent(true)
 	model = next.(Model)
-	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
-	model = next.(Model)
+	for range 2 {
+		next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyRight})
+		model = next.(Model)
+	}
 	if model.newAgent.provider != "opencode" || !strings.Contains(model.View(), "opencode") {
-		t.Fatal("left did not wrap to OpenCode")
-	}
-	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyRight})
-	model = next.(Model)
-	if model.newAgent.provider != "codex" {
-		t.Fatal("right did not wrap back to Codex")
+		t.Fatal("right did not select OpenCode")
 	}
 	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
+	model = next.(Model)
+	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyRight})
 	model = next.(Model)
 	next, command := model.updateNewAgent(tea.KeyMsg{Type: tea.KeyEnter})
 	model = next.(Model)
 	model.Update(command())
 	if launcher.provider != "opencode" || !launcher.newWindow || launcher.calls != 1 {
 		t.Fatalf("wrong OpenCode launch: %+v", launcher)
+	}
+}
+
+func TestNewAgentLaunchesPiInNewWindow(t *testing.T) {
+	launcher := &fakeLauncher{}
+	model := NewModel(nil, WithAgentLauncher(launcher))
+	model.width, model.height = 80, 24
+	next, _ := model.openNewAgent(true)
+	model = next.(Model)
+	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
+	model = next.(Model)
+	if model.newAgent.provider != "pi" || !strings.Contains(model.View(), "pi") {
+		t.Fatal("Pi is missing from the launcher")
+	}
+	next, command := model.updateNewAgent(tea.KeyMsg{Type: tea.KeyEnter})
+	model = next.(Model)
+	model.Update(command())
+	if launcher.provider != "pi" || !launcher.newWindow || launcher.calls != 1 {
+		t.Fatalf("wrong Pi launch: %+v", launcher)
 	}
 }
