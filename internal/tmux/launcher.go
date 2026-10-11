@@ -9,15 +9,17 @@ import (
 	"strings"
 
 	"a-gent/internal/agent"
+	"a-gent/internal/hermes"
 	"a-gent/internal/pi"
 )
 
 // Launcher starts coding agents in the originating tmux client's workspace.
 type Launcher struct {
-	clientName string
-	runCommand commandRunner
-	lookPath   func(string) (string, error)
-	piObserver func() (string, error)
+	clientName     string
+	runCommand     commandRunner
+	lookPath       func(string) (string, error)
+	hermesObserver func() (string, error)
+	piObserver     func() (string, error)
 }
 
 // NewLauncher returns nil when there is no tmux client to open a workspace in.
@@ -84,6 +86,16 @@ func (launcher *Launcher) Launch(ctx context.Context, provider, directory string
 		}
 		launchCommand += " --extension " + shellQuote(path)
 	}
+	if provider == "hermes" {
+		install := launcher.hermesObserver
+		if install == nil {
+			install = hermes.ConfigureObserver
+		}
+		if _, err := install(); err != nil {
+			return fmt.Errorf("prepare Hermes live status: %w", err)
+		}
+	}
+
 	if _, err := launcher.runCommand(ctx, command, "-t", target, "-c", directory, launchCommand); err != nil {
 		return fmt.Errorf("start %s in tmux %s: %w", provider, destination, err)
 	}

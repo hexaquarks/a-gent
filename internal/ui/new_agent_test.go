@@ -170,7 +170,7 @@ func TestNewAgentCyclesProvidersBothDirections(t *testing.T) {
 	model = next.(Model)
 	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
 	model = next.(Model)
-	if model.newAgent.provider != "pi" {
+	if model.newAgent.provider != "hermes" {
 		t.Fatal("left did not wrap to the last provider")
 	}
 	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyRight})
@@ -213,6 +213,8 @@ func TestNewAgentLaunchesPiInNewWindow(t *testing.T) {
 	model = next.(Model)
 	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
 	model = next.(Model)
+	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
+	model = next.(Model)
 	if model.newAgent.provider != "pi" || !strings.Contains(model.View(), "pi") {
 		t.Fatal("Pi is missing from the launcher")
 	}
@@ -221,5 +223,24 @@ func TestNewAgentLaunchesPiInNewWindow(t *testing.T) {
 	model.Update(command())
 	if launcher.provider != "pi" || !launcher.newWindow || launcher.calls != 1 {
 		t.Fatalf("wrong Pi launch: %+v", launcher)
+	}
+}
+
+func TestNewAgentLaunchesHermesInNewWindow(t *testing.T) {
+	launcher := &fakeLauncher{}
+	model := NewModel(nil, WithAgentLauncher(launcher))
+	model.width, model.height = 80, 24
+	next, _ := model.openNewAgent(true)
+	model = next.(Model)
+	next, _ = model.updateNewAgent(tea.KeyMsg{Type: tea.KeyLeft})
+	model = next.(Model)
+	if model.newAgent.provider != "hermes" || !strings.Contains(model.View(), "hermes") {
+		t.Fatal("Hermes is missing from the launcher")
+	}
+	next, command := model.updateNewAgent(tea.KeyMsg{Type: tea.KeyEnter})
+	model = next.(Model)
+	model.Update(command())
+	if launcher.provider != "hermes" || !launcher.newWindow || launcher.calls != 1 {
+		t.Fatalf("wrong Hermes launch: %+v", launcher)
 	}
 }

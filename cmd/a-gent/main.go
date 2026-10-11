@@ -9,6 +9,7 @@ import (
 	"a-gent/internal/agent"
 	"a-gent/internal/claude"
 	"a-gent/internal/codex"
+	"a-gent/internal/hermes"
 	"a-gent/internal/opencode"
 	"a-gent/internal/pi"
 	"a-gent/internal/polling"
@@ -39,7 +40,9 @@ func run() error {
 	openCodeAdapter.EnableObserver()
 	piAdapter := pi.NewAdapter()
 	piAdapter.EnableObserver()
-	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), openCodeAdapter, piAdapter}
+	hermesAdapter := hermes.NewAdapter()
+	hermesAdapter.EnableObserver()
+	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), openCodeAdapter, piAdapter, hermesAdapter}
 	modelOptions := []ui.ModelOption{ui.WithPreviewSources(adapters...)}
 	if configDirectory, err := os.UserConfigDir(); err == nil {
 		modelOptions = append(modelOptions, ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")))
