@@ -26,42 +26,72 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
+
 const path = process.argv[1];
 const handlers = new Map();
-const pi = { on(event, handler) { handlers.set(event, handler); } };
-let idle = true, pending = false, session = "one", leaf = "first";
-const ctx = { cwd: "/project", isIdle: () => idle, hasPendingMessages: () => pending,
-  sessionManager: { getSessionId: () => session, getSessionFile: () => "/project/one.jsonl",
-    getLeafId: () => leaf, getSessionName: () => "Pi test" } };
+const pi = {
+    on(event, handler) {
+        handlers.set(event, handler);
+    },
+};
+
+let idle = true;
+let pending = false;
+let session = "one";
+let leaf = "first";
+const ctx = {
+    cwd: "/project",
+    isIdle: () => idle,
+    hasPendingMessages: () => pending,
+    sessionManager: {
+        getSessionId: () => session,
+        getSessionFile: () => "/project/one.jsonl",
+        getLeafId: () => leaf,
+        getSessionName: () => "Pi test",
+    },
+};
+
 const observer = (await import(pathToFileURL(path))).default;
 observer(pi);
 const registrations = handlers.size;
-observer({ on() { throw new Error("observer registered twice"); } });
+observer({
+    on() {
+        throw new Error("observer registered twice");
+    },
+});
 assert.equal(handlers.size, registrations);
+
 const file = join(process.argv[2], "instances", String(process.pid) + ".json");
 assert.equal(existsSync(file), false);
 handlers.get("session_start")({}, ctx);
 const read = () => JSON.parse(readFileSync(file, "utf8"));
 assert.equal(read().state, "idle");
 const first = read();
+
 handlers.get("agent_start")({}, ctx);
 assert.equal(read().state, "running");
+
 idle = false;
 leaf = "second";
 handlers.get("message_end")({}, ctx);
 assert.equal(read().leafID, "second");
 assert.equal(read().state, "running");
 const activeAt = read().lastActiveAt;
+
 idle = true;
 await new Promise(resolve => setTimeout(resolve, 1100));
 assert.equal(read().state, "idle");
 assert.equal(read().lastActiveAt, activeAt);
+
 pending = true;
 await new Promise(resolve => setTimeout(resolve, 1100));
 assert.equal(read().state, "running");
+
 handlers.get("session_shutdown")({}, ctx);
 assert.equal(existsSync(file), false);
-pending = false; session = "two";
+
+pending = false;
+session = "two";
 observer(pi);
 handlers.get("session_start")({}, ctx);
 assert.equal(read().sessionID, "two");
