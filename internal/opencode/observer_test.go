@@ -47,43 +47,93 @@ func TestObserverNativeReadsAndLifecycle(t *testing.T) {
 	harness := `
 import assert from "node:assert/strict";
 import observer from "./observer.mjs";
-let handler, starts = 0, stops = 0;
-globalThis.Bun = { serve(options) {
-  assert.equal(options.hostname, "127.0.0.1"); assert.equal(options.port, 0);
-  handler = options.fetch; starts++;
-  return { stop(force) { assert.equal(force, true); stops++; } };
-}};
-const client = { session: {
-  async list() { return { data: [{ id: "own-session" }] }; },
-  async status() { return { data: { "own-session": { type: "busy" } } }; },
-  async messages(options) { assert.equal(options.path.id, "own-session"); return { data: ["public-output"] }; },
-}};
+
+let handler;
+let starts = 0;
+let stops = 0;
+
+globalThis.Bun = {
+  serve(options) {
+    assert.equal(options.hostname, "127.0.0.1");
+    assert.equal(options.port, 0);
+    handler = options.fetch;
+    starts++;
+
+    return {
+      stop(force) {
+        assert.equal(force, true);
+        stops++;
+      },
+    };
+  },
+};
+
+const client = {
+  session: {
+    async list() {
+      return { data: [{ id: "own-session" }] };
+    },
+    async status() {
+      return { data: { "own-session": { type: "busy" } } };
+    },
+    async messages(options) {
+      assert.equal(options.path.id, "own-session");
+      return { data: ["public-output"] };
+    },
+  },
+};
+
 const hooks = await observer({ client, directory: "/project" });
 const second = await observer({ client, directory: "/second" });
 assert.equal(starts, 1);
+
 const request = (path, method = "GET", directory = "/project") => {
   const url = "http://127.0.0.1" + path + "?directory=" + encodeURIComponent(directory);
   return handler(new Request(url, { method }));
 };
+
 assert.deepEqual(await (await request("/session")).json(), [{ id: "own-session" }]);
 assert.deepEqual(await (await request("/session/status")).json(), { "own-session": { type: "busy" } });
 assert.deepEqual(await (await request("/session/own-session/message")).json(), ["public-output"]);
 assert.equal((await request("/session", "POST")).status, 405);
 assert.equal((await request("/unknown")).status, 404);
 assert.equal((await request("/session", "GET", "/unobserved")).status, 404);
-await hooks.event({ event: { type: "permission.asked", properties: { id: "p", sessionID: "own-session" } } });
-await hooks.event({ event: { type: "question.asked", properties: { id: "q", sessionID: "own-session" } } });
+
+await hooks.event({
+  event: {
+    type: "permission.asked",
+    properties: { id: "p", sessionID: "own-session" },
+  },
+});
+await hooks.event({
+  event: {
+    type: "question.asked",
+    properties: { id: "q", sessionID: "own-session" },
+  },
+});
 assert.equal((await (await request("/permission")).json()).length, 1);
 assert.equal((await (await request("/question")).json()).length, 1);
 assert.equal((await (await request("/permission", "GET", "/second")).json()).length, 0);
-await hooks.event({ event: { type: "permission.replied", properties: { requestID: "p" } } });
-await hooks.event({ event: { type: "question.rejected", properties: { requestID: "q" } } });
+
+await hooks.event({
+  event: { type: "permission.replied", properties: { requestID: "p" } },
+});
+await hooks.event({
+  event: { type: "question.rejected", properties: { requestID: "q" } },
+});
 assert.deepEqual(await (await request("/permission")).json(), []);
 assert.deepEqual(await (await request("/question")).json(), []);
-client.session.status = async () => { throw new Error("unavailable"); };
+
+client.session.status = async () => {
+  throw new Error("unavailable");
+};
 assert.equal((await request("/session/status")).status, 503);
-await hooks.dispose(); assert.equal(stops, 0);
-await second.dispose(); assert.equal(stops, 1);
+
+await hooks.dispose();
+assert.equal(stops, 0);
+await second.dispose();
+assert.equal(stops, 1);
+
 console.log("native bridge lifecycle passed");
 `
 	path := filepath.Join(root, "harness.mjs")
