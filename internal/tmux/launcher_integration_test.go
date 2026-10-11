@@ -4,10 +4,13 @@ package tmux
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -35,7 +38,7 @@ func TestIntegrationLauncherStartsProviderInProject(t *testing.T) {
 				run := func(ctx context.Context, command string, args ...string) ([]byte, error) {
 					return exec.CommandContext(ctx, "tmux", append([]string{"-S", socket, "-f", "/dev/null", command}, args...)...).CombinedOutput()
 				}
-				defer func() { exec.Command("tmux", "-S", socket, "kill-server").Run() }()
+				defer stopLauncherFixture(t, socket)
 				if output, err := run(ctx, "new-session", "-d", "-s", "launcher", "-x", "120", "-y", "30"); err != nil {
 					t.Fatalf("start tmux: %v: %s", err, output)
 				}
@@ -127,7 +130,7 @@ func TestIntegrationInstalledOpenCodeLaunch(t *testing.T) {
 			"OPENCODE_SERVER_PASSWORD=", "TERM=xterm-256color")
 		return cmd.CombinedOutput()
 	}
-	defer exec.Command("tmux", "-S", socket, "kill-server").Run()
+	defer stopLauncherFixture(t, socket)
 	if output, err := run(ctx, "new-session", "-d", "-s", "launcher", "-x", "120", "-y", "32"); err != nil {
 		t.Fatalf("start tmux: %v: %s", err, output)
 	}
@@ -160,4 +163,78 @@ func TestIntegrationInstalledOpenCodeLaunch(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("OpenCode did not open: %v\n%s", ctx.Err(), screen)
+}
+
+// A provider can ignore the terminal hangup from kill-server. Kill the fixture's
+// pane process groups first, while tmux can still identify and reap them.
+func stopLauncherFixture(t *testing.T, socket string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "tmux", "-S", socket,
+		"list-panes", "-a", "-F", "#{pane_pid}").Output()
+	if err != nil {
+		t.Errorf("list fixture processes before cleanup: %v", err)
+	}
+	var groups []int
+	for _, field := range strings.Fields(string(output)) {
+		pid, err := strconv.Atoi(field)
+		if err != nil || pid <= 1 {
+			t.Errorf("invalid fixture pane PID: %q", field)
+			continue
+		}
+		group, err := syscall.Getpgid(pid)
+		if errors.Is(err, syscall.ESRCH) {
+			continue
+		}
+		// tmux creates each pane as a process group leader. Never signal an
+		// unexpected group that could contain the test runner or other work.
+		if err != nil || group != pid {
+			t.Errorf("fixture pane %d has unexpected process group %d: %v", pid, group, err)
+			continue
+		}
+		groups = append(groups, group)
+		if err := syscall.Kill(-group, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+			t.Errorf("kill fixture process group %d: %v", group, err)
+		}
+	}
+	// Killing the final pane may already have stopped the server.
+	exec.CommandContext(ctx, "tmux", "-S", socket, "kill-server").Run()
+	for _, group := range groups {
+		for !errors.Is(syscall.Kill(-group, 0), syscall.ESRCH) {
+			if ctx.Err() != nil {
+				t.Errorf("fixture process group %d survived cleanup", group)
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+}
+
+func TestIntegrationLauncherCleanupKillsHangupIgnoringProvider(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "ag-cleanup-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+	socket := filepath.Join(root, "tmux")
+	marker := filepath.Join(root, "ready")
+	// Reproduce a provider that survives tmux's terminal hangup.
+	command := "trap '' HUP; touch " + shellQuote(marker) + "; while :; do sleep 1; done"
+	output, err := exec.Command("tmux", "-S", socket, "-f", "/dev/null",
+		"new-session", "-d", "-s", "cleanup", "sh -c "+shellQuote(command)).CombinedOutput()
+	if err != nil {
+		t.Fatalf("start fixture: %v: %s", err, output)
+	}
+	defer stopLauncherFixture(t, socket)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, err := os.Stat(marker); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("hangup-ignoring provider did not start")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
