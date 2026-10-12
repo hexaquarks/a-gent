@@ -24,7 +24,7 @@ func (model Model) footerText() string {
 	if model.navigator != nil {
 		parts = append(parts, shortcut("enter", "open"))
 	}
-	parts = append(parts, shortcut("q", "quit"))
+	parts = append(parts, shortcut("m", "layout"), shortcut("q", "quit"))
 	left := strings.Join(parts, "   ")
 	right := shortcut("?", "help")
 	width := model.width - appStyle.GetHorizontalFrameSize() - footerStyle.GetHorizontalFrameSize()

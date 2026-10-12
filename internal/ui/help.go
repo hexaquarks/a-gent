@@ -12,6 +12,7 @@ func helpLines(width int) []string {
 		{"↑/↓", "Move selection"},
 		{"Tab", "Switch sidebar / sessions"},
 		{"Enter", "Open / select"},
+		{"m", "Switch List / Board layout"},
 		{"/", "Find project"},
 		{"p", "Pin / unpin project"},
 		{"s", "Change sort column"},

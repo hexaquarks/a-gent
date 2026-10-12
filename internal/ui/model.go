@@ -30,6 +30,7 @@ type Model struct {
 	previewScroll    int
 	previewFrame     int
 	table            table.Model
+	boardVisible     bool
 	updates          <-chan polling.Update
 	providerErrors   map[string]error
 	sessions         []agent.Session
@@ -182,6 +183,9 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			model.cycleSortColumn()
 			return model, nil
+		case "m":
+			model.boardVisible = !model.boardVisible
+			return model, nil
 		case "S":
 			model.sort.descending = !model.sort.descending
 			model.updateTableRows()
@@ -191,9 +195,17 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				model.moveSidebarCursor(1)
 				return model, nil
 			}
+			if model.boardVisible {
+				model.moveBoardCursor(1)
+				return model, nil
+			}
 		case "k", "up":
 			if model.sidebarFocus {
 				model.moveSidebarCursor(-1)
+				return model, nil
+			}
+			if model.boardVisible {
+				model.moveBoardCursor(-1)
 				return model, nil
 			}
 		case "enter":
