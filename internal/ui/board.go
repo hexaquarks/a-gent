@@ -8,6 +8,7 @@ import (
 	"a-gent/internal/agent"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type boardColumn struct {
@@ -78,21 +79,22 @@ func (model Model) boardView() string {
 		return model.boardColumnView(columns[column], sessions, width, height)
 	}
 
-	columnWidth := (width - 2) / 3
+	columnWidth := (width - 6) / 3
 	views := make([]string, len(columns))
 	for index, column := range columns {
 		currentWidth := columnWidth
 		if index == len(columns)-1 {
-			currentWidth = width - 2 - 2*columnWidth
+			currentWidth = width - 6 - 2*columnWidth
 		}
 		views[index] = model.boardColumnView(column, sessions, currentWidth, height)
 	}
-	gap := strings.Repeat(" \n", height-1) + " "
+	divider := mutedStyle.Foreground(lipgloss.Color(colorDivider)).Render(" │ ")
+	gap := strings.Repeat(divider+"\n", height-1) + divider
 	return lipgloss.JoinHorizontal(lipgloss.Top, views[0], gap, views[1], gap, views[2])
 }
 
 func (model Model) boardColumnView(column boardColumn, sessions []agent.Session, width, height int) string {
-	if height == 1 && len(column.indexes) > 0 {
+	if height <= 2 && len(column.indexes) > 0 {
 		index := column.indexes[0]
 		for _, candidate := range column.indexes {
 			if candidate == model.table.Cursor() {
@@ -101,14 +103,17 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 			}
 		}
 		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
-		return strings.Split(card, "\n")[0]
+		return lipgloss.NewStyle().Width(width).Height(height).Render(strings.Split(card, "\n")[1])
 	}
 
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
 	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
-	rows := []string{style.Render(clipLines(heading, width))}
+	rows := []string{
+		style.Render(clipLines(heading, width)),
+		style.Render(strings.Repeat("─", width)),
+	}
 
-	capacity := max(1, height/4)
+	capacity := max(1, (height-2)/5)
 	start := 0
 	for position, index := range column.indexes {
 		if index == model.table.Cursor() {
@@ -118,7 +123,12 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 	}
 
 	for _, index := range column.indexes[start:min(len(column.indexes), start+capacity)] {
-		rows = append(rows, model.boardCardView(sessions[index], index == model.table.Cursor(), width), "")
+		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
+		if height < 7 {
+			// Keep the title visible when the terminal cannot fit a full card frame.
+			card = strings.Join(strings.Split(card, "\n")[1:4], "\n")
+		}
+		rows = append(rows, card)
 	}
 	if len(column.indexes) == 0 {
 		rows = append(rows, mutedStyle.Render("No sessions"))
@@ -128,12 +138,12 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 
 func (model Model) boardCardView(session agent.Session, selected bool, width int) string {
 	identity := sessionIdentity{provider: session.Provider, id: session.ID}
-	background := lipgloss.Color(colorBackground)
+	background := lipgloss.Color(colorSection)
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
 	cursorStyle := accentStyle.Background(background)
-	cursor := "  "
+	cursor := cursorStyle.Render("  ")
 	if selected {
 		cursor = cursorStyle.Render("› ")
 		if model.unreadSessions[identity] {
@@ -143,7 +153,8 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 		cursor = cursorStyle.Render("● ")
 	}
 
-	contentWidth := max(1, width-2)
+	// Reserve the outer frame, the status edge, and the unread/selection marker.
+	contentWidth := max(1, width-5)
 	title := mainTextStyle.Bold(true).Background(background).Render(
 		clipLines(safeDisplayText(sessionDisplayName(session)), contentWidth),
 	)
@@ -154,11 +165,33 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	state := statusStyle(sessionState(session)).Background(background).Render(displayState(sessionState(session)))
 	activity := mutedStyle.Background(background).Render(formatLastActiveAt(session.LastActiveAt, time.Now()))
 	separator := mutedStyle.Background(background).Render(" · ")
-	lines := []string{
-		cursor + title,
-		"  " + clipLines(provider+separator+project, contentWidth),
-		"  " + clipLines(state+separator+activity, contentWidth),
+
+	// Short cards keep the provider/project readable; wider cards align the age
+	// against the right edge without letting a long project push it out.
+	metadata := provider + separator + project
+	activityWidth := ansi.StringWidth(activity)
+	if contentWidth >= activityWidth+8 {
+		metadataWidth := contentWidth - activityWidth - 1
+		metadata = lipgloss.NewStyle().Width(metadataWidth).Background(background).
+			Render(clipLines(metadata, metadataWidth)) +
+			lipgloss.NewStyle().Background(background).Render(" ") + activity
+	} else {
+		metadata = clipLines(metadata, contentWidth)
 	}
-	style := lipgloss.NewStyle().Width(width).Background(background)
-	return style.Render(strings.Join(lines, "\n"))
+
+	edge := statusStyle(sessionState(session)).Background(background).Render("▎")
+	lineStyle := lipgloss.NewStyle().Width(contentWidth).Background(background)
+	lines := []string{
+		edge + cursor + lineStyle.Render(title),
+		edge + cursorStyle.Render("  ") + lineStyle.Render(metadata),
+		edge + cursorStyle.Render("  ") + lineStyle.Render(clipLines(state, contentWidth)),
+	}
+	border := lipgloss.NormalBorder()
+	borderColor := lipgloss.Color(colorBackground)
+	if selected {
+		borderColor = lipgloss.Color(colorAccent)
+	}
+	return lipgloss.NewStyle().Background(background).
+		Border(border).BorderForeground(borderColor).BorderBackground(lipgloss.Color(colorBackground)).
+		Render(strings.Join(lines, "\n"))
 }
