@@ -23,9 +23,9 @@ func TestBoardSelectionAndLiveStatus(t *testing.T) {
 		t.Fatal("switching layout changed the selected session")
 	}
 
-	// Card traversal follows status columns while the shared table keeps its sort.
+	// Column navigation keeps the existing table sort and selected identity.
 	model.table.SetCursor(1)
-	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	model = updated.(Model)
 	if current, _ := model.selectedSession(); current.Provider != "claude" {
 		t.Fatalf("expected the running card after the waiting card, got %+v", current)
