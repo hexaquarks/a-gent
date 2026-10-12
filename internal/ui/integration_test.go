@@ -28,7 +28,10 @@ func TestIntegrationBoardLayout(t *testing.T) {
 		t.Fatal("status change lost the selected card or preview")
 	}
 	fixture.capture("board-waiting")
+	fixture.appendOutput("claude", "CLAUDE_OUTPUT")
 	fixture.key("j")
+	fixture.waitText("BOARD_OUTPUT")
+	fixture.key("l")
 	fixture.waitFor("focused Claude card", 4*time.Second, func(screen string) bool {
 		for _, line := range strings.Split(screen, "\n") {
 			if strings.Contains(line, "FOCUS") && strings.Contains(line, "claude fixture") {
@@ -37,11 +40,31 @@ func TestIntegrationBoardLayout(t *testing.T) {
 		}
 		return false
 	})
+	screen = fixture.waitText("CLAUDE_OUTPUT")
+	if strings.Contains(screen, "BOARD_OUTPUT") {
+		t.Fatal("column navigation retained another session's output")
+	}
 	fixture.capture("board-selected-claude")
+	fixture.key("v")
+	fixture.waitText("LIVE ACTIVITY · Esc/q")
+	fixture.key("h")
+	fixture.waitText("CLAUDE_OUTPUT")
+	fixture.capture("board-expanded-claude")
+	fixture.key("Escape")
+	fixture.waitText("FOCUS")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.waitText("RUNNING · 1")
 	fixture.capture("board-narrow")
+	fixture.key("Left")
+	screen = fixture.waitText("BOARD_OUTPUT")
+	if !strings.Contains(screen, "NEEDS YOU · 1") || strings.Contains(screen, "CLAUDE_OUTPUT") {
+		t.Fatal("narrow navigation did not follow the selected column and preview")
+	}
+	fixture.capture("board-narrow-codex")
+	fixture.key("Right")
+	fixture.waitText("CLAUDE_OUTPUT")
+	fixture.capture("board-narrow-claude")
 	fixture.key("m")
 	fixture.waitFor("returned to list", 4*time.Second, func(screen string) bool {
 		return strings.Contains(screen, "Last active") && !strings.Contains(screen, "RUNNING ·")

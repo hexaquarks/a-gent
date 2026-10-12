@@ -9,7 +9,8 @@ import (
 
 func helpLines(width int) []string {
 	bindings := [][2]string{
-		{"↑/↓", "Move selection"},
+		{"j/k · ↑/↓", "Move selection / Board card"},
+		{"h/l · ←/→", "Move Board column"},
 		{"Tab", "Switch sidebar / sessions"},
 		{"Enter", "Open / select"},
 		{"m", "Switch List / Board layout"},

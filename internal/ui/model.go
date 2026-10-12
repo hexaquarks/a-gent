@@ -190,6 +190,16 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.sort.descending = !model.sort.descending
 			model.updateTableRows()
 			return model, nil
+		case "h", "left":
+			if model.boardVisible && !model.sidebarFocus {
+				model.moveBoardColumn(-1)
+				return model, nil
+			}
+		case "l", "right":
+			if model.boardVisible && !model.sidebarFocus {
+				model.moveBoardColumn(1)
+				return model, nil
+			}
 		case "j", "down":
 			if model.sidebarFocus {
 				model.moveSidebarCursor(1)
