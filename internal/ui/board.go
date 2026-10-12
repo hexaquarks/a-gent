@@ -20,20 +20,20 @@ type boardColumn struct {
 func boardColumnIndex(session agent.Session) int {
 	switch sessionState(session) {
 	case agent.StateRunning:
-		return 1
+		return 0
 	case agent.StateIdle:
-		return 2
+		return 1
 	default:
 		// Errors and unreadable states need attention rather than appearing idle.
-		return 0
+		return 2
 	}
 }
 
 func (model Model) boardColumns() []boardColumn {
 	columns := []boardColumn{
-		{title: "NEEDS YOU", color: colorAttention},
 		{title: "RUNNING", color: colorRunning},
 		{title: "IDLE", color: colorSecondary},
+		{title: "NEEDS YOU", color: colorAttention},
 	}
 
 	for index, session := range model.filteredSessions() {
@@ -98,16 +98,16 @@ func (model Model) boardView() string {
 		return model.boardColumnView(columns[column], sessions, width, height)
 	}
 
-	columnWidth := (width - 6) / 3
+	columnWidth := (width - 2) / 3
 	views := make([]string, len(columns))
 	for index, column := range columns {
 		currentWidth := columnWidth
 		if index == len(columns)-1 {
-			currentWidth = width - 6 - 2*columnWidth
+			currentWidth = width - 2 - 2*columnWidth
 		}
 		views[index] = model.boardColumnView(column, sessions, currentWidth, height)
 	}
-	divider := mutedStyle.Foreground(lipgloss.Color(colorDivider)).Render(" │ ")
+	divider := mutedStyle.Foreground(lipgloss.Color(colorDivider)).Render("│")
 	gap := strings.Repeat(divider+"\n", height-1) + divider
 	return lipgloss.JoinHorizontal(lipgloss.Top, views[0], gap, views[1], gap, views[2])
 }
@@ -125,14 +125,8 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		return lipgloss.NewStyle().Width(width).Height(height).Render(strings.Split(card, "\n")[1])
 	}
 
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
-	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
-	rows := []string{
-		style.Render(clipLines(heading, width)),
-		style.Render(strings.Repeat("─", width)),
-	}
-
-	capacity := max(1, (height-2)/5)
+	// Cards share border rows; the first upper border occupies the heading divider row.
+	capacity := max(1, (height-2)/4)
 	start := 0
 	for position, index := range column.indexes {
 		if index == model.table.Cursor() {
@@ -141,13 +135,38 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		}
 	}
 
-	for _, index := range column.indexes[start:min(len(column.indexes), start+capacity)] {
+	end := min(len(column.indexes), start+capacity)
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
+	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
+	more := ""
+	if start > 0 {
+		more += fmt.Sprintf(" ↑%d", start)
+	}
+	if end < len(column.indexes) {
+		more += fmt.Sprintf(" ↓%d", len(column.indexes)-end)
+	}
+	heading = clipLines(heading, max(0, width-ansi.StringWidth(more))) + more
+	rows := []string{
+		style.Render(clipLines(heading, width)),
+		style.Render(strings.Repeat("─", width)),
+	}
+
+	for _, index := range column.indexes[start:end] {
 		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
 		if height < 7 {
 			// Keep the title visible when the terminal cannot fit a full card frame.
-			card = strings.Join(strings.Split(card, "\n")[1:4], "\n")
+			rows = append(rows, strings.Split(card, "\n")[1:4]...)
+			continue
 		}
-		rows = append(rows, card)
+
+		cardRows := strings.Split(card, "\n")
+		// Keep every title at the same row, including when the first card is selected.
+		if index == model.table.Cursor() {
+			rows = rows[:len(rows)-1]
+		} else {
+			cardRows = cardRows[1:]
+		}
+		rows = append(rows, cardRows...)
 	}
 	if len(column.indexes) == 0 {
 		rows = append(rows, mutedStyle.Render("No sessions"))
@@ -161,21 +180,15 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
-	cursorStyle := accentStyle.Background(background)
-	cursor := cursorStyle.Render("  ")
-	if selected {
-		cursor = cursorStyle.Render("› ")
-		if model.unreadSessions[identity] {
-			cursor = cursorStyle.Render("›●")
-		}
-	} else if model.unreadSessions[identity] {
-		cursor = cursorStyle.Render("● ")
+	marker := ""
+	if model.unreadSessions[identity] {
+		marker = accentStyle.Background(background).Render("● ")
 	}
 
-	// Reserve the outer frame, the status edge, and the unread/selection marker.
-	contentWidth := max(1, width-5)
+	// Reserve the outer frame and the colored status bar.
+	contentWidth := max(1, width-3)
 	title := mainTextStyle.Bold(true).Background(background).Render(
-		clipLines(safeDisplayText(sessionDisplayName(session)), contentWidth),
+		clipLines(safeDisplayText(sessionDisplayName(session)), contentWidth-lipgloss.Width(marker)),
 	)
 	provider := providerStyle(session.Provider).Background(background).Render(safeDisplayText(session.Provider))
 	project := model.projectStyle(session.WorkingDirectory).Background(background).Render(
@@ -198,12 +211,12 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 		metadata = clipLines(metadata, contentWidth)
 	}
 
-	edge := statusStyle(sessionState(session)).Background(background).Render("▎")
+	edge := statusStyle(sessionState(session)).Background(background).Render("▌")
 	lineStyle := lipgloss.NewStyle().Width(contentWidth).Background(background)
 	lines := []string{
-		edge + cursor + lineStyle.Render(title),
-		edge + cursorStyle.Render("  ") + lineStyle.Render(metadata),
-		edge + cursorStyle.Render("  ") + lineStyle.Render(clipLines(state, contentWidth)),
+		edge + lineStyle.Render(marker+title),
+		edge + lineStyle.Render(metadata),
+		edge + lineStyle.Render(clipLines(state, contentWidth)),
 	}
 	border := lipgloss.NormalBorder()
 	borderColor := lipgloss.Color(colorBackground)

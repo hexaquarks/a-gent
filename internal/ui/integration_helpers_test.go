@@ -85,7 +85,12 @@ func TestIntegrationDashboardProcess(t *testing.T) {
 		polling.Run(ctx, adapters, updates)
 	}()
 	defer func() { cancel(); <-stopped }()
-	program := tea.NewProgram(ui.NewModel(updates, ui.WithApplicationContext(ctx), ui.WithPreviewSources(adapters...)), tea.WithAltScreen())
+	model := ui.NewModel(updates,
+		ui.WithApplicationContext(ctx),
+		ui.WithPreviewSources(adapters...),
+		ui.WithDashboardPreferences(filepath.Join(root, "dashboard.json")),
+	)
+	program := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := program.Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -96,6 +101,7 @@ type dashboardFixture struct {
 	root          string
 	socket        string
 	artifacts     string
+	launchCommand string
 	transcripts   map[string]string
 	sessions      map[string]agent.Session
 	width, height int
@@ -177,6 +183,7 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	launchCommand := strings.Join(command, " ") +
 		"; dashboard_exit_status=$?; printf '%s' \"$dashboard_exit_status\" > " + shellQuote(exitPath) +
 		"; exit \"$dashboard_exit_status\""
+	fixture.launchCommand = launchCommand
 	t.Cleanup(func() {
 		fixture.stopLiveHermes()
 		defer func() {
@@ -270,7 +277,18 @@ func (fixture *dashboardFixture) selectProvider(provider string) {
 		key = "G"
 	}
 	fixture.key(key)
-	fixture.waitText("/fixture/" + provider)
+	fixture.waitFor("selected "+provider+" session", 4*time.Second, func(screen string) bool {
+		inDetails := false
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "SELECTED SESSION") || strings.Contains(line, "FOCUS") {
+				inDetails = true
+			}
+			if inDetails && strings.Contains(line, provider+" fixture") {
+				return true
+			}
+		}
+		return false
+	})
 }
 func (fixture *dashboardFixture) setState(provider string, state agent.State) {
 	fixture.t.Helper()

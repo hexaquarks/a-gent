@@ -9,24 +9,25 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestUpdatesFilterTracksAcknowledgementAndProviderIdentity(t *testing.T) {
+func TestAcknowledgementKeepsOtherProviderUnread(t *testing.T) {
 	model := NewModel(nil)
 	model.sessions = []agent.Session{
 		{ID: "same", Provider: "codex", State: agent.StateIdle},
 		{ID: "same", Provider: "claude", State: agent.StateWaiting},
 	}
-	model.unreadSessions = map[sessionIdentity]bool{{provider: "codex", id: "same"}: true}
-	model.selectedView = updatesView
+	model.unreadSessions = map[sessionIdentity]bool{
+		{provider: "codex", id: "same"}:  true,
+		{provider: "claude", id: "same"}: true,
+	}
+	model.selectedProvider = "codex"
 	model.updateTableRows()
-	if sessions := model.filteredSessions(); len(sessions) != 1 || sessions[0].Provider != "codex" {
-		t.Fatalf("Updates included a read provider: %+v", sessions)
-	}
-	if model.viewCount(updatesView, summarizeSessions(model.sessions)) != 1 {
-		t.Fatal("Updates count does not match unread sessions")
-	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
-	if len(model.filteredSessions()) != 0 || model.viewCount(updatesView, summarizeSessions(model.sessions)) != 0 {
-		t.Fatal("acknowledging an update did not clear it from Updates")
+	if model.unreadSessions[sessionIdentity{provider: "codex", id: "same"}] ||
+		!model.unreadSessions[sessionIdentity{provider: "claude", id: "same"}] {
+		t.Fatal("acknowledgement confused providers with the same session ID")
+	}
+	if len(model.filteredSessions()) != 1 {
+		t.Fatal("acknowledgement removed a session from the provider filter")
 	}
 }
 
@@ -67,7 +68,6 @@ func TestOpeningAnUpdateUsesTheAcknowledgedSession(t *testing.T) {
 		{provider: "codex", id: "a"}: true,
 		{provider: "codex", id: "b"}: true,
 	}
-	model.selectedView = updatesView
 	model.updateTableRows()
 	updated, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(Model)
@@ -76,18 +76,17 @@ func TestOpeningAnUpdateUsesTheAcknowledgedSession(t *testing.T) {
 	}
 	defer model.cancelNavigation()
 
-	// The first acknowledgement selects b. A second Enter must not silently
-	// acknowledge b while navigation to a is still pending.
+	// A second Enter must not acknowledge another session while navigation is pending.
 	updated, duplicate := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(Model)
-	if duplicate != nil || len(model.table.Rows()) != 1 || !model.unreadSessions[sessionIdentity{provider: "codex", id: "b"}] {
+	if duplicate != nil || len(model.table.Rows()) != 2 || !model.unreadSessions[sessionIdentity{provider: "codex", id: "b"}] {
 		t.Fatal("repeated Enter acknowledged another update during navigation")
 	}
 	command()
 	if navigator.session.ID != "a" {
 		t.Fatalf("opened %s after acknowledgement; want a", navigator.session.ID)
 	}
-	if len(model.table.Rows()) != 1 || model.tableSessionIDs[0].id != "b" {
-		t.Fatal("acknowledgement left the read update in the table")
+	if len(model.table.Rows()) != 2 || model.tableSessionIDs[0].id != "a" {
+		t.Fatal("acknowledgement changed the selected session")
 	}
 }

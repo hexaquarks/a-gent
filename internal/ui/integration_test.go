@@ -5,6 +5,7 @@ package ui_test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -31,7 +32,7 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.appendOutput("claude", "CLAUDE_OUTPUT")
 	fixture.key("j")
 	fixture.waitText("BOARD_OUTPUT")
-	fixture.key("l")
+	fixture.key("h")
 	fixture.waitFor("focused Claude card", 4*time.Second, func(screen string) bool {
 		for _, line := range strings.Split(screen, "\n") {
 			if strings.Contains(line, "FOCUS") && strings.Contains(line, "claude fixture") {
@@ -56,13 +57,13 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.waitText("RUNNING · 1")
 	fixture.capture("board-narrow")
-	fixture.key("Left")
+	fixture.key("Right")
 	screen = fixture.waitText("BOARD_OUTPUT")
 	if !strings.Contains(screen, "NEEDS YOU · 1") || strings.Contains(screen, "CLAUDE_OUTPUT") {
 		t.Fatal("narrow navigation did not follow the selected column and preview")
 	}
 	fixture.capture("board-narrow-codex")
-	fixture.key("Right")
+	fixture.key("Left")
 	fixture.waitText("CLAUDE_OUTPUT")
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")
@@ -151,7 +152,9 @@ func TestIntegrationNewAgentProviderLayout(t *testing.T) {
 			}
 			for _, line := range strings.Split(screen, "\n") {
 				if strings.Contains(line, "codex") && strings.Contains(line, "claude") {
-					return strings.Contains(line, "│") && (width < 80 || strings.Contains(line, "hermes"))
+					if strings.Contains(line, "│") && (width < 80 || strings.Contains(line, "hermes")) {
+						return true
+					}
 				}
 			}
 			return false
@@ -279,7 +282,7 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture.capture("no-edits")
 }
 
-func TestIntegrationLiveOrderAndUpdates(t *testing.T) {
+func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	fixture.appendOutput("codex", "LIVE_OUTPUT")
 	fixture.waitText("LIVE_OUTPUT")
@@ -297,25 +300,22 @@ func TestIntegrationLiveOrderAndUpdates(t *testing.T) {
 	}
 	fixture.capture("live-order-and-output")
 	fixture.key("Tab")
-	// Arrow sequences stay separate when the terminal batches rapid key presses.
-	fixture.key("Down") // Active
 	fixture.key("Down") // Recent
-	fixture.key("Down") // Updates
 	fixture.key("Enter")
 	fixture.key("Tab")
-	// Active also has one row; wait for the chosen filter before reading results.
-	fixture.waitText("● Updates")
+	fixture.waitText("● Recent")
 	screen = fixture.waitText("SESSIONS (1 of 1)")
-	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") || !strings.Contains(screen, "1 unseen") {
-		t.Fatalf("Updates does not isolate the changed session:\n%s", screen)
+	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") ||
+		!strings.Contains(screen, "1 unseen") {
+		t.Fatalf("Recent does not isolate the stopped session:\n%s", screen)
 	}
-	fixture.capture("updates-filter")
+	fixture.capture("recent-filter")
 	fixture.key("Enter")
-	screen = fixture.waitText("No sessions match this filter")
-	if !strings.Contains(screen, "0 unseen") {
-		t.Fatal("acknowledgement did not update the header count")
+	screen = fixture.waitText("0 unseen")
+	if !strings.Contains(screen, "claude fixture") {
+		t.Fatal("acknowledgement removed the session from Recent")
 	}
-	fixture.capture("updates-acknowledged")
+	fixture.capture("recent-acknowledged")
 }
 
 // Layout details live in the render tests; here we check the terminal shows
@@ -456,10 +456,13 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 	fixture.waitText("RUNNING · 2")
 	screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
 	if !regexp.MustCompile(`38;2;89;223;240m(?:\x1b\[[0-9;]*m)*┌`).MatchString(screen) ||
-		!strings.Contains(screen, "▎") || !strings.Contains(screen, "38;2;163;239;120") {
+		!strings.Contains(screen, "▌") || !strings.Contains(screen, "38;2;163;239;120") {
 		t.Fatalf("board lost its selected cyan frame or colored running edges:\n%s", screen)
 	}
 	plain := fixture.tmux("capture-pane", "-p", "-t", "dashboard:0.0")
+	if strings.Contains(plain, "›") {
+		t.Fatalf("board kept its redundant selection arrow:\n%s", plain)
+	}
 	for _, line := range strings.Split(plain, "\n") {
 		if strings.Contains(line, "RUNNING · 2") && strings.Count(line, "│") < 4 {
 			t.Fatalf("board lost vertical column dividers: %s", line)
@@ -470,4 +473,78 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 		t.Fatalf("board lost heading underlines, compact selected session, or footer:\n%s", plain)
 	}
 	fixture.capture("styled-board")
+
+	cardPositions := func(screen string) map[string]int {
+		positions := make(map[string]int)
+		for row, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "FOCUS") {
+				break
+			}
+			for _, name := range []string{"codex fixture", "claude fixture"} {
+				if strings.Contains(line, name) {
+					positions[name] = row
+				}
+			}
+		}
+		return positions
+	}
+	before := cardPositions(plain)
+	movements := []struct {
+		key  string
+		name string
+	}{
+		{"j", "claude fixture"},
+		{"k", "codex fixture"},
+	}
+
+	for _, movement := range movements {
+		fixture.key(movement.key)
+		screen := fixture.waitFor("selected card", 4*time.Second, func(screen string) bool {
+			for _, line := range strings.Split(screen, "\n") {
+				if strings.Contains(line, "FOCUS") && strings.Contains(line, movement.name) {
+					return true
+				}
+			}
+			return false
+		})
+		after := cardPositions(screen)
+		for _, name := range []string{"codex fixture", "claude fixture"} {
+			beforeRow, beforeVisible := before[name]
+			afterRow, afterVisible := after[name]
+			if !beforeVisible || !afterVisible || beforeRow != afterRow {
+				t.Fatalf("selection moved card %s from row %d to %d", name, beforeRow, afterRow)
+			}
+		}
+	}
+}
+
+func TestIntegrationDashboardRemembersLayout(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	for _, board := range []bool{true, false} {
+		fixture.key("m")
+		if board {
+			fixture.waitText("RUNNING · 2")
+		} else {
+			fixture.waitText("SELECTED SESSION")
+		}
+
+		fixture.key("q")
+		exitPath := filepath.Join(fixture.root, "exit-status")
+		fixture.waitFor("dashboard exit", 5*time.Second, func(_ string) bool {
+			status, err := os.ReadFile(exitPath)
+			return err == nil && string(status) == "0"
+		})
+		if err := os.Remove(exitPath); err != nil {
+			t.Fatal(err)
+		}
+		fixture.tmux("respawn-pane", "-t", "dashboard:0.0", fixture.launchCommand)
+		fixture.waitText("2 sessions")
+		if board {
+			fixture.waitText("RUNNING · 2")
+			fixture.capture("reopened-board")
+		} else {
+			fixture.waitText("SELECTED SESSION")
+			fixture.capture("reopened-list")
+		}
+	}
 }

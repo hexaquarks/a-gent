@@ -13,7 +13,7 @@ import (
 // View renders the current UI state after Bubble Tea calls Update.
 func (model Model) View() string {
 	if model.previewExpanded {
-		view := model.previewView(max(1, model.width), max(1, model.height), true)
+		view := model.expandedPreviewView(max(1, model.width), max(1, model.height))
 		if model.helpOpen {
 			return model.helpView(view)
 		}
@@ -78,24 +78,57 @@ func (model Model) detailView() string {
 		stateText = "Stale · last known data"
 	}
 
-	directory := safeDisplayText(selectedSession.WorkingDirectory)
+	directory := displayDirectory(selectedSession.WorkingDirectory)
+	fields := []struct{ label, value string }{
+		{"Agent", providerStyle(selectedSession.Provider).Bold(true).Render(safeDisplayText(selectedSession.Provider))},
+		{"Status", statusStyle(sessionState(selectedSession)).Render("● " + safeDisplayText(stateText))},
+		{
+			"Project",
+			model.projectStyle(selectedSession.WorkingDirectory).Render(
+				safeDisplayText(projectName(selectedSession.WorkingDirectory)),
+			),
+		},
+		{"Directory", mutedStyle.Render(directory)},
+		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
+	}
+	lines := []string{
+		title,
+		mainTextStyle.Bold(true).Render(" " + safeDisplayText(sessionDisplayName(selectedSession))),
+	}
+	for _, field := range fields {
+		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (model Model) expandedPreviewView(width, height int) string {
+	selectedSession, selected := model.selectedSession()
+	if model.boardVisible || !selected || height < 8 {
+		return model.previewView(width, height, true)
+	}
+
+	directory := displayDirectory(selectedSession.WorkingDirectory)
+
+	metadata := []string{
+		mainTextStyle.Bold(true).Render(safeDisplayText(sessionDisplayName(selectedSession))),
+		mutedStyle.Render("Directory: " + directory),
+		mutedStyle.Render("Session: " + safeDisplayText(selectedSession.ID)),
+		"",
+	}
+
+	preview := model.previewView(width, height-len(metadata), true)
+	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).
+		Render(clipLines(strings.Join(metadata, "\n"), width) + "\n" + preview)
+}
+
+func displayDirectory(directory string) string {
+	directory = safeDisplayText(directory)
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		if directory == home || strings.HasPrefix(directory, home+string(filepath.Separator)) {
 			directory = "~" + strings.TrimPrefix(directory, home)
 		}
 	}
-	fields := []struct{ label, value string }{
-		{"Agent", providerStyle(selectedSession.Provider).Bold(true).Render(safeDisplayText(selectedSession.Provider))},
-		{"Status", statusStyle(sessionState(selectedSession)).Render("● " + safeDisplayText(stateText))},
-		{"Project", model.projectStyle(selectedSession.WorkingDirectory).Render(safeDisplayText(projectName(selectedSession.WorkingDirectory)))},
-		{"Directory", mutedStyle.Render(directory)},
-		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
-	}
-	lines := []string{title, "", mainTextStyle.Bold(true).Render(" " + safeDisplayText(sessionDisplayName(selectedSession))), ""}
-	for _, field := range fields {
-		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
-	}
-	return strings.Join(lines, "\n")
+	return directory
 }
 
 func (model Model) detailHeadingView() string {

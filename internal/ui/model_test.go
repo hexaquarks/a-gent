@@ -136,21 +136,20 @@ func TestEnterDoesNotNavigateSidebarOrEmptyTable(t *testing.T) {
 	}
 }
 
-func TestSessionListCapsVisibleRowsAndScrolls(t *testing.T) {
-	sessions := make([]agent.Session, maximumSessionRows+2)
+func TestSessionListUsesAvailableHeightAndScrolls(t *testing.T) {
 	model := NewModel(nil)
-	model.sessions = sessions
-	model.height = 80
+	model.sessions = make([]agent.Session, 80)
+	model.height = 40
 	model.resizeTable()
 
-	if model.table.Height() != maximumSessionRows {
-		t.Fatalf("table height = %d, want %d", model.table.Height(), maximumSessionRows)
+	if model.table.Height() != 23 {
+		t.Fatalf("table height = %d, want 23", model.table.Height())
 	}
 
-	model.table.SetCursor(maximumSessionRows)
+	model.table.SetCursor(23)
 	start, end := model.visibleSessionRange()
-	if start != 1 || end != maximumSessionRows+1 {
-		t.Fatalf("visible range = %d-%d, want 1-%d", start, end, maximumSessionRows+1)
+	if start != 1 || end != 24 {
+		t.Fatalf("visible range = %d-%d, want 1-24", start, end)
 	}
 }
 
@@ -164,12 +163,12 @@ func TestSessionListRendersEmptyRowPlaceholders(t *testing.T) {
 	model.height = 80
 	model.resizeTable()
 
-	if model.table.Height() != maximumSessionRows {
-		t.Fatalf("table height = %d, want %d", model.table.Height(), maximumSessionRows)
+	if model.table.Height() <= defaultSessionRows {
+		t.Fatal("tall terminals should show more session rows")
 	}
 
 	tableView := model.sessionTableView()
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, model.table.Height()+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
@@ -183,7 +182,7 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 	if !strings.Contains(tableView, "No live sessions") {
 		t.Fatal("empty session list does not explain that no sessions were found")
 	}
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, model.table.Height()+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
@@ -258,8 +257,15 @@ func TestPopupHeightFitsTheReservedSessionRows(t *testing.T) {
 		State:            agent.StateIdle,
 	}}
 
-	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight})
-	view := updatedModel.(Model).View()
+	previousModel, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight - 1})
+	previous := previousModel.(Model)
+	updatedModel, _ := previous.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight})
+	current := updatedModel.(Model)
+	if current.table.Height() != previous.table.Height()+1 ||
+		current.inlinePreviewHeight() != previous.inlinePreviewHeight() {
+		t.Fatal("the extra popup row should expand the session list, keeping preview height unchanged")
+	}
+	view := current.View()
 	if got := lipgloss.Height(view); got != PopupContentHeight {
 		t.Fatalf("popup content height = %d, want %d", got, PopupContentHeight)
 	}
@@ -277,7 +283,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 	}
 
 	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
-	for _, expected := range []string{"VIEWS", "Attention", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
+	for _, expected := range []string{"VIEWS", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
 		if !strings.Contains(sidebar, expected) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
@@ -300,7 +306,6 @@ func TestViewsFilterSessions(t *testing.T) {
 		view    sidebarView
 		wantIDs []string
 	}{
-		{view: attentionView, wantIDs: []string{"failed", "waiting"}},
 		{view: activeView, wantIDs: []string{"running"}},
 		{view: recentView, wantIDs: []string{"failed", "finished", "waiting"}},
 		{view: allView, wantIDs: []string{"failed", "finished", "running", "waiting"}},
@@ -353,7 +358,6 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	}
 	model.updateTableRows()
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if model.selectedView != allView || len(model.table.Rows()) != 1 {
 		t.Fatal("browsing Active did not preview without committing")
 	}
@@ -361,13 +365,13 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	if model.selectedView != activeView || len(model.table.Rows()) != 1 {
 		t.Fatal("Enter did not apply Active")
 	}
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyUp})
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if model.selectedView != activeView {
-		t.Fatal("browsing Attention changed the view")
+		t.Fatal("browsing Recent changed the view")
 	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
-	if model.selectedView != attentionView || model.tableSessionIDs[0].id != "waiting" {
-		t.Fatal("Enter did not switch to Attention")
+	if model.selectedView != recentView || model.tableSessionIDs[0].id != "waiting" {
+		t.Fatal("Enter did not switch to Recent")
 	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	if model.selectedView != allView || len(model.table.Rows()) != 2 {
@@ -375,7 +379,7 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	}
 	model.selectedProject = "/one"
 	model.updateTableRows()
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyUp})
 	if model.selectedProject != "/one" {
 		t.Fatal("browsing a view cleared the project filter")
 	}

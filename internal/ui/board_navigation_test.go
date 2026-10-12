@@ -47,10 +47,24 @@ func TestBoardNavigationClampsCardRowAndColumnBoundaries(t *testing.T) {
 	for _, arrows := range []bool{false, true} {
 		model := navigationBoard()
 		model.table.SetCursor(2)
-		steps := []struct{ key, id string }{
-			{"j", "a2"}, {"h", "a2"}, {"l", "b1"}, {"j", "b1"},
-			{"l", "c0"}, {"l", "c0"}, {"k", "c0"}, {"h", "b0"},
-			{"h", "a0"}, {"k", "a0"}, {"j", "a1"}, {"l", "b1"},
+		steps := []struct {
+			key string
+			id  string
+		}{
+			{"j", "a2"},
+			{"l", "a2"},
+			{"h", "c0"},
+			{"h", "b0"},
+			{"h", "b0"},
+			{"j", "b1"},
+			{"j", "b1"},
+			{"l", "c0"},
+			{"k", "c0"},
+			{"l", "a0"},
+			{"k", "a0"},
+			{"j", "a1"},
+			{"h", "c0"},
+			{"l", "a0"},
 		}
 		for _, step := range steps {
 			key := runeKey(rune(step.key[0]))
@@ -68,9 +82,9 @@ func TestBoardNavigationSkipsEmptyColumns(t *testing.T) {
 	model.sessions = append(model.sessions[:3], model.sessions[5:]...)
 	model.updateTableRows()
 	model.table.SetCursor(2)
-	model = sendProjectKey(model, runeKey('l'))
-	requireBoardSelection(t, model, "c0")
 	model = sendProjectKey(model, runeKey('h'))
+	requireBoardSelection(t, model, "c0")
+	model = sendProjectKey(model, runeKey('l'))
 	requireBoardSelection(t, model, "a0")
 
 	model.sessions = model.sessions[:3]
@@ -95,7 +109,9 @@ func TestBoardNavigationUsesFilteredSortAndPreservesLiveIdentity(t *testing.T) {
 	model.updateTableRows()
 	model.table.SetCursor(3) // A2 is first in Needs You under the reversed sort.
 	requireBoardSelection(t, model, "a2")
-	model = sendProjectKey(model, runeKey('l'))
+	model = sendProjectKey(model, runeKey('h'))
+	requireBoardSelection(t, model, "c0")
+	model = sendProjectKey(model, runeKey('h'))
 	requireBoardSelection(t, model, "b1")
 
 	sessions := append([]agent.Session(nil), model.sessions[:6]...)
@@ -147,7 +163,9 @@ func TestBoardColumnNavigationPreviewIsolation(t *testing.T) {
 			activity: &agent.Activity{Text: "OUTPUT_" + session.ID, At: time.Now()},
 		}
 	}
-	model = sendProjectKey(model, runeKey('l'))
+	model = sendProjectKey(model, runeKey('h'))
+	requireBoardSelection(t, model, "c0")
+	model = sendProjectKey(model, runeKey('h'))
 	requireBoardSelection(t, model, "b0")
 	view := ansi.Strip(model.previewView(50, 10, false))
 	if !strings.Contains(view, "OUTPUT_b0") || strings.Contains(view, "OUTPUT_a0") {
@@ -155,7 +173,7 @@ func TestBoardColumnNavigationPreviewIsolation(t *testing.T) {
 	}
 }
 
-func TestBoardFooterHintsFit(t *testing.T) {
+func TestBoardFooterKeepsEssentialActions(t *testing.T) {
 	model := navigationBoard()
 	model.navigator = &fakeNavigator{}
 	for _, width := range []int{120, 80, 24} {
@@ -169,8 +187,8 @@ func TestBoardFooterHintsFit(t *testing.T) {
 		if !strings.Contains(footer, "enter") && !strings.Contains(footer, "↵") {
 			t.Fatal("footer omitted opening shortcut")
 		}
-		if width >= 80 && (!strings.Contains(footer, "h/l") || !strings.Contains(footer, "j/k")) {
-			t.Fatalf("width %d omitted board movement: %s", width, footer)
+		if strings.Contains(footer, "h/l") || strings.Contains(footer, "j/k") {
+			t.Fatalf("width %d retained board movement hints: %s", width, footer)
 		}
 	}
 	help := ansi.Strip(strings.Join(helpLines(48), "\n"))

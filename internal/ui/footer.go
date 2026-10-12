@@ -24,9 +24,6 @@ func (model Model) footerText() string {
 	if model.navigator != nil {
 		parts = append(parts, shortcut("enter", "open"))
 	}
-	if model.boardVisible && !model.sidebarFocus {
-		parts = append(parts, shortcut("h/l", "column"), shortcut("j/k", "card"))
-	}
 	parts = append(parts, shortcut("m", "layout"), shortcut("q", "quit"))
 	left := strings.Join(parts, "   ")
 	right := shortcut("?", "help")
@@ -36,12 +33,6 @@ func (model Model) footerText() string {
 	}
 	if lipgloss.Width(left)+lipgloss.Width(right)+1 > width {
 		left = strings.Join(parts, " ")
-	}
-	if lipgloss.Width(left)+lipgloss.Width(right)+1 > width && model.boardVisible && !model.sidebarFocus {
-		// Omit layout before dropping movement hints; Tab and opening stay visible.
-		compact := append([]string(nil), parts[:len(parts)-2]...)
-		compact = append(compact, shortcut("q", "quit"))
-		left = strings.Join(compact, " ")
 	}
 	if lipgloss.Width(left)+lipgloss.Width(right)+1 > width {
 		keys := []string{"tab"}

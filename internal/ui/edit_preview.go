@@ -357,16 +357,30 @@ func (model Model) detailWithPreview() string {
 		} else {
 			label = mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
 		}
-		return clipLines(model.detailView(), width) + "\n" + label
+
+		height := model.inlinePreviewHeight()
+		metadata := strings.Split(clipLines(model.detailView(), width), "\n")
+		if selected {
+			// Combine Agent and Status so the directory, session ID, and preview all fit.
+			metadata[2] += mutedStyle.Render(" · ") +
+				statusStyle(sessionState(session)).Render(safeDisplayText(displayState(sessionState(session))))
+			metadata = append(metadata[:3], metadata[4:]...)
+		}
+
+		metadata = metadata[:min(len(metadata), height-1)]
+		return lipgloss.NewStyle().Height(height).MaxHeight(height).
+			Render(strings.Join(append(metadata, label), "\n"))
 	}
+	previewHeight := model.inlinePreviewHeight()
 	previewWidth := min(42, width*3/8)
 	metadataWidth := width - previewWidth - 2
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
+		Height(previewHeight).
+		MaxHeight(previewHeight).
 		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	previewHeight := max(lipgloss.Height(metadata), model.inlinePreviewHeight()+2)
 	preview := lipgloss.NewStyle().Padding(0, 1).Render(model.inlinePreviewPanel(previewWidth-2, previewHeight))
 	divider := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.TrimSuffix(strings.Repeat("│\n", previewHeight), "\n"))
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", divider, preview)

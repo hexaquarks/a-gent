@@ -2,27 +2,28 @@
 │ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                 Last active ↓  |  LIVE  │
-│    Attention        1  │                                                                                             │
-│    Active           1  │      Agent   Session                       Project          Status         Last active ↓    │
-│    Recent           5  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
-│    Updates          2  │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
-│  ● All              6  │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
-│                        │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
-│  AGENTS                │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
-│    claude           1  │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │
-│    codex            5  │                                                                                             │
-│                        │─────────────────────────────────────────────────────────────────────────────────────────────│
-│  PROJECTS (4)          │  SELECTED SESSION                                        │  LAST EDIT               1m ago  │
-│   mihailanghe…  ★  1  │                                                          │  internal/navigation.go          │
-│   a-gent           2  │  Restore response navigation                             │  @@ openSession                  │
-│   codex-audit      1  │                                                          │   if session != nil {            │
-│   swiftyprompt     2  │  Agent      codex                                        │  -    navigator.Open(cwd)        │
-│                        │  Status     ● Idle                                       │  +    navigator.Navigate(        │
-│                        │  Project    swiftyprompt                                 │  +        ctx, session,          │
-│                        │  Directory  /projects/swiftyprompt                       │  +    )                          │
-│                        │  Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e         │   }                              │
-│ ────────────────────── │                                                          │                                  │
-│ / find · p pin         │                                                          │  +3 −1                 v expand  │
+│    Active           1  │                                                                                             │
+│    Recent           5  │      Agent   Session                       Project          Status         Last active ↓    │
+│  ● All              6  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
+│                        │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
+│  AGENTS                │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
+│    claude           1  │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
+│    codex            5  │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
+│                        │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │
+│                        │                                                                                             │
+│                        │                                                                                             │
+│  PROJECTS (4)          │                                                                                             │
+│   mihailanghe…  ★  1  │                                                                                             │
+│   a-gent           2  │                                                                                             │
+│   codex-audit      1  │                                                                                             │
+│   swiftyprompt     2  │─────────────────────────────────────────────────────────────────────────────────────────────│
+│                        │  SELECTED SESSION                                        │  LAST EDIT               1m ago  │
+│                        │  Restore response navigation                             │  internal/navigation.go          │
+│                        │  Agent      codex                                        │  @@ openSession                  │
+│                        │  Status     ● Idle                                       │   if session != nil {            │
+│                        │  Project    swiftyprompt                                 │  -    navigator.Open(cwd)        │
+│ ────────────────────── │  Directory  /projects/swiftyprompt                       │  +    navigator.Navigate(        │
+│ / find · p pin         │  Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e         │  +3 −1 … truncated     v expand  │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  tab  focus    enter  open    m  layout    q  quit                                                           ?  help │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

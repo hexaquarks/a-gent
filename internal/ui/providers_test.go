@@ -23,7 +23,7 @@ func TestProviderFailureDoesNotBlockHealthyUpdates(t *testing.T) {
 			if !session.Stale || sessionState(session) != agent.StateUnavailable {
 				t.Fatal("failed provider still appears live")
 			}
-			if matchesView(session, activeView) || !matchesView(session, attentionView) {
+			if matchesView(session, activeView) || !matchesView(session, recentView) {
 				t.Fatal("stale session is in the wrong view")
 			}
 			value, _ := sessionColumnValue(session, "Last active")

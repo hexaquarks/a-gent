@@ -24,11 +24,9 @@ type sessionSummary struct {
 type sidebarView string
 
 const (
-	attentionView sidebarView = "Attention"
-	activeView    sidebarView = "Active"
-	recentView    sidebarView = "Recent"
-	updatesView   sidebarView = "Updates"
-	allView       sidebarView = "All"
+	activeView sidebarView = "Active"
+	recentView sidebarView = "Recent"
+	allView    sidebarView = "All"
 )
 
 type sidebarItem struct {
@@ -125,11 +123,11 @@ func (model Model) bodyHeight() int {
 	if model.height > 0 {
 		return max(1, model.height-6)
 	}
-	return maximumSessionRows + model.inlinePreviewHeight() + 8
+	return defaultSessionRows + model.inlinePreviewHeight() + 8
 }
 
 func sidebarViews() []sidebarView {
-	return []sidebarView{attentionView, activeView, recentView, updatesView, allView}
+	return []sidebarView{activeView, recentView, allView}
 }
 
 func (model Model) sidebarItems() []sidebarItem {
@@ -183,9 +181,6 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if item.provider != "" {
 		countStyle = mutedStyle
 	}
-	if item.view == attentionView {
-		countStyle = waitingStyle
-	}
 	if item.view == activeView {
 		countStyle = runningStyle
 	}
@@ -225,14 +220,10 @@ func sidebarLabel(label string, width int) string {
 
 func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
 	switch view {
-	case attentionView:
-		return summary.waiting + summary.errors
 	case activeView:
 		return summary.running
 	case recentView:
 		return summary.total - summary.running
-	case updatesView:
-		return len(model.unreadSessions)
 	default:
 		return summary.total
 	}
@@ -339,9 +330,6 @@ func (model Model) filteredSessions() []agent.Session {
 		if project != "" && session.WorkingDirectory != project {
 			continue
 		}
-		if project == "" && view == updatesView && !model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
-			continue
-		}
 		if project == "" && !matchesView(session, view) {
 			continue
 		}
@@ -353,8 +341,6 @@ func (model Model) filteredSessions() []agent.Session {
 
 func matchesView(session agent.Session, view sidebarView) bool {
 	switch view {
-	case attentionView:
-		return sessionState(session) == agent.StateWaiting || sessionState(session) == agent.StateError || sessionState(session) == agent.StateUnavailable
 	case activeView:
 		return sessionState(session) == agent.StateRunning
 	case recentView:

@@ -218,3 +218,38 @@ func TestScrollbarTracksVisibleSessionsWithoutChangingWidth(t *testing.T) {
 		t.Fatal("short lists must reserve a blank scrollbar gutter")
 	}
 }
+
+func TestListKeepsShortDetailsAndExpandedSessionMetadata(t *testing.T) {
+	model := referenceDashboard()
+	selected, _ := model.selectedSession()
+	before := model.View()
+	if model.table.Height() != 12 || lipgloss.Height(model.detailWithPreview()) != 7 {
+		t.Fatal("standard popup should have twelve session rows and seven detail rows")
+	}
+	if !strings.Contains(ansi.Strip(before), selected.ID) || !strings.Contains(ansi.Strip(before), selected.WorkingDirectory) {
+		t.Fatal("inline details should keep the directory and session ID")
+	}
+
+	narrow := model
+	narrow.width = 80
+	narrow.resizeTable()
+	narrowDetails := ansi.Strip(narrow.detailWithPreview())
+	if !strings.Contains(narrowDetails, "Project") || !strings.Contains(narrowDetails, selected.ID) ||
+		!strings.Contains(narrowDetails, selected.WorkingDirectory) {
+		t.Fatal("narrow inline details should keep the project, directory, and session ID")
+	}
+
+	updated, _ := model.Update(runeKey('v'))
+	model = updated.(Model)
+	expanded := ansi.Strip(model.View())
+	for _, text := range []string{selected.Name, selected.ID, selected.WorkingDirectory, "EDIT PREVIEW"} {
+		if !strings.Contains(expanded, text) {
+			t.Fatalf("expanded view omitted %q", text)
+		}
+	}
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model = updated.(Model)
+	if model.View() != before {
+		t.Fatal("closing expanded details changed the list")
+	}
+}

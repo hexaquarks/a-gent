@@ -26,17 +26,19 @@ func TestBoardSelectionAndLiveStatus(t *testing.T) {
 
 	// Column navigation keeps the existing table sort and selected identity.
 	model.table.SetCursor(1)
-	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
+	model = updated.(Model)
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
 	model = updated.(Model)
 	if current, _ := model.selectedSession(); current.Provider != "claude" {
-		t.Fatalf("expected the running card after the waiting card, got %+v", current)
+		t.Fatalf("expected the running card to the left of Idle, got %+v", current)
 	}
 
 	model.applyProviderUpdate(polling.Update{Provider: "claude", Sessions: []agent.Session{
 		{ID: "claude-session", Name: "Changed status", State: agent.StateWaiting},
 	}})
 	current, _ := model.selectedSession()
-	if current.ID != "claude-session" || boardColumnIndex(current) != 0 {
+	if current.ID != "claude-session" || boardColumnIndex(current) != 2 {
 		t.Fatal("status update did not move the selected card with its session")
 	}
 	model.selectedProvider = "claude"
@@ -57,7 +59,7 @@ func TestBoardGroupsAttentionStates(t *testing.T) {
 		{State: agent.StateWaiting}, {State: agent.StateError},
 		{State: agent.StateUnavailable}, {State: agent.StateRunning, Stale: true}, {},
 	} {
-		if boardColumnIndex(session) != 0 {
+		if boardColumnIndex(session) != 2 {
 			t.Errorf("session requiring attention appeared outside Needs You: %+v", session)
 		}
 	}
@@ -173,14 +175,112 @@ func TestBoardColumnDividersAndSelectedCardVisibility(t *testing.T) {
 	}
 }
 
-func TestBoardStandardPopupFitsThreeCards(t *testing.T) {
+func TestBoardStandardPopupFitsFourCards(t *testing.T) {
 	model := referenceDashboard()
 	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
 	sessions := []agent.Session{{Name: "One"}, {Name: "Two"}, {Name: "Three"}, {Name: "Four"}}
-	view := ansi.Strip(model.boardColumnView(column, sessions, 28, model.boardHeight()))
-	for _, title := range []string{"One", "Two", "Three"} {
-		if !strings.Contains(view, title) {
-			t.Fatalf("standard popup hid one of the first three cards: %s", title)
+	for _, selected := range []int{0, 1, 2, 3} {
+		model.table.SetCursor(selected)
+		view := model.boardColumnView(column, sessions, 28, model.boardHeight())
+		lines := strings.Split(ansi.Strip(view), "\n")
+		for index, session := range sessions {
+			if !strings.Contains(lines[2+4*index], session.Name) {
+				t.Fatalf("selection moved or hid card %s:\n%s", session.Name, ansi.Strip(view))
+			}
+		}
+		if !strings.HasPrefix(lines[1+4*selected], "┌") || !strings.HasPrefix(lines[5+4*selected], "└") {
+			t.Fatal("selection clipped a card border")
+		}
+		if lipgloss.Height(view) != model.boardHeight() {
+			t.Fatal("cards exceeded the available height")
+		}
+	}
+}
+
+func TestBoardCardsShareBorderRowWithoutClippingSelection(t *testing.T) {
+	model := referenceDashboard()
+	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2}}
+	sessions := []agent.Session{{Name: "First"}, {Name: "Middle"}, {Name: "Last"}}
+	for _, selected := range []int{0, 1, 2} {
+		model.table.SetCursor(selected)
+		view := model.boardColumnView(column, sessions, 24, 15)
+		lines := strings.Split(ansi.Strip(view), "\n")
+		firstBorder := 1
+		for index, session := range sessions {
+			if !strings.Contains(lines[firstBorder+1+4*index], session.Name) {
+				t.Fatalf("card spacing changed or hid a title:\n%s", ansi.Strip(view))
+			}
+		}
+		if !strings.HasPrefix(lines[firstBorder+4*selected], "┌") || !strings.HasPrefix(lines[firstBorder+4+4*selected], "└") {
+			t.Fatalf("shared border row clipped the selected outline:\n%s", ansi.Strip(view))
+		}
+	}
+}
+
+func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
+	model := referenceDashboard()
+	session := agent.Session{ID: "card", Provider: "codex", Name: "Title", State: agent.StateIdle}
+	for _, unread := range []bool{false, true} {
+		model.unreadSessions = map[sessionIdentity]bool{{provider: session.Provider, id: session.ID}: unread}
+		for _, selected := range []bool{false, true} {
+			lines := strings.Split(ansi.Strip(model.boardCardView(session, selected, 24)), "\n")
+			prefix := "│▌"
+			if unread {
+				prefix += "● "
+			}
+			if strings.Contains(strings.Join(lines, "\n"), "›") || !strings.HasPrefix(lines[1], prefix+"Title") ||
+				!strings.HasPrefix(lines[2], "│▌codex") {
+				t.Fatalf("board kept its arrow or reserved left space:\n%s", strings.Join(lines, "\n"))
+			}
+		}
+	}
+}
+
+func TestBoardColumnShowsHiddenCardCounts(t *testing.T) {
+	model := referenceDashboard()
+	column := boardColumn{title: "IDLE", color: colorSecondary}
+	var sessions []agent.Session
+	for index := range 10 {
+		column.indexes = append(column.indexes, index)
+		sessions = append(sessions, agent.Session{Name: fmt.Sprintf("Card %d", index)})
+	}
+	model.sessions = sessions
+	model.updateTableRows()
+	for _, selected := range []int{0, 5, 9} {
+		model.table.SetCursor(selected)
+		view := model.boardColumnView(column, sessions, 28, 18)
+		plain := ansi.Strip(view)
+		start := max(0, selected-3)
+		end := min(10, start+4)
+		for _, indicator := range []struct {
+			count int
+			arrow string
+		}{{start, "↑"}, {10 - end, "↓"}} {
+			heading := strings.Split(plain, "\n")[0]
+			count := fmt.Sprintf("%s%d", indicator.arrow, indicator.count)
+			if indicator.count > 0 && !strings.Contains(heading, count) {
+				t.Fatalf("missing hidden-card count:\n%s", plain)
+			}
+		}
+		if !strings.Contains(plain, fmt.Sprintf("Card %d", selected)) || lipgloss.Height(view) != 18 {
+			t.Fatalf("column clipped selection or exceeded its height:\n%s", plain)
+		}
+	}
+}
+
+func TestBoardColumnOrder(t *testing.T) {
+	model := navigationBoard()
+	columns := model.boardColumns()
+	for index, want := range []struct {
+		title string
+		state agent.State
+	}{
+		{"RUNNING", agent.StateRunning},
+		{"IDLE", agent.StateIdle},
+		{"NEEDS YOU", agent.StateWaiting},
+	} {
+		if columns[index].title != want.title || boardColumnIndex(agent.Session{State: want.state}) != index {
+			t.Fatalf("column %d should be %s", index, want.title)
 		}
 	}
 }
