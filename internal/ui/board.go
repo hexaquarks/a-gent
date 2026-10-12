@@ -125,15 +125,8 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		return lipgloss.NewStyle().Width(width).Height(height).Render(strings.Split(card, "\n")[1])
 	}
 
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
-	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
-	rows := []string{
-		style.Render(clipLines(heading, width)),
-		style.Render(strings.Repeat("─", width)),
-	}
-
-	// Adjacent cards share one border row, keeping the selected outline intact.
-	capacity := max(1, (height-3)/4)
+	// Shared borders and omitted invisible outer borders leave more room for cards.
+	capacity := max(1, (height-2)/4)
 	start := 0
 	for position, index := range column.indexes {
 		if index == model.table.Cursor() {
@@ -142,7 +135,24 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		}
 	}
 
-	for position, index := range column.indexes[start:min(len(column.indexes), start+capacity)] {
+	end := min(len(column.indexes), start+capacity)
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
+	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
+	more := ""
+	if start > 0 {
+		more += fmt.Sprintf(" ↑%d", start)
+	}
+	if end < len(column.indexes) {
+		more += fmt.Sprintf(" ↓%d", len(column.indexes)-end)
+	}
+	heading = clipLines(heading, max(0, width-ansi.StringWidth(more))) + more
+	rows := []string{
+		style.Render(clipLines(heading, width)),
+		style.Render(strings.Repeat("─", width)),
+	}
+	cardStart := len(rows)
+
+	for position, index := range column.indexes[start:end] {
 		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
 		if height < 7 {
 			// Keep the title visible when the terminal cannot fit a full card frame.
@@ -159,6 +169,14 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 			}
 		}
 		rows = append(rows, cardRows...)
+	}
+	if height >= 7 && end > start {
+		if column.indexes[end-1] != model.table.Cursor() {
+			rows = rows[:len(rows)-1]
+		}
+		if column.indexes[start] != model.table.Cursor() {
+			rows = append(rows[:cardStart], rows[cardStart+1:]...)
+		}
 	}
 	if len(column.indexes) == 0 {
 		rows = append(rows, mutedStyle.Render("No sessions"))

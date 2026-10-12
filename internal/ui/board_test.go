@@ -173,14 +173,14 @@ func TestBoardColumnDividersAndSelectedCardVisibility(t *testing.T) {
 	}
 }
 
-func TestBoardStandardPopupFitsThreeCards(t *testing.T) {
+func TestBoardStandardPopupFitsFourCards(t *testing.T) {
 	model := referenceDashboard()
 	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
 	sessions := []agent.Session{{Name: "One"}, {Name: "Two"}, {Name: "Three"}, {Name: "Four"}}
 	view := ansi.Strip(model.boardColumnView(column, sessions, 28, model.boardHeight()))
-	for _, title := range []string{"One", "Two", "Three"} {
+	for _, title := range []string{"One", "Two", "Three", "Four"} {
 		if !strings.Contains(view, title) {
-			t.Fatalf("standard popup hid one of the first three cards: %s", title)
+			t.Fatalf("standard popup hid one of the four cards: %s", title)
 		}
 	}
 }
@@ -193,12 +193,16 @@ func TestBoardCardsShareBorderRowWithoutClippingSelection(t *testing.T) {
 		model.table.SetCursor(selected)
 		view := model.boardColumnView(column, sessions, 24, 15)
 		lines := strings.Split(ansi.Strip(view), "\n")
+		firstBorder := 2
+		if selected != 0 {
+			firstBorder--
+		}
 		for index, session := range sessions {
-			if !strings.Contains(lines[3+4*index], session.Name) {
+			if !strings.Contains(lines[firstBorder+1+4*index], session.Name) {
 				t.Fatalf("card spacing changed or hid a title:\n%s", ansi.Strip(view))
 			}
 		}
-		if !strings.HasPrefix(lines[2+4*selected], "┌") || !strings.HasPrefix(lines[6+4*selected], "└") {
+		if !strings.HasPrefix(lines[firstBorder+4*selected], "┌") || !strings.HasPrefix(lines[firstBorder+4+4*selected], "└") {
 			t.Fatalf("shared border row clipped the selected outline:\n%s", ansi.Strip(view))
 		}
 	}
@@ -219,6 +223,38 @@ func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
 				!strings.HasPrefix(lines[2], "│▌codex") {
 				t.Fatalf("board kept its arrow or reserved left space:\n%s", strings.Join(lines, "\n"))
 			}
+		}
+	}
+}
+
+func TestBoardColumnShowsHiddenCardCounts(t *testing.T) {
+	model := referenceDashboard()
+	column := boardColumn{title: "IDLE", color: colorSecondary}
+	var sessions []agent.Session
+	for index := range 10 {
+		column.indexes = append(column.indexes, index)
+		sessions = append(sessions, agent.Session{Name: fmt.Sprintf("Card %d", index)})
+	}
+	model.sessions = sessions
+	model.updateTableRows()
+	for _, selected := range []int{0, 5, 9} {
+		model.table.SetCursor(selected)
+		view := model.boardColumnView(column, sessions, 28, 18)
+		plain := ansi.Strip(view)
+		start := max(0, selected-3)
+		end := min(10, start+4)
+		for _, indicator := range []struct {
+			count int
+			arrow string
+		}{{start, "↑"}, {10 - end, "↓"}} {
+			heading := strings.Split(plain, "\n")[0]
+			count := fmt.Sprintf("%s%d", indicator.arrow, indicator.count)
+			if indicator.count > 0 && !strings.Contains(heading, count) {
+				t.Fatalf("missing hidden-card count:\n%s", plain)
+			}
+		}
+		if !strings.Contains(plain, fmt.Sprintf("Card %d", selected)) || lipgloss.Height(view) != 18 {
+			t.Fatalf("column clipped selection or exceeded its height:\n%s", plain)
 		}
 	}
 }
