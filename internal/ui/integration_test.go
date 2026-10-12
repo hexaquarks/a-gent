@@ -32,7 +32,7 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.appendOutput("claude", "CLAUDE_OUTPUT")
 	fixture.key("j")
 	fixture.waitText("BOARD_OUTPUT")
-	fixture.key("l")
+	fixture.key("h")
 	fixture.waitFor("focused Claude card", 4*time.Second, func(screen string) bool {
 		for _, line := range strings.Split(screen, "\n") {
 			if strings.Contains(line, "FOCUS") && strings.Contains(line, "claude fixture") {
@@ -57,13 +57,13 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.waitText("RUNNING · 1")
 	fixture.capture("board-narrow")
-	fixture.key("Left")
+	fixture.key("Right")
 	screen = fixture.waitText("BOARD_OUTPUT")
 	if !strings.Contains(screen, "NEEDS YOU · 1") || strings.Contains(screen, "CLAUDE_OUTPUT") {
 		t.Fatal("narrow navigation did not follow the selected column and preview")
 	}
 	fixture.capture("board-narrow-codex")
-	fixture.key("Right")
+	fixture.key("Left")
 	fixture.waitText("CLAUDE_OUTPUT")
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")

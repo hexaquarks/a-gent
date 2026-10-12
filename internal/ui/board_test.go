@@ -26,17 +26,19 @@ func TestBoardSelectionAndLiveStatus(t *testing.T) {
 
 	// Column navigation keeps the existing table sort and selected identity.
 	model.table.SetCursor(1)
-	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
+	model = updated.(Model)
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
 	model = updated.(Model)
 	if current, _ := model.selectedSession(); current.Provider != "claude" {
-		t.Fatalf("expected the running card after the waiting card, got %+v", current)
+		t.Fatalf("expected the running card to the left of Idle, got %+v", current)
 	}
 
 	model.applyProviderUpdate(polling.Update{Provider: "claude", Sessions: []agent.Session{
 		{ID: "claude-session", Name: "Changed status", State: agent.StateWaiting},
 	}})
 	current, _ := model.selectedSession()
-	if current.ID != "claude-session" || boardColumnIndex(current) != 0 {
+	if current.ID != "claude-session" || boardColumnIndex(current) != 2 {
 		t.Fatal("status update did not move the selected card with its session")
 	}
 	model.selectedProvider = "claude"
@@ -57,7 +59,7 @@ func TestBoardGroupsAttentionStates(t *testing.T) {
 		{State: agent.StateWaiting}, {State: agent.StateError},
 		{State: agent.StateUnavailable}, {State: agent.StateRunning, Stale: true}, {},
 	} {
-		if boardColumnIndex(session) != 0 {
+		if boardColumnIndex(session) != 2 {
 			t.Errorf("session requiring attention appeared outside Needs You: %+v", session)
 		}
 	}
@@ -262,6 +264,23 @@ func TestBoardColumnShowsHiddenCardCounts(t *testing.T) {
 		}
 		if !strings.Contains(plain, fmt.Sprintf("Card %d", selected)) || lipgloss.Height(view) != 18 {
 			t.Fatalf("column clipped selection or exceeded its height:\n%s", plain)
+		}
+	}
+}
+
+func TestBoardColumnOrder(t *testing.T) {
+	model := navigationBoard()
+	columns := model.boardColumns()
+	for index, want := range []struct {
+		title string
+		state agent.State
+	}{
+		{"RUNNING", agent.StateRunning},
+		{"IDLE", agent.StateIdle},
+		{"NEEDS YOU", agent.StateWaiting},
+	} {
+		if columns[index].title != want.title || boardColumnIndex(agent.Session{State: want.state}) != index {
+			t.Fatalf("column %d should be %s", index, want.title)
 		}
 	}
 }

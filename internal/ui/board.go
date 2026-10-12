@@ -20,20 +20,20 @@ type boardColumn struct {
 func boardColumnIndex(session agent.Session) int {
 	switch sessionState(session) {
 	case agent.StateRunning:
-		return 1
+		return 0
 	case agent.StateIdle:
-		return 2
+		return 1
 	default:
 		// Errors and unreadable states need attention rather than appearing idle.
-		return 0
+		return 2
 	}
 }
 
 func (model Model) boardColumns() []boardColumn {
 	columns := []boardColumn{
-		{title: "NEEDS YOU", color: colorAttention},
 		{title: "RUNNING", color: colorRunning},
 		{title: "IDLE", color: colorSecondary},
+		{title: "NEEDS YOU", color: colorAttention},
 	}
 
 	for index, session := range model.filteredSessions() {
