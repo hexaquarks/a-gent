@@ -11,7 +11,7 @@ const (
 	defaultTableWidth    = 70
 	minimumTableWidth    = 36
 	sidebarContentWidth  = 24
-	maximumSessionRows   = 8
+	defaultSessionRows   = 8
 
 	// PopupWidth and PopupHeight keep the dashboard's wide proportions stable
 	// across terminal sizes. tmux clamps these dimensions to the available space.
@@ -50,12 +50,10 @@ func (model *Model) resizeTable() {
 	}
 	model.updateTableRows()
 
-	tableHeight := maximumSessionRows
+	tableHeight := defaultSessionRows
 	if model.height > 0 {
-		tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-model.inlinePreviewHeight()-6))
-		if model.table.Width() < 66 {
-			tableHeight = max(1, min(maximumSessionRows, model.bodyHeight()-16))
-		}
+		// Reserve the toolbar, table heading, and detail separator; the list gets the remaining rows.
+		tableHeight = max(1, model.bodyHeight()-model.inlinePreviewHeight()-4)
 	}
 	model.table.SetHeight(tableHeight + 1)
 }
@@ -100,18 +98,12 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	)
 }
 
-// Short popups retain the metadata and expansion shortcut; taller terminals
-// show more of the selected edit.
+// The list keeps a short preview and gives additional terminal height to sessions.
 func (model Model) inlinePreviewHeight() int {
 	if model.height == 0 {
-		return 10
+		return 7
 	}
-	previewHeight := model.height - 19
-	if model.height >= PopupHeight {
-		// Give the extra popup row to the session list instead of the preview.
-		previewHeight--
-	}
-	return min(11, max(8, previewHeight))
+	return min(7, max(1, model.bodyHeight()-4))
 }
 
 func (model Model) sidebarVisible() bool {

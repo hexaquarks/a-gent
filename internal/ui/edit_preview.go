@@ -357,16 +357,28 @@ func (model Model) detailWithPreview() string {
 		} else {
 			label = mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
 		}
-		return clipLines(model.detailView(), width) + "\n" + label
+
+		height := model.inlinePreviewHeight()
+		var metadata []string
+		for _, line := range strings.Split(clipLines(model.detailView(), width), "\n") {
+			if strings.TrimSpace(ansi.Strip(line)) != "" {
+				metadata = append(metadata, line)
+			}
+		}
+		metadata = metadata[:min(len(metadata), height-1)]
+		return lipgloss.NewStyle().Height(height).MaxHeight(height).
+			Render(strings.Join(append(metadata, label), "\n"))
 	}
+	previewHeight := model.inlinePreviewHeight()
 	previewWidth := min(42, width*3/8)
 	metadataWidth := width - previewWidth - 2
 	metadataLines := strings.Split(model.detailView(), "\n")
 	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
 	metadata := lipgloss.NewStyle().
 		Width(metadataWidth).
+		Height(previewHeight).
+		MaxHeight(previewHeight).
 		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	previewHeight := max(lipgloss.Height(metadata), model.inlinePreviewHeight()+2)
 	preview := lipgloss.NewStyle().Padding(0, 1).Render(model.inlinePreviewPanel(previewWidth-2, previewHeight))
 	divider := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.TrimSuffix(strings.Repeat("│\n", previewHeight), "\n"))
 	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", divider, preview)

@@ -277,7 +277,18 @@ func (fixture *dashboardFixture) selectProvider(provider string) {
 		key = "G"
 	}
 	fixture.key(key)
-	fixture.waitText("/fixture/" + provider)
+	fixture.waitFor("selected "+provider+" session", 4*time.Second, func(screen string) bool {
+		inDetails := false
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "SELECTED SESSION") || strings.Contains(line, "FOCUS") {
+				inDetails = true
+			}
+			if inDetails && strings.Contains(line, provider+" fixture") {
+				return true
+			}
+		}
+		return false
+	})
 }
 func (fixture *dashboardFixture) setState(provider string, state agent.State) {
 	fixture.t.Helper()

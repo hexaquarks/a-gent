@@ -82,7 +82,7 @@ func NewModel(updates <-chan polling.Update, options ...ModelOption) Model {
 	agentTable := table.New(
 		table.WithColumns(tableColumns(defaultTableWidth)),
 		table.WithFocused(true),
-		table.WithHeight(maximumSessionRows+1),
+		table.WithHeight(defaultSessionRows+1),
 		table.WithWidth(defaultTableWidth),
 	)
 

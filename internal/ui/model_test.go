@@ -136,21 +136,20 @@ func TestEnterDoesNotNavigateSidebarOrEmptyTable(t *testing.T) {
 	}
 }
 
-func TestSessionListCapsVisibleRowsAndScrolls(t *testing.T) {
-	sessions := make([]agent.Session, maximumSessionRows+2)
+func TestSessionListUsesAvailableHeightAndScrolls(t *testing.T) {
 	model := NewModel(nil)
-	model.sessions = sessions
-	model.height = 80
+	model.sessions = make([]agent.Session, 80)
+	model.height = 40
 	model.resizeTable()
 
-	if model.table.Height() != maximumSessionRows {
-		t.Fatalf("table height = %d, want %d", model.table.Height(), maximumSessionRows)
+	if model.table.Height() != 23 {
+		t.Fatalf("table height = %d, want 23", model.table.Height())
 	}
 
-	model.table.SetCursor(maximumSessionRows)
+	model.table.SetCursor(23)
 	start, end := model.visibleSessionRange()
-	if start != 1 || end != maximumSessionRows+1 {
-		t.Fatalf("visible range = %d-%d, want 1-%d", start, end, maximumSessionRows+1)
+	if start != 1 || end != 24 {
+		t.Fatalf("visible range = %d-%d, want 1-24", start, end)
 	}
 }
 
@@ -164,12 +163,12 @@ func TestSessionListRendersEmptyRowPlaceholders(t *testing.T) {
 	model.height = 80
 	model.resizeTable()
 
-	if model.table.Height() != maximumSessionRows {
-		t.Fatalf("table height = %d, want %d", model.table.Height(), maximumSessionRows)
+	if model.table.Height() <= defaultSessionRows {
+		t.Fatal("tall terminals should show more session rows")
 	}
 
 	tableView := model.sessionTableView()
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, model.table.Height()+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }
@@ -183,7 +182,7 @@ func TestEmptySessionListUsesAPlaceholderRow(t *testing.T) {
 	if !strings.Contains(tableView, "No live sessions") {
 		t.Fatal("empty session list does not explain that no sessions were found")
 	}
-	if got, want := strings.Count(tableView, "\n")+1, maximumSessionRows+1; got != want {
+	if got, want := strings.Count(tableView, "\n")+1, model.table.Height()+1; got != want {
 		t.Fatalf("rendered table rows = %d, want %d including header", got, want)
 	}
 }

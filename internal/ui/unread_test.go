@@ -281,7 +281,7 @@ func TestHoverPreservesUnreadSessionDots(t *testing.T) {
 			model := NewModel(nil)
 			updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
 			model = updated.(Model)
-			sessions := make([]agent.Session, maximumSessionRows+2)
+			sessions := make([]agent.Session, model.table.Height()+2)
 			for index := range sessions {
 				sessions[index] = agent.Session{
 					ID: fmt.Sprintf("%02d", index), Provider: "codex",
@@ -294,7 +294,7 @@ func TestHoverPreservesUnreadSessionDots(t *testing.T) {
 				sessions[index].State = agent.StateIdle
 			}
 			model = refreshUnreadTestModel(model, sessions...)
-			model.table.SetCursor(maximumSessionRows)
+			model.table.SetCursor(model.table.Height())
 
 			// Hover a visible session row in the rendered screen output.
 			x, y := -1, -1
