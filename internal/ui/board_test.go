@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestBoardGroupsAttentionStates(t *testing.T) {
 }
 
 func TestBoardLayoutAndScrolling(t *testing.T) {
-	for _, size := range [][2]int{{120, 28}, {100, 28}, {80, 24}, {64, 20}, {40, 16}, {24, 10}} {
+	for _, size := range [][2]int{{120, 28}, {100, 28}, {80, 24}, {64, 20}, {40, 16}, {24, 10}, {24, 11}} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
 			model := referenceDashboard()
 			model.boardVisible = true
@@ -109,4 +110,77 @@ func TestBoardReferenceCapture(t *testing.T) {
 		}
 	}
 	writeReferenceCapture(t, view, ansi.Strip(view))
+}
+
+func TestBoardCardFramesAndMetadata(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+
+	model := referenceDashboard()
+	session := agent.Session{
+		ID:               "card",
+		Provider:         "codex",
+		Name:             "Readable title",
+		State:            agent.StateRunning,
+		WorkingDirectory: "/projects/a-gent",
+	}
+	for _, selected := range []bool{false, true} {
+		view := model.boardCardView(session, selected, 36)
+		if lipgloss.Width(view) != 36 || lipgloss.Height(view) != 5 {
+			t.Fatalf("card size = %dx%d", lipgloss.Width(view), lipgloss.Height(view))
+		}
+		if !strings.Contains(strings.Split(view, "\n")[0], "48;2;12;17;18") {
+			t.Fatal("card border lost the page background separating neighboring cards")
+		}
+		lines := strings.Split(ansi.Strip(view), "\n")
+		if !strings.Contains(lines[1], "Readable title") || !strings.Contains(lines[2], "codex · a-gent") ||
+			!strings.HasSuffix(lines[2], "—│") || !strings.Contains(lines[3], "Running") {
+			t.Fatalf("card content or aligned age changed:\n%s", ansi.Strip(view))
+		}
+		if !strings.Contains(view, "38;2;163;239;120") {
+			t.Fatal("card lost its green running edge/status")
+		}
+		if regexp.MustCompile(`38;2;89;223;240[^m]*m┌`).MatchString(view) != selected {
+			t.Fatal("cyan outline does not follow selection")
+		}
+		background := "48;2;32;43;44"
+		if selected {
+			background = "48;2;24;55;64"
+		}
+		if !strings.Contains(view, background) {
+			t.Fatal("card lost its shaded background")
+		}
+	}
+}
+
+func TestBoardColumnDividersAndSelectedCardVisibility(t *testing.T) {
+	model := referenceDashboard()
+	view := ansi.Strip(model.boardView())
+	rows := strings.Split(view, "\n")
+	if strings.Count(rows[0], "│") != 2 || strings.Count(rows[1], "─") < 60 {
+		t.Fatalf("board lost the column dividers or heading underlines:\n%s", view)
+	}
+	for _, height := range []int{1, 2, 3, 6, 7, 12} {
+		column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2}}
+		sessions := []agent.Session{{Name: "First"}, {Name: "Second"}, {Name: "Selected"}}
+		model.table.SetCursor(2)
+		view := model.boardColumnView(column, sessions, 24, height)
+		if !strings.Contains(ansi.Strip(view), "Selected") || lipgloss.Height(view) != height ||
+			lipgloss.Width(view) > 24 {
+			t.Fatalf("height %d hid the selected title or exceeded its bounds:\n%s", height, ansi.Strip(view))
+		}
+	}
+}
+
+func TestBoardStandardPopupFitsThreeCards(t *testing.T) {
+	model := referenceDashboard()
+	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
+	sessions := []agent.Session{{Name: "One"}, {Name: "Two"}, {Name: "Three"}, {Name: "Four"}}
+	view := ansi.Strip(model.boardColumnView(column, sessions, 28, model.boardHeight()))
+	for _, title := range []string{"One", "Two", "Three"} {
+		if !strings.Contains(view, title) {
+			t.Fatalf("standard popup hid one of the first three cards: %s", title)
+		}
+	}
 }

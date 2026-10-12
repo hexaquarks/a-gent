@@ -424,3 +424,27 @@ func TestIntegrationKeyboardHelp(t *testing.T) {
 	fixture.key("q")
 	fixture.waitFor("narrow help closed", time.Second, func(screen string) bool { return !strings.Contains(screen, "KEYBOARD HELP") })
 }
+
+func TestIntegrationBoardCardStyling(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("claude fixture")
+	fixture.waitText("codex fixture")
+	fixture.key("m")
+	fixture.waitText("RUNNING · 2")
+	screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
+	if !regexp.MustCompile(`38;2;89;223;240m(?:\x1b\[[0-9;]*m)*┌`).MatchString(screen) ||
+		!strings.Contains(screen, "▎") || !strings.Contains(screen, "38;2;163;239;120") {
+		t.Fatalf("board lost its selected cyan frame or colored running edges:\n%s", screen)
+	}
+	plain := fixture.tmux("capture-pane", "-p", "-t", "dashboard:0.0")
+	for _, line := range strings.Split(plain, "\n") {
+		if strings.Contains(line, "RUNNING · 2") && strings.Count(line, "│") < 4 {
+			t.Fatalf("board lost vertical column dividers: %s", line)
+		}
+	}
+	if !strings.Contains(plain, "────────────────") || !strings.Contains(plain, "FOCUS") ||
+		!strings.Contains(plain, "v details / diff") {
+		t.Fatalf("board lost heading underlines, compact selected session, or footer:\n%s", plain)
+	}
+	fixture.capture("styled-board")
+}
