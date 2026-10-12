@@ -61,7 +61,7 @@ func (model *Model) moveBoardCursor(direction int) {
 
 func (model Model) boardView() string {
 	width := max(1, model.table.Width()-panelStyle.GetHorizontalFrameSize())
-	height := model.table.Height() + 1
+	height := model.boardHeight()
 	sessions := model.filteredSessions()
 	if len(sessions) == 0 {
 		return lipgloss.NewStyle().Width(width).Height(height).Render(
@@ -92,6 +92,18 @@ func (model Model) boardView() string {
 }
 
 func (model Model) boardColumnView(column boardColumn, sessions []agent.Session, width, height int) string {
+	if height == 1 && len(column.indexes) > 0 {
+		index := column.indexes[0]
+		for _, candidate := range column.indexes {
+			if candidate == model.table.Cursor() {
+				index = candidate
+				break
+			}
+		}
+		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
+		return strings.Split(card, "\n")[0]
+	}
+
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
 	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
 	rows := []string{style.Render(clipLines(heading, width))}

@@ -291,15 +291,7 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 		lines = append(lines, style.Render(ansi.Truncate(line, width, "…")))
 	}
 	if !expanded {
-		added, removed := 0, 0
-		for _, line := range strings.Split(edit.Diff, "\n") {
-			if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++ ") {
-				added++
-			}
-			if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "--- ") {
-				removed++
-			}
-		}
+		added, removed := diffLineCounts(edit.Diff)
 		for len(lines) < height-1 {
 			lines = append(lines, "")
 		}
@@ -325,6 +317,18 @@ func clipLines(text string, width int) string {
 		lines[i] = ansi.Truncate(line, max(1, width), "…")
 	}
 	return strings.Join(lines, "\n")
+}
+
+func diffLineCounts(diff string) (added, removed int) {
+	for _, line := range strings.Split(diff, "\n") {
+		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++ ") {
+			added++
+		}
+		if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "--- ") {
+			removed++
+		}
+	}
+	return added, removed
 }
 
 func (model Model) detailWithPreview() string {
