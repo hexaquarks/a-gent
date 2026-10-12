@@ -14,6 +14,33 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+func TestIntegrationBoardLayout(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("claude fixture")
+	fixture.appendOutput("codex", "BOARD_OUTPUT")
+	fixture.waitText("BOARD_OUTPUT")
+	fixture.key("m")
+	fixture.waitText("RUNNING · 2")
+	fixture.capture("board-running")
+	fixture.setState("codex", agent.StateWaiting)
+	screen := fixture.waitText("NEEDS YOU · 1")
+	if !strings.Contains(screen, "BOARD_OUTPUT") || !strings.Contains(screen, "codex fixture") {
+		t.Fatal("status change lost the selected card or preview")
+	}
+	fixture.capture("board-waiting")
+	fixture.key("j")
+	fixture.waitText("/fixture/claude")
+	fixture.capture("board-selected-claude")
+	fixture.width, fixture.height = 80, 24
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
+	fixture.waitText("RUNNING · 1")
+	fixture.capture("board-narrow")
+	fixture.key("m")
+	fixture.waitFor("returned to list", 4*time.Second, func(screen string) bool {
+		return strings.Contains(screen, "Last active") && !strings.Contains(screen, "RUNNING ·")
+	})
+}
+
 func TestIntegrationFeedUpdatesInRealtime(t *testing.T) {
 	for _, provider := range []string{"codex", "claude"} {
 		t.Run(provider, func(t *testing.T) {

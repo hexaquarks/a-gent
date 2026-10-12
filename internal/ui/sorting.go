@@ -110,6 +110,26 @@ func (model Model) sessionHeadingView() string {
 	indicator := sectionBar(sortLabel, lipgloss.Width(sortLabel), accentStyle) +
 		sectionBar("  |  ", 5, mutedStyle) +
 		sectionBar("LIVE ", 5, accentStyle)
-	title := sectionBar(" "+model.sessionTitle(), max(1, width-lipgloss.Width(indicator)), model.panelTitleStyle())
-	return title + indicator
+	title := " " + model.sessionTitle()
+	if model.boardVisible {
+		title = " SESSIONS"
+	}
+	if width < 48 {
+		return sectionBar(title, max(1, width-lipgloss.Width(indicator)), model.panelTitleStyle()) + indicator
+	}
+
+	inactive := mutedStyle.Background(lipgloss.Color(colorSection)).Padding(0, 1)
+	active := inactive.Foreground(lipgloss.Color(colorBackground)).Background(lipgloss.Color(colorAccent))
+	listStyle, boardStyle := active, inactive
+	if model.boardVisible {
+		listStyle, boardStyle = inactive, active
+	}
+	tabs := listStyle.Render("List") + boardStyle.Render("Board")
+
+	// Center the tabs in the sessions bar, leaving room for sorting on the right.
+	tabsWidth := lipgloss.Width(tabs)
+	titleWidth := min((width-tabsWidth)/2, width-tabsWidth-lipgloss.Width(indicator)-1)
+	gapWidth := width - titleWidth - tabsWidth - lipgloss.Width(indicator)
+	return sectionBar(title, titleWidth, model.panelTitleStyle()) + tabs +
+		sectionBar("", gapWidth, mutedStyle) + indicator
 }

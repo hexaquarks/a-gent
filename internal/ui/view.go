@@ -21,6 +21,9 @@ func (model Model) View() string {
 	}
 	summary := summarizeSessions(model.sessions)
 	tableView := model.sessionTableView()
+	if model.boardVisible {
+		tableView = model.boardView()
+	}
 	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
 	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(model.detailWithPreview())
 	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
