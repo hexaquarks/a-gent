@@ -184,3 +184,41 @@ func TestBoardStandardPopupFitsThreeCards(t *testing.T) {
 		}
 	}
 }
+
+func TestBoardCardsShareBorderRowWithoutClippingSelection(t *testing.T) {
+	model := referenceDashboard()
+	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2}}
+	sessions := []agent.Session{{Name: "First"}, {Name: "Middle"}, {Name: "Last"}}
+	for _, selected := range []int{0, 1, 2} {
+		model.table.SetCursor(selected)
+		view := model.boardColumnView(column, sessions, 24, 15)
+		lines := strings.Split(ansi.Strip(view), "\n")
+		for index, session := range sessions {
+			if !strings.Contains(lines[3+4*index], session.Name) {
+				t.Fatalf("card spacing changed or hid a title:\n%s", ansi.Strip(view))
+			}
+		}
+		if !strings.HasPrefix(lines[2+4*selected], "┌") || !strings.HasPrefix(lines[6+4*selected], "└") {
+			t.Fatalf("shared border row clipped the selected outline:\n%s", ansi.Strip(view))
+		}
+	}
+}
+
+func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
+	model := referenceDashboard()
+	session := agent.Session{ID: "card", Provider: "codex", Name: "Title", State: agent.StateIdle}
+	for _, unread := range []bool{false, true} {
+		model.unreadSessions = map[sessionIdentity]bool{{provider: session.Provider, id: session.ID}: unread}
+		for _, selected := range []bool{false, true} {
+			lines := strings.Split(ansi.Strip(model.boardCardView(session, selected, 24)), "\n")
+			prefix := "│▌"
+			if unread {
+				prefix += "● "
+			}
+			if strings.Contains(strings.Join(lines, "\n"), "›") || !strings.HasPrefix(lines[1], prefix+"Title") ||
+				!strings.HasPrefix(lines[2], "│▌codex") {
+				t.Fatalf("board kept its arrow or reserved left space:\n%s", strings.Join(lines, "\n"))
+			}
+		}
+	}
+}

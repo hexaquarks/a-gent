@@ -98,16 +98,16 @@ func (model Model) boardView() string {
 		return model.boardColumnView(columns[column], sessions, width, height)
 	}
 
-	columnWidth := (width - 6) / 3
+	columnWidth := (width - 2) / 3
 	views := make([]string, len(columns))
 	for index, column := range columns {
 		currentWidth := columnWidth
 		if index == len(columns)-1 {
-			currentWidth = width - 6 - 2*columnWidth
+			currentWidth = width - 2 - 2*columnWidth
 		}
 		views[index] = model.boardColumnView(column, sessions, currentWidth, height)
 	}
-	divider := mutedStyle.Foreground(lipgloss.Color(colorDivider)).Render(" │ ")
+	divider := mutedStyle.Foreground(lipgloss.Color(colorDivider)).Render("│")
 	gap := strings.Repeat(divider+"\n", height-1) + divider
 	return lipgloss.JoinHorizontal(lipgloss.Top, views[0], gap, views[1], gap, views[2])
 }
@@ -132,7 +132,8 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		style.Render(strings.Repeat("─", width)),
 	}
 
-	capacity := max(1, (height-2)/5)
+	// Adjacent cards share one border row, keeping the selected outline intact.
+	capacity := max(1, (height-3)/4)
 	start := 0
 	for position, index := range column.indexes {
 		if index == model.table.Cursor() {
@@ -141,13 +142,23 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		}
 	}
 
-	for _, index := range column.indexes[start:min(len(column.indexes), start+capacity)] {
+	for position, index := range column.indexes[start:min(len(column.indexes), start+capacity)] {
 		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
 		if height < 7 {
 			// Keep the title visible when the terminal cannot fit a full card frame.
-			card = strings.Join(strings.Split(card, "\n")[1:4], "\n")
+			rows = append(rows, strings.Split(card, "\n")[1:4]...)
+			continue
 		}
-		rows = append(rows, card)
+
+		cardRows := strings.Split(card, "\n")
+		if position > 0 {
+			if index == model.table.Cursor() {
+				rows = rows[:len(rows)-1]
+			} else {
+				cardRows = cardRows[1:]
+			}
+		}
+		rows = append(rows, cardRows...)
 	}
 	if len(column.indexes) == 0 {
 		rows = append(rows, mutedStyle.Render("No sessions"))
@@ -161,21 +172,15 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
-	cursorStyle := accentStyle.Background(background)
-	cursor := cursorStyle.Render("  ")
-	if selected {
-		cursor = cursorStyle.Render("› ")
-		if model.unreadSessions[identity] {
-			cursor = cursorStyle.Render("›●")
-		}
-	} else if model.unreadSessions[identity] {
-		cursor = cursorStyle.Render("● ")
+	marker := ""
+	if model.unreadSessions[identity] {
+		marker = accentStyle.Background(background).Render("● ")
 	}
 
-	// Reserve the outer frame, the status edge, and the unread/selection marker.
-	contentWidth := max(1, width-5)
+	// Reserve the outer frame and the colored status bar.
+	contentWidth := max(1, width-3)
 	title := mainTextStyle.Bold(true).Background(background).Render(
-		clipLines(safeDisplayText(sessionDisplayName(session)), contentWidth),
+		clipLines(safeDisplayText(sessionDisplayName(session)), contentWidth-lipgloss.Width(marker)),
 	)
 	provider := providerStyle(session.Provider).Background(background).Render(safeDisplayText(session.Provider))
 	project := model.projectStyle(session.WorkingDirectory).Background(background).Render(
@@ -198,12 +203,12 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 		metadata = clipLines(metadata, contentWidth)
 	}
 
-	edge := statusStyle(sessionState(session)).Background(background).Render("▎")
+	edge := statusStyle(sessionState(session)).Background(background).Render("▌")
 	lineStyle := lipgloss.NewStyle().Width(contentWidth).Background(background)
 	lines := []string{
-		edge + cursor + lineStyle.Render(title),
-		edge + cursorStyle.Render("  ") + lineStyle.Render(metadata),
-		edge + cursorStyle.Render("  ") + lineStyle.Render(clipLines(state, contentWidth)),
+		edge + lineStyle.Render(marker+title),
+		edge + lineStyle.Render(metadata),
+		edge + lineStyle.Render(clipLines(state, contentWidth)),
 	}
 	border := lipgloss.NormalBorder()
 	borderColor := lipgloss.Color(colorBackground)
