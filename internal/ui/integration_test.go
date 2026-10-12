@@ -474,6 +474,49 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 		t.Fatalf("board lost heading underlines, compact selected session, or footer:\n%s", plain)
 	}
 	fixture.capture("styled-board")
+
+	cardPositions := func(screen string) map[string]int {
+		positions := make(map[string]int)
+		for row, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "FOCUS") {
+				break
+			}
+			for _, name := range []string{"codex fixture", "claude fixture"} {
+				if strings.Contains(line, name) {
+					positions[name] = row
+				}
+			}
+		}
+		return positions
+	}
+	before := cardPositions(plain)
+	movements := []struct {
+		key  string
+		name string
+	}{
+		{"j", "claude fixture"},
+		{"k", "codex fixture"},
+	}
+
+	for _, movement := range movements {
+		fixture.key(movement.key)
+		screen := fixture.waitFor("selected card", 4*time.Second, func(screen string) bool {
+			for _, line := range strings.Split(screen, "\n") {
+				if strings.Contains(line, "FOCUS") && strings.Contains(line, movement.name) {
+					return true
+				}
+			}
+			return false
+		})
+		after := cardPositions(screen)
+		for _, name := range []string{"codex fixture", "claude fixture"} {
+			beforeRow, beforeVisible := before[name]
+			afterRow, afterVisible := after[name]
+			if !beforeVisible || !afterVisible || beforeRow != afterRow {
+				t.Fatalf("selection moved card %s from row %d to %d", name, beforeRow, afterRow)
+			}
+		}
+	}
 }
 
 func TestIntegrationDashboardRemembersLayout(t *testing.T) {

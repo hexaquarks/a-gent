@@ -125,7 +125,7 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		return lipgloss.NewStyle().Width(width).Height(height).Render(strings.Split(card, "\n")[1])
 	}
 
-	// Shared borders and omitted invisible outer borders leave more room for cards.
+	// Cards share border rows; the first upper border occupies the heading divider row.
 	capacity := max(1, (height-2)/4)
 	start := 0
 	for position, index := range column.indexes {
@@ -150,9 +150,8 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		style.Render(clipLines(heading, width)),
 		style.Render(strings.Repeat("─", width)),
 	}
-	cardStart := len(rows)
 
-	for position, index := range column.indexes[start:end] {
+	for _, index := range column.indexes[start:end] {
 		card := model.boardCardView(sessions[index], index == model.table.Cursor(), width)
 		if height < 7 {
 			// Keep the title visible when the terminal cannot fit a full card frame.
@@ -161,22 +160,13 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		}
 
 		cardRows := strings.Split(card, "\n")
-		if position > 0 {
-			if index == model.table.Cursor() {
-				rows = rows[:len(rows)-1]
-			} else {
-				cardRows = cardRows[1:]
-			}
+		// Keep every title at the same row, including when the first card is selected.
+		if index == model.table.Cursor() {
+			rows = rows[:len(rows)-1]
+		} else {
+			cardRows = cardRows[1:]
 		}
 		rows = append(rows, cardRows...)
-	}
-	if height >= 7 && end > start {
-		if column.indexes[end-1] != model.table.Cursor() {
-			rows = rows[:len(rows)-1]
-		}
-		if column.indexes[start] != model.table.Cursor() {
-			rows = append(rows[:cardStart], rows[cardStart+1:]...)
-		}
 	}
 	if len(column.indexes) == 0 {
 		rows = append(rows, mutedStyle.Render("No sessions"))

@@ -177,10 +177,20 @@ func TestBoardStandardPopupFitsFourCards(t *testing.T) {
 	model := referenceDashboard()
 	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
 	sessions := []agent.Session{{Name: "One"}, {Name: "Two"}, {Name: "Three"}, {Name: "Four"}}
-	view := ansi.Strip(model.boardColumnView(column, sessions, 28, model.boardHeight()))
-	for _, title := range []string{"One", "Two", "Three", "Four"} {
-		if !strings.Contains(view, title) {
-			t.Fatalf("standard popup hid one of the four cards: %s", title)
+	for _, selected := range []int{0, 1, 2, 3} {
+		model.table.SetCursor(selected)
+		view := model.boardColumnView(column, sessions, 28, model.boardHeight())
+		lines := strings.Split(ansi.Strip(view), "\n")
+		for index, session := range sessions {
+			if !strings.Contains(lines[2+4*index], session.Name) {
+				t.Fatalf("selection moved or hid card %s:\n%s", session.Name, ansi.Strip(view))
+			}
+		}
+		if !strings.HasPrefix(lines[1+4*selected], "┌") || !strings.HasPrefix(lines[5+4*selected], "└") {
+			t.Fatal("selection clipped a card border")
+		}
+		if lipgloss.Height(view) != model.boardHeight() {
+			t.Fatal("cards exceeded the available height")
 		}
 	}
 }
@@ -193,10 +203,7 @@ func TestBoardCardsShareBorderRowWithoutClippingSelection(t *testing.T) {
 		model.table.SetCursor(selected)
 		view := model.boardColumnView(column, sessions, 24, 15)
 		lines := strings.Split(ansi.Strip(view), "\n")
-		firstBorder := 2
-		if selected != 0 {
-			firstBorder--
-		}
+		firstBorder := 1
 		for index, session := range sessions {
 			if !strings.Contains(lines[firstBorder+1+4*index], session.Name) {
 				t.Fatalf("card spacing changed or hid a title:\n%s", ansi.Strip(view))
