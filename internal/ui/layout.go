@@ -112,3 +112,25 @@ func (model Model) inlinePreviewHeight() int {
 func (model Model) sidebarVisible() bool {
 	return (model.width == 0 || model.width >= 64) && (model.height == 0 || model.height >= 21)
 }
+
+// The board uses the space released by compact details rather than the list's
+// row limit. Very short terminals retain the selected card and expansion key.
+func (model Model) boardHeight() int {
+	detailHeight := model.boardFocusHeight() + detailStyle.GetVerticalFrameSize()
+	return max(1, model.bodyHeight()-model.boardHeadingHeight()-detailHeight)
+}
+
+func (model Model) boardHeadingHeight() int {
+	if model.bodyHeight() < 7 {
+		return 1
+	}
+	return 2
+}
+
+func (model Model) boardFocusHeight() int {
+	height := 2
+	if model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize() < 72 {
+		height = 3
+	}
+	return min(height, max(1, model.bodyHeight()-4))
+}

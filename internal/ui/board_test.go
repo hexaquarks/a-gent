@@ -84,7 +84,7 @@ func TestBoardLayoutAndScrolling(t *testing.T) {
 			if lipgloss.Width(view) != size[0] || lipgloss.Height(view) != size[1] {
 				t.Fatalf("board dimensions changed: %dx%d", lipgloss.Width(view), lipgloss.Height(view))
 			}
-			if !strings.Contains(ansi.Strip(model.boardView()), "Card 19") {
+			if !strings.Contains(ansi.Strip(view), "Card 19") {
 				t.Fatal("scrolling hid the selected card")
 			}
 			model.moveBoardCursor(1)
@@ -103,7 +103,7 @@ func TestBoardReferenceCapture(t *testing.T) {
 	model := referenceDashboard()
 	model.boardVisible = true
 	view := model.View()
-	for _, text := range []string{"NEEDS YOU · 1", "RUNNING · 1", "IDLE · 4", " List  Board ", "SELECTED SESSION"} {
+	for _, text := range []string{"NEEDS YOU · 1", "RUNNING · 1", "IDLE · 4", " List  Board ", "FOCUS"} {
 		if !strings.Contains(ansi.Strip(view), text) {
 			t.Errorf("board is missing %q", text)
 		}

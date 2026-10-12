@@ -29,7 +29,14 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	}
 	fixture.capture("board-waiting")
 	fixture.key("j")
-	fixture.waitText("/fixture/claude")
+	fixture.waitFor("focused Claude card", 4*time.Second, func(screen string) bool {
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "FOCUS") && strings.Contains(line, "claude fixture") {
+				return true
+			}
+		}
+		return false
+	})
 	fixture.capture("board-selected-claude")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
@@ -39,6 +46,45 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.waitFor("returned to list", 4*time.Second, func(screen string) bool {
 		return strings.Contains(screen, "Last active") && !strings.Contains(screen, "RUNNING ·")
 	})
+}
+
+func TestIntegrationBoardCompactFocus(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("claude fixture")
+	fixture.appendEdit("completed", "verified.go")
+	fixture.setState("codex", agent.StateIdle)
+	fixture.waitText("verified.go")
+	fixture.key("m")
+	screen := fixture.waitText("FOCUS")
+	if !strings.Contains(screen, "verified.go") || !strings.Contains(screen, "+1 −1") ||
+		strings.Contains(screen, "SELECTED SESSION") || strings.Contains(screen, "+verified change") {
+		t.Fatalf("board did not compact the selected edit:\n%s", screen)
+	}
+	fixture.capture("compact-idle-edit")
+	fixture.key("v")
+	screen = fixture.waitText("EDIT PREVIEW · Esc/q")
+	if !strings.Contains(screen, "+verified change") {
+		t.Fatal("expanded preview lost the selected edit")
+	}
+	fixture.key("Escape")
+	fixture.waitText("FOCUS")
+	if err := os.Rename(fixture.transcripts["codex"], fixture.transcripts["codex"]+".hidden"); err != nil {
+		t.Fatal(err)
+	}
+	screen = fixture.waitText("stale")
+	if !strings.Contains(screen, "verified.go") {
+		t.Fatal("compact focus discarded the stale cached edit")
+	}
+	fixture.capture("compact-stale-edit")
+	fixture.width, fixture.height = 80, 24
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
+	fixture.waitFor("narrow compact focus", 4*time.Second, func(screen string) bool {
+		return runewidth.StringWidth(strings.Split(screen, "\n")[0]) == 80 &&
+			strings.Contains(screen, "FOCUS") && strings.Contains(screen, "stale") && strings.Contains(screen, "v details / diff")
+	})
+	fixture.capture("compact-narrow-edit")
+	fixture.key("m")
+	fixture.waitText("SELECTED SESSION")
 }
 
 func TestIntegrationFeedUpdatesInRealtime(t *testing.T) {

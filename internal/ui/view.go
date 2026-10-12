@@ -20,12 +20,22 @@ func (model Model) View() string {
 		return view
 	}
 	summary := summarizeSessions(model.sessions)
-	tableView := model.sessionTableView()
+	var sessionsView, detailContent string
+	heading := model.sessionHeadingView()
+	headingSpacing := "\n\n"
 	if model.boardVisible {
-		tableView = model.boardView()
+		heading = clipLines(heading, model.table.Width()-panelStyle.GetHorizontalFrameSize())
+		sessionsView = model.boardView()
+		headingSpacing = strings.Repeat("\n", model.boardHeadingHeight())
+		detailContent = model.boardFocusView(
+			model.table.Width() - detailStyle.PaddingRight(0).GetHorizontalFrameSize(),
+		)
+	} else {
+		sessionsView = model.sessionTableView()
+		detailContent = model.detailWithPreview()
 	}
-	main := panelStyle.Width(model.table.Width()).Render(model.sessionHeadingView() + "\n\n" + tableView)
-	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(model.detailWithPreview())
+	main := panelStyle.Width(model.table.Width()).Render(heading + headingSpacing + sessionsView)
+	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
 	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
 	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
