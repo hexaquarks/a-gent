@@ -78,6 +78,7 @@ func (model Model) detailView() string {
 		stateText = "Stale · last known data"
 	}
 
+	directory := displayDirectory(selectedSession.WorkingDirectory)
 	fields := []struct{ label, value string }{
 		{"Agent", providerStyle(selectedSession.Provider).Bold(true).Render(safeDisplayText(selectedSession.Provider))},
 		{"Status", statusStyle(sessionState(selectedSession)).Render("● " + safeDisplayText(stateText))},
@@ -87,12 +88,12 @@ func (model Model) detailView() string {
 				safeDisplayText(projectName(selectedSession.WorkingDirectory)),
 			),
 		},
+		{"Directory", mutedStyle.Render(directory)},
+		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
 	}
 	lines := []string{
 		title,
-		"",
 		mainTextStyle.Bold(true).Render(" " + safeDisplayText(sessionDisplayName(selectedSession))),
-		"",
 	}
 	for _, field := range fields {
 		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
@@ -106,12 +107,7 @@ func (model Model) expandedPreviewView(width, height int) string {
 		return model.previewView(width, height, true)
 	}
 
-	directory := safeDisplayText(selectedSession.WorkingDirectory)
-	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		if directory == home || strings.HasPrefix(directory, home+string(filepath.Separator)) {
-			directory = "~" + strings.TrimPrefix(directory, home)
-		}
-	}
+	directory := displayDirectory(selectedSession.WorkingDirectory)
 
 	metadata := []string{
 		mainTextStyle.Bold(true).Render(safeDisplayText(sessionDisplayName(selectedSession))),
@@ -123,6 +119,16 @@ func (model Model) expandedPreviewView(width, height int) string {
 	preview := model.previewView(width, height-len(metadata), true)
 	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).
 		Render(clipLines(strings.Join(metadata, "\n"), width) + "\n" + preview)
+}
+
+func displayDirectory(directory string) string {
+	directory = safeDisplayText(directory)
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if directory == home || strings.HasPrefix(directory, home+string(filepath.Separator)) {
+			directory = "~" + strings.TrimPrefix(directory, home)
+		}
+	}
+	return directory
 }
 
 func (model Model) detailHeadingView() string {

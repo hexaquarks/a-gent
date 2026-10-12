@@ -359,12 +359,14 @@ func (model Model) detailWithPreview() string {
 		}
 
 		height := model.inlinePreviewHeight()
-		var metadata []string
-		for _, line := range strings.Split(clipLines(model.detailView(), width), "\n") {
-			if strings.TrimSpace(ansi.Strip(line)) != "" {
-				metadata = append(metadata, line)
-			}
+		metadata := strings.Split(clipLines(model.detailView(), width), "\n")
+		if selected {
+			// Combine Agent and Status so the directory, session ID, and preview all fit.
+			metadata[2] += mutedStyle.Render(" · ") +
+				statusStyle(sessionState(session)).Render(safeDisplayText(displayState(sessionState(session))))
+			metadata = append(metadata[:3], metadata[4:]...)
 		}
+
 		metadata = metadata[:min(len(metadata), height-1)]
 		return lipgloss.NewStyle().Height(height).MaxHeight(height).
 			Render(strings.Join(append(metadata, label), "\n"))

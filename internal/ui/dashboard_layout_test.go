@@ -226,15 +226,17 @@ func TestListKeepsShortDetailsAndExpandedSessionMetadata(t *testing.T) {
 	if model.table.Height() != 12 || lipgloss.Height(model.detailWithPreview()) != 7 {
 		t.Fatal("standard popup should have twelve session rows and seven detail rows")
 	}
-	if strings.Contains(ansi.Strip(before), selected.ID) || strings.Contains(ansi.Strip(before), selected.WorkingDirectory) {
-		t.Fatal("inline details should omit the directory and session ID")
+	if !strings.Contains(ansi.Strip(before), selected.ID) || !strings.Contains(ansi.Strip(before), selected.WorkingDirectory) {
+		t.Fatal("inline details should keep the directory and session ID")
 	}
 
 	narrow := model
 	narrow.width = 80
 	narrow.resizeTable()
-	if !strings.Contains(ansi.Strip(narrow.detailWithPreview()), "Project") {
-		t.Fatal("narrow inline details should keep the selected project")
+	narrowDetails := ansi.Strip(narrow.detailWithPreview())
+	if !strings.Contains(narrowDetails, "Project") || !strings.Contains(narrowDetails, selected.ID) ||
+		!strings.Contains(narrowDetails, selected.WorkingDirectory) {
+		t.Fatal("narrow inline details should keep the project, directory, and session ID")
 	}
 
 	updated, _ := model.Update(runeKey('v'))
