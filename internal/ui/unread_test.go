@@ -261,6 +261,7 @@ func TestUnreadDotSurvivesSortingFilteringAndKeyboardBrowsing(t *testing.T) {
 	if !model.unreadSessions[identity] {
 		t.Fatal("keyboard browsing cleared the dot")
 	}
+	model.sidebarCursor = len(sidebarViews()) - 1 // Keep the All view while switching focus.
 	for attempt := 0; attempt < 2; attempt++ {
 		updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
 		model = updated.(Model)

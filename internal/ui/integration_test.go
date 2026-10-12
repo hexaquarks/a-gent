@@ -152,7 +152,9 @@ func TestIntegrationNewAgentProviderLayout(t *testing.T) {
 			}
 			for _, line := range strings.Split(screen, "\n") {
 				if strings.Contains(line, "codex") && strings.Contains(line, "claude") {
-					return strings.Contains(line, "│") && (width < 80 || strings.Contains(line, "hermes"))
+					if strings.Contains(line, "│") && (width < 80 || strings.Contains(line, "hermes")) {
+						return true
+					}
 				}
 			}
 			return false
@@ -280,7 +282,7 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture.capture("no-edits")
 }
 
-func TestIntegrationLiveOrderAndUpdates(t *testing.T) {
+func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	fixture.appendOutput("codex", "LIVE_OUTPUT")
 	fixture.waitText("LIVE_OUTPUT")
@@ -298,25 +300,22 @@ func TestIntegrationLiveOrderAndUpdates(t *testing.T) {
 	}
 	fixture.capture("live-order-and-output")
 	fixture.key("Tab")
-	// Arrow sequences stay separate when the terminal batches rapid key presses.
-	fixture.key("Down") // Active
 	fixture.key("Down") // Recent
-	fixture.key("Down") // Updates
 	fixture.key("Enter")
 	fixture.key("Tab")
-	// Active also has one row; wait for the chosen filter before reading results.
-	fixture.waitText("● Updates")
+	fixture.waitText("● Recent")
 	screen = fixture.waitText("SESSIONS (1 of 1)")
-	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") || !strings.Contains(screen, "1 unseen") {
-		t.Fatalf("Updates does not isolate the changed session:\n%s", screen)
+	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") ||
+		!strings.Contains(screen, "1 unseen") {
+		t.Fatalf("Recent does not isolate the stopped session:\n%s", screen)
 	}
-	fixture.capture("updates-filter")
+	fixture.capture("recent-filter")
 	fixture.key("Enter")
-	screen = fixture.waitText("No sessions match this filter")
-	if !strings.Contains(screen, "0 unseen") {
-		t.Fatal("acknowledgement did not update the header count")
+	screen = fixture.waitText("0 unseen")
+	if !strings.Contains(screen, "claude fixture") {
+		t.Fatal("acknowledgement removed the session from Recent")
 	}
-	fixture.capture("updates-acknowledged")
+	fixture.capture("recent-acknowledged")
 }
 
 // Layout details live in the render tests; here we check the terminal shows

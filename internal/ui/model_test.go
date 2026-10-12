@@ -283,7 +283,7 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 	}
 
 	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
-	for _, expected := range []string{"VIEWS", "Attention", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
+	for _, expected := range []string{"VIEWS", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
 		if !strings.Contains(sidebar, expected) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
@@ -306,7 +306,6 @@ func TestViewsFilterSessions(t *testing.T) {
 		view    sidebarView
 		wantIDs []string
 	}{
-		{view: attentionView, wantIDs: []string{"failed", "waiting"}},
 		{view: activeView, wantIDs: []string{"running"}},
 		{view: recentView, wantIDs: []string{"failed", "finished", "waiting"}},
 		{view: allView, wantIDs: []string{"failed", "finished", "running", "waiting"}},
@@ -359,7 +358,6 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	}
 	model.updateTableRows()
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if model.selectedView != allView || len(model.table.Rows()) != 1 {
 		t.Fatal("browsing Active did not preview without committing")
 	}
@@ -367,13 +365,13 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	if model.selectedView != activeView || len(model.table.Rows()) != 1 {
 		t.Fatal("Enter did not apply Active")
 	}
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyUp})
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if model.selectedView != activeView {
-		t.Fatal("browsing Attention changed the view")
+		t.Fatal("browsing Recent changed the view")
 	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
-	if model.selectedView != attentionView || model.tableSessionIDs[0].id != "waiting" {
-		t.Fatal("Enter did not switch to Attention")
+	if model.selectedView != recentView || model.tableSessionIDs[0].id != "waiting" {
+		t.Fatal("Enter did not switch to Recent")
 	}
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	if model.selectedView != allView || len(model.table.Rows()) != 2 {
@@ -381,7 +379,7 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 	}
 	model.selectedProject = "/one"
 	model.updateTableRows()
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
+	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyUp})
 	if model.selectedProject != "/one" {
 		t.Fatal("browsing a view cleared the project filter")
 	}

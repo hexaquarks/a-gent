@@ -18,7 +18,7 @@ func TestSidebarPreviewsRestoreConfirmedFiltersOnExit(t *testing.T) {
 			}
 			model.updateTableRows()
 			model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
-			target := 1
+			target := 0
 			if kind == "provider" {
 				target = len(sidebarViews())
 			}
@@ -66,10 +66,9 @@ func TestPreviewPreservesOtherConfirmedFilters(t *testing.T) {
 	}
 	model.updateTableRows()
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	// Confirm Active, then browse through the other views to Codex.
-	for range len(sidebarViews()) {
+	for range len(sidebarViews()) + 1 {
 		model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	}
 	if len(model.table.Rows()) != 1 || model.tableSessionIDs[0].id != "codex-running" {
@@ -104,7 +103,6 @@ func TestPreviewUpdatesWithLiveSessionsWithoutBeingConfirmed(t *testing.T) {
 	}})
 	model = updated.(Model)
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if len(model.table.Rows()) != 0 {
 		t.Fatal("empty Active preview still shows idle sessions")
 	}
@@ -136,7 +134,6 @@ func TestProjectSearchDiscardsPreviewAndKeepsConfirmedFiltersOnCancel(t *testing
 	}
 	model.updateTableRows()
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
-	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyEnter})
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if model.tableSessionIDs[0].id != "idle" {

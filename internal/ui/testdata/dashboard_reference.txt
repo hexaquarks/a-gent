@@ -2,15 +2,15 @@
 │ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                 Last active ↓  |  LIVE  │
-│    Attention        1  │                                                                                             │
-│    Active           1  │      Agent   Session                       Project          Status         Last active ↓    │
-│    Recent           5  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
-│    Updates          2  │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
-│  ● All              6  │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
-│                        │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
-│  AGENTS                │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
-│    claude           1  │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │
-│    codex            5  │                                                                                             │
+│    Active           1  │                                                                                             │
+│    Recent           5  │      Agent   Session                       Project          Status         Last active ↓    │
+│  ● All              6  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
+│                        │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
+│  AGENTS                │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
+│    claude           1  │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
+│    codex            5  │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
+│                        │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │
+│                        │                                                                                             │
 │                        │                                                                                             │
 │  PROJECTS (4)          │                                                                                             │
 │   mihailanghe…  ★  1  │                                                                                             │
