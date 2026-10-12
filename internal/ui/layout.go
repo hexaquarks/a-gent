@@ -106,7 +106,12 @@ func (model Model) inlinePreviewHeight() int {
 	if model.height == 0 {
 		return 10
 	}
-	return min(11, max(8, model.height-19))
+	previewHeight := model.height - 19
+	if model.height >= PopupHeight {
+		// Give the extra popup row to the session list instead of the preview.
+		previewHeight--
+	}
+	return min(11, max(8, previewHeight))
 }
 
 func (model Model) sidebarVisible() bool {

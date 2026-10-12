@@ -258,8 +258,15 @@ func TestPopupHeightFitsTheReservedSessionRows(t *testing.T) {
 		State:            agent.StateIdle,
 	}}
 
-	updatedModel, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight})
-	view := updatedModel.(Model).View()
+	previousModel, _ := model.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight - 1})
+	previous := previousModel.(Model)
+	updatedModel, _ := previous.Update(tea.WindowSizeMsg{Width: 100, Height: PopupContentHeight})
+	current := updatedModel.(Model)
+	if current.table.Height() != previous.table.Height()+1 ||
+		current.inlinePreviewHeight() != previous.inlinePreviewHeight() {
+		t.Fatal("the extra popup row should expand the session list, keeping preview height unchanged")
+	}
+	view := current.View()
 	if got := lipgloss.Height(view); got != PopupContentHeight {
 		t.Fatalf("popup content height = %d, want %d", got, PopupContentHeight)
 	}
