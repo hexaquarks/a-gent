@@ -45,7 +45,10 @@ func run() error {
 	adapters := []agent.Adapter{codex.NewAdapter(), claude.NewAdapter(), openCodeAdapter, piAdapter, hermesAdapter}
 	modelOptions := []ui.ModelOption{ui.WithPreviewSources(adapters...)}
 	if configDirectory, err := os.UserConfigDir(); err == nil {
-		modelOptions = append(modelOptions, ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")))
+		modelOptions = append(modelOptions,
+			ui.WithProjectPins(filepath.Join(configDirectory, "a-gent", "project-pins.json")),
+			ui.WithDashboardPreferences(filepath.Join(configDirectory, "a-gent", "dashboard.json")),
+		)
 	}
 	if navigator := tmux.NewNavigator(); navigator != nil {
 		modelOptions = append(modelOptions, ui.WithSessionNavigator(navigator))

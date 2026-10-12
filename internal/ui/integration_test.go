@@ -5,6 +5,7 @@ package ui_test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -473,4 +474,35 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 		t.Fatalf("board lost heading underlines, compact selected session, or footer:\n%s", plain)
 	}
 	fixture.capture("styled-board")
+}
+
+func TestIntegrationDashboardRemembersLayout(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	for _, board := range []bool{true, false} {
+		fixture.key("m")
+		if board {
+			fixture.waitText("RUNNING · 2")
+		} else {
+			fixture.waitText("SELECTED SESSION")
+		}
+
+		fixture.key("q")
+		exitPath := filepath.Join(fixture.root, "exit-status")
+		fixture.waitFor("dashboard exit", 5*time.Second, func(_ string) bool {
+			status, err := os.ReadFile(exitPath)
+			return err == nil && string(status) == "0"
+		})
+		if err := os.Remove(exitPath); err != nil {
+			t.Fatal(err)
+		}
+		fixture.tmux("respawn-pane", "-t", "dashboard:0.0", fixture.launchCommand)
+		fixture.waitText("2 sessions")
+		if board {
+			fixture.waitText("RUNNING · 2")
+			fixture.capture("reopened-board")
+		} else {
+			fixture.waitText("SELECTED SESSION")
+			fixture.capture("reopened-list")
+		}
+	}
 }

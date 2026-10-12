@@ -31,6 +31,7 @@ type Model struct {
 	previewFrame     int
 	table            table.Model
 	boardVisible     bool
+	preferencesPath  string
 	updates          <-chan polling.Update
 	providerErrors   map[string]error
 	sessions         []agent.Session
@@ -185,6 +186,11 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return model, nil
 		case "m":
 			model.boardVisible = !model.boardVisible
+			if err := model.saveDashboardPreferences(); err != nil {
+				model.notice = safeDisplayText(fmt.Sprintf("Could not save layout: %v", err))
+				model.noticeRevision++
+				return model, clearNotice(model.noticeRevision)
+			}
 			return model, nil
 		case "S":
 			model.sort.descending = !model.sort.descending
