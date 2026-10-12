@@ -121,7 +121,10 @@ func (model Model) boardHeight() int {
 }
 
 func (model Model) boardHeadingHeight() int {
-	return 1
+	if model.bodyHeight() < 7 {
+		return 1
+	}
+	return 2
 }
 
 func (model Model) boardFocusHeight() int {

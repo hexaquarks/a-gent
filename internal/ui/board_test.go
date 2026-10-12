@@ -175,8 +175,10 @@ func TestBoardColumnDividersAndSelectedCardVisibility(t *testing.T) {
 	}
 }
 
-func TestBoardStandardPopupFitsFourCards(t *testing.T) {
+func TestBoardFitsFourCardsWhenSpaceAvailable(t *testing.T) {
 	model := referenceDashboard()
+	model.height++
+	model.resizeTable()
 	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
 	sessions := []agent.Session{{Name: "One"}, {Name: "Two"}, {Name: "Three"}, {Name: "Four"}}
 	for _, selected := range []int{0, 1, 2, 3} {
