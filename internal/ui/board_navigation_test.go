@@ -173,7 +173,7 @@ func TestBoardColumnNavigationPreviewIsolation(t *testing.T) {
 	}
 }
 
-func TestBoardFooterHintsFit(t *testing.T) {
+func TestBoardFooterKeepsEssentialActions(t *testing.T) {
 	model := navigationBoard()
 	model.navigator = &fakeNavigator{}
 	for _, width := range []int{120, 80, 24} {
@@ -187,8 +187,8 @@ func TestBoardFooterHintsFit(t *testing.T) {
 		if !strings.Contains(footer, "enter") && !strings.Contains(footer, "↵") {
 			t.Fatal("footer omitted opening shortcut")
 		}
-		if width >= 80 && (!strings.Contains(footer, "h/l") || !strings.Contains(footer, "j/k")) {
-			t.Fatalf("width %d omitted board movement: %s", width, footer)
+		if strings.Contains(footer, "h/l") || strings.Contains(footer, "j/k") {
+			t.Fatalf("width %d retained board movement hints: %s", width, footer)
 		}
 	}
 	help := ansi.Strip(strings.Join(helpLines(48), "\n"))
