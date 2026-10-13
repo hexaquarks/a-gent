@@ -248,7 +248,7 @@ func sidebarProviderIcon(provider string) string {
 	case "opencode":
 		return "▣"
 	case "pi":
-		return "𝜋"
+		return "π"
 	case "hermes":
 		return " "
 	default:
