@@ -310,6 +310,7 @@ func TestIntegrationPlainHermesSubagents(t *testing.T) {
 	fixture.waitText("Status     ● Running")
 	fixture.capture("hermes-child-running")
 	fixture.key("k")
+	fixture.waitText("Status     ● Idle")
 	fixture.waitFor("parent preview excludes child output", 4*time.Second, func(screen string) bool {
 		return !strings.Contains(screen, "HERMES CHILD PUBLIC OUTPUT")
 	})

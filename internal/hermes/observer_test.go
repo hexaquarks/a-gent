@@ -96,6 +96,10 @@ ctx.emit(
 ctx.emit('on_stream_delta', session_id='one', turn_id='turn', iteration=1, kind='text', delta='LATE')
 ctx.emit('post_llm_call', session_id='child', assistant_response='OTHER')
 ctx.emit('on_session_end', session_id='one')
+ctx.emit('pre_llm_call', platform='subagent')
+ctx.emit('post_llm_call', platform='subagent', assistant_response='UNATTRIBUTED')
+ctx.emit('post_tool_call', tool_name='terminal', result={'output':'UNATTRIBUTED TOOL'})
+ctx.emit('on_stream_delta', turn_id='foreign-turn', iteration=1, kind='text', delta='UNATTRIBUTED STREAM')
 assert json.loads(status.read_text())['state'] == 'idle'
 p = json.loads(preview.read_text())
 assert p['activity']['text'] == 'PUBLIC' and p['edit']['filename'] == 'file'

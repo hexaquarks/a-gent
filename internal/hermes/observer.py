@@ -273,6 +273,11 @@ def register(ctx):
                     publish()
                     return
 
+                # In-process children share the plugin, so events without a
+                # native session identity cannot be assigned to the root.
+                if not session:
+                    return
+
                 if event_type == "reset":
                     if session in children or data.get("platform") == "subagent":
                         return
