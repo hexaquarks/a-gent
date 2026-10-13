@@ -42,6 +42,9 @@ func (model Model) navigateSelectedSession() (tea.Model, tea.Cmd) {
 		return model, nil
 	}
 
+	// Subagents run inside their parent's workspace, without a separate pane.
+	session = model.sessionWorkspace(session)
+
 	navigator := model.navigator
 	requestContext, cancel := context.WithTimeout(model.appContext, requestTimeout)
 	// Keep this request pending until its result is handled so repeated Enter

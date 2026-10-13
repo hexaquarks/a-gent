@@ -68,6 +68,9 @@ func TestIntegrationDashboardProcess(t *testing.T) {
 		fixtureProvider{"codex", filepath.Join(root, "codex-sessions.json"), codex.NewAdapter()},
 		fixtureProvider{"claude", filepath.Join(root, "claude-sessions.json"), claude.NewAdapter()},
 	}
+	if os.Getenv("A_GENT_TEST_CODEX_LIVE") == "1" {
+		adapters[0] = codex.NewAdapter()
+	}
 	if os.Getenv("A_GENT_TEST_OPENCODE") == "1" {
 		adapters = append(adapters, opencode.NewAdapter())
 	}
@@ -107,6 +110,7 @@ type dashboardFixture struct {
 	width, height int
 	pi            *piFixtureState
 	livePi        *livePiFixture
+	liveCodex     *liveCodexFixture
 	liveHermes    *liveHermesFixture
 }
 
@@ -143,6 +147,9 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	}
 	if provider == "hermes-live" {
 		fixture.setupLiveHermes()
+	}
+	if provider == "codex-live" {
+		fixture.setupLiveCodex()
 	}
 	if provider == "pi-live" {
 		fixture.setupLivePi()
@@ -186,6 +193,9 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	fixture.launchCommand = launchCommand
 	t.Cleanup(func() {
 		fixture.stopLiveHermes()
+		if fixture.liveCodex != nil && fixture.liveCodex.stop != nil {
+			fixture.liveCodex.stop()
+		}
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()

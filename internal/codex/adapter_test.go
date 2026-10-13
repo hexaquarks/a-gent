@@ -79,7 +79,7 @@ func TestThreadVisibility(t *testing.T) {
 		{name: "empty error", payload: `{"status":{"type":"systemError"}}`, visible: true},
 		{name: "unknown status", payload: `{"status":{"type":"futureStatus"}}`, visible: true},
 		{name: "unloaded during polling", payload: `{"name":"Closed conversation","status":{"type":"notLoaded"}}`},
-		{name: "running worker", payload: `{"parentThreadId":"main","status":{"type":"active"}}`},
+		{name: "running worker", payload: `{"parentThreadId":"main","status":{"type":"active"}}`, visible: true},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -127,5 +127,32 @@ func TestThreadSessionActivityTimestamp(t *testing.T) {
 				t.Fatalf("activity timestamp = %d, want %d Unix seconds", actual, testCase.seconds)
 			}
 		})
+	}
+}
+
+func TestSessionsKeepOnlyLoadedSubagentTrees(t *testing.T) {
+	var threads []thread
+	payload := `[
+ {"id":"parent","source":"vscode","name":"Parent","status":{"type":"idle"}},
+ {"id":"child","parentThreadId":"parent","agentNickname":"Ada","agentRole":"explorer","status":{"type":"active"}},
+ {"id":"nested","source":{"subAgent":{"thread_spawn":{"parent_thread_id":"child"}}},"status":{"type":"idle"}},
+ {"id":"orphan","parentThreadId":"closed","status":{"type":"active"}},
+ {"id":"closed","source":"cli","status":{"type":"notLoaded"}},
+ {"id":"review","source":{"subAgent":"review"},"status":{"type":"active"}},
+ {"id":"cycle-a","parentThreadId":"cycle-b","status":{"type":"idle"}},
+ {"id":"cycle-b","parentThreadId":"cycle-a","status":{"type":"idle"}}
+ ]`
+	if err := json.Unmarshal([]byte(payload), &threads); err != nil {
+		t.Fatal(err)
+	}
+	sessions := sessionsFromThreads(threads)
+	if len(sessions) != 3 {
+		t.Fatalf("sessions = %+v", sessions)
+	}
+	if sessions[1].ParentID != "parent" || sessions[1].Name != "Ada (explorer)" || sessions[1].State != agent.StateRunning {
+		t.Fatalf("child metadata = %+v", sessions[1])
+	}
+	if sessions[2].ParentID != "child" || sessions[2].Name != "Subagent" {
+		t.Fatalf("nested metadata = %+v", sessions[2])
 	}
 }

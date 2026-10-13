@@ -34,6 +34,9 @@ type Session struct {
 	WorkingDirectory string
 	State            State
 
+	// ParentID identifies the parent session within the same provider.
+	ParentID string
+
 	// ProcessID identifies the process whose tmux pane should open.
 	// Nil means match by directory; zero or less means there is no running process.
 	ProcessID *int

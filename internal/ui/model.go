@@ -185,7 +185,18 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.cycleSortColumn()
 			return model, nil
 		case "m":
+			selected, hasSelection := model.selectedSession()
 			model.boardVisible = !model.boardVisible
+			model.updateTableRows()
+			if model.boardVisible && hasSelection && selected.ParentID != "" {
+				parent := model.sessionWorkspace(selected)
+				for index, identity := range model.tableSessionIDs {
+					if identity.provider == parent.Provider && identity.id == parent.ID {
+						model.table.SetCursor(index)
+						break
+					}
+				}
+			}
 			if err := model.saveDashboardPreferences(); err != nil {
 				model.notice = safeDisplayText(fmt.Sprintf("Could not save layout: %v", err))
 				model.noticeRevision++

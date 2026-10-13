@@ -324,6 +324,9 @@ func (model Model) filteredSessions() []agent.Session {
 	view, provider, project := model.effectiveFilters()
 	filteredSessions := make([]agent.Session, 0, len(model.sessions))
 	for _, session := range model.sessions {
+		if model.boardVisible && session.ParentID != "" {
+			continue
+		}
 		if provider != "" && session.Provider != provider {
 			continue
 		}
@@ -336,6 +339,9 @@ func (model Model) filteredSessions() []agent.Session {
 		filteredSessions = append(filteredSessions, session)
 	}
 	model.sortSessions(filteredSessions)
+	if !model.boardVisible {
+		return groupSubagents(filteredSessions)
+	}
 	return filteredSessions
 }
 

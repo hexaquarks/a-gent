@@ -95,14 +95,24 @@ func (model Model) sessionRowView(session agent.Session, selected bool, columns 
 	}
 	background = model.readyPulseBackground(session, background)
 
+	hasSessionColumn := false
+	for _, column := range columns {
+		hasSessionColumn = hasSessionColumn || column.Title == "Session"
+	}
+
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
+		if column.Title == "Agent" && !hasSessionColumn && session.ParentID != "" {
+			value = "↳" + value
+		}
 		if column.Title == "Project" {
 			style = model.projectStyle(session.WorkingDirectory)
 		}
 		if column.Title == "Session" {
-			cells[columnIndex] = renderTableCell(sessionDisplayName(session), column.Width, mainTextStyle.Bold(selected), background)
+			cells[columnIndex] = renderTableCell(
+				model.listSessionName(session), column.Width, mainTextStyle.Bold(selected), background,
+			)
 			continue
 		}
 		if column.Title == "Last active" {
@@ -258,10 +268,14 @@ func (model *Model) updateTableRows() {
 	}
 }
 
-// sessionDisplayName supplies a label when a provider has not named a session.
+// sessionDisplayName identifies subagents and supplies a fallback for unnamed sessions.
 func sessionDisplayName(session agent.Session) string {
-	if strings.TrimSpace(safeDisplayText(session.Name)) == "" {
-		return "Untitled session"
+	name := session.Name
+	if strings.TrimSpace(safeDisplayText(name)) == "" {
+		name = "Untitled session"
 	}
-	return session.Name
+	if session.ParentID != "" {
+		return "[subagent] " + name
+	}
+	return name
 }
