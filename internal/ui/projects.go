@@ -13,9 +13,6 @@ import (
 
 const (
 	maximumProjectRows       = 6
-	defaultProjectHeadingRow = 11
-	defaultProviderRows      = 2
-	minimumProjectHeadingRow = 9
 	minimumProjectFooterRows = 4
 )
 
@@ -177,9 +174,11 @@ func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (model Model) projectTop() int {
-	top := defaultProjectHeadingRow
-	// Reserve enough room for up to five provider rows without sidebar scrolling.
-	providerRows := min(len(model.providers()), visibleProviderLimit)
-	top += max(0, providerRows-defaultProviderRows)
-	return max(minimumProjectHeadingRow, min(top, model.sidebarHeight()-minimumProjectFooterRows))
+	// Each section has a heading; both gaps use the same number of blank rows.
+	top := 1 + len(sidebarViews()) + sidebarSectionGap
+	providerRows := model.projectItemStart() - len(sidebarViews())
+	if providerRows > 0 {
+		top += 1 + providerRows + sidebarSectionGap
+	}
+	return min(top, max(1, model.sidebarHeight()-minimumProjectFooterRows))
 }

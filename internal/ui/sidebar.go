@@ -12,7 +12,10 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-const visibleProviderLimit = 5
+const (
+	visibleProviderLimit = 5
+	sidebarSectionGap    = 2
+)
 
 type sessionSummary struct {
 	total   int
@@ -54,7 +57,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
-	// Reserve the same project area even when filtering leaves fewer rows.
+	// Session filtering keeps each sidebar section in place.
 	projectTop := model.projectTop()
 	providers := model.providers()
 	if len(providers) > 0 {
@@ -66,7 +69,10 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 			}
 			title = fmt.Sprintf("AGENTS (%d) %s", len(providers), arrow)
 		}
-		lines = append(lines, "", sectionBar(" "+title, model.sidebarWidth(), titleStyle))
+		for range sidebarSectionGap {
+			lines = append(lines, "")
+		}
+		lines = append(lines, sectionBar(" "+title, model.sidebarWidth(), titleStyle))
 		start := len(sidebarViews())
 		end := model.projectItemStart()
 		available := max(1, projectTop-len(lines)-1-len(model.failedProviders()))
