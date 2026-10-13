@@ -173,11 +173,14 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 		if selected {
 			selectionMark = "●"
 		}
-	} else if selected {
-		marker = "●"
+	} else if item.provider != "" {
+		marker = sidebarProviderIcon(item.provider)
+		if selected {
+			selectionMark = "●"
+		}
 	}
 	if focused {
-		if item.view == "" {
+		if item.view == "" && item.provider == "" {
 			marker = "›"
 		}
 		style = style.Background(lipgloss.Color(colorSelection))
@@ -225,6 +228,23 @@ func (model Model) renderSidebarRow(name, marker, pin, count string, style, mark
 func sidebarLabel(label string, width int) string {
 	label = runewidth.Truncate(safeDisplayText(label), width, "…")
 	return label + strings.Repeat(" ", max(0, width-lipgloss.Width(label)))
+}
+
+func sidebarProviderIcon(provider string) string {
+	switch provider {
+	case "codex":
+		return "⌘"
+	case "claude":
+		return "✳"
+	case "opencode":
+		return "◇"
+	case "pi":
+		return "π"
+	case "hermes":
+		return "☿"
+	default:
+		return "◈"
+	}
 }
 
 func sidebarViewIcon(view sidebarView) string {
