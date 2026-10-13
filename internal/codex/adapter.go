@@ -28,7 +28,7 @@ func (Adapter) Provider() string {
 	return providerName
 }
 
-// Sessions returns loaded Codex conversations, excluding delegated workers.
+// Sessions returns loaded Codex conversations and their spawned subagents.
 func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 	socketPath, err := daemonSocketPath(context)
 	if err != nil {
@@ -50,7 +50,7 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 		return nil, err
 	}
 
-	sessions := make([]agent.Session, 0, len(threadIDs))
+	threads := make([]thread, 0, len(threadIDs))
 	for _, threadID := range threadIDs {
 		thread, err := client.thread(threadID)
 		if err != nil {
@@ -61,17 +61,16 @@ func (Adapter) Sessions(context context.Context) ([]agent.Session, error) {
 			continue
 		}
 
-		sessions = append(sessions, thread.session())
+		threads = append(threads, thread)
 	}
 
-	return sessions, nil
+	return sessionsFromThreads(threads), nil
 }
 
 func (thread thread) isVisibleSession() bool {
-	// Workers share their parent's directory but have no separate workspace.
 	// A thread may unload between listing its ID and reading its metadata.
 	// Keep idle drafts: empty metadata does not establish that a GUI is closed.
-	return !thread.isSubagent() && thread.Status.Type != "notLoaded"
+	return thread.Status.Type != "notLoaded" && (!thread.isSubagent() || thread.parentID() != "")
 }
 
 func (thread thread) hasConversationContent() bool {
@@ -87,9 +86,10 @@ func (thread thread) session() agent.Session {
 
 	return agent.Session{
 		ID:               thread.ID,
+		ParentID:         thread.parentID(),
 		TranscriptPath:   thread.Path,
 		Provider:         providerName,
-		Name:             thread.Name,
+		Name:             thread.displayName(),
 		Preview:          thread.Preview,
 		WorkingDirectory: thread.WorkingDirectory,
 		State:            stateFromStatus(thread.Status),
@@ -160,4 +160,69 @@ func stateFromStatus(status threadStatus) agent.State {
 	default:
 		return agent.StateUnavailable
 	}
+}
+
+// Keep children only while their full parent chain is loaded. Internal review
+// and compaction workers have no parent relationship and are not conversations.
+func sessionsFromThreads(threads []thread) []agent.Session {
+	loaded := make(map[string]thread, len(threads))
+	for _, thread := range threads {
+		if thread.isVisibleSession() {
+			loaded[thread.ID] = thread
+		}
+	}
+
+	sessions := make([]agent.Session, 0, len(loaded))
+	for _, thread := range threads {
+		if _, ok := loaded[thread.ID]; !ok {
+			continue
+		}
+		seen := map[string]bool{thread.ID: true}
+		parentID := thread.parentID()
+		valid := true
+		for parentID != "" {
+			parent, ok := loaded[parentID]
+			if !ok || seen[parentID] {
+				valid = false
+				break
+			}
+			seen[parentID] = true
+			parentID = parent.parentID()
+		}
+		if valid {
+			sessions = append(sessions, thread.session())
+		}
+	}
+	return sessions
+}
+
+func (thread thread) parentID() string {
+	if thread.ParentThreadID != "" {
+		return thread.ParentThreadID
+	}
+	// Older daemon versions encode ancestry only in the tagged source.
+	var source struct {
+		SubAgent struct {
+			Spawn struct {
+				ParentID string `json:"parent_thread_id"`
+			} `json:"thread_spawn"`
+		} `json:"subAgent"`
+	}
+	if json.Unmarshal(thread.Source, &source) != nil {
+		return ""
+	}
+	return source.SubAgent.Spawn.ParentID
+}
+
+func (thread thread) displayName() string {
+	if strings.TrimSpace(thread.Name) != "" || thread.parentID() == "" {
+		return thread.Name
+	}
+	if thread.AgentNickname != "" {
+		if thread.AgentRole != "" {
+			return thread.AgentNickname + " (" + thread.AgentRole + ")"
+		}
+		return thread.AgentNickname
+	}
+	return "Subagent"
 }

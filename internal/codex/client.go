@@ -43,6 +43,8 @@ type thread struct {
 	WorkingDirectory string          `json:"cwd"`
 	Status           threadStatus    `json:"status"`
 	ParentThreadID   string          `json:"parentThreadId"`
+	AgentNickname    string          `json:"agentNickname"`
+	AgentRole        string          `json:"agentRole"`
 	Source           json.RawMessage `json:"source"`
 	UpdatedAt        int64           `json:"updatedAt"`
 }

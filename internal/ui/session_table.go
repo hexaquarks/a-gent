@@ -95,14 +95,24 @@ func (model Model) sessionRowView(session agent.Session, selected bool, columns 
 	}
 	background = model.readyPulseBackground(session, background)
 
+	hasSessionColumn := false
+	for _, column := range columns {
+		hasSessionColumn = hasSessionColumn || column.Title == "Session"
+	}
+
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
+		if column.Title == "Agent" && !hasSessionColumn && session.ParentID != "" {
+			value = "↳" + value
+		}
 		if column.Title == "Project" {
 			style = model.projectStyle(session.WorkingDirectory)
 		}
 		if column.Title == "Session" {
-			cells[columnIndex] = renderTableCell(sessionDisplayName(session), column.Width, mainTextStyle.Bold(selected), background)
+			cells[columnIndex] = renderTableCell(
+				model.listSessionName(session), column.Width, mainTextStyle.Bold(selected), background,
+			)
 			continue
 		}
 		if column.Title == "Last active" {
