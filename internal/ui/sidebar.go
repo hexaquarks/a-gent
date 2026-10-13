@@ -12,6 +12,8 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+const visibleProviderLimit = 5
+
 type sessionSummary struct {
 	total   int
 	running int
@@ -57,7 +59,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	providers := model.providers()
 	if len(providers) > 0 {
 		title := "AGENTS"
-		if len(providers) > 3 {
+		if len(providers) > visibleProviderLimit {
 			arrow := "▸"
 			if model.agentsExpanded {
 				arrow = "▾"
@@ -137,10 +139,10 @@ func (model Model) sidebarItems() []sidebarItem {
 		items = append(items, sidebarItem{label: string(view), view: view})
 	}
 	providers := model.providers()
-	if len(providers) > 3 {
+	if len(providers) > visibleProviderLimit {
 		items = append(items, sidebarItem{label: "All types", agentGroup: true, allTypes: true})
 	}
-	if len(providers) <= 3 || model.agentsExpanded {
+	if len(providers) <= visibleProviderLimit || model.agentsExpanded {
 		for _, provider := range providers {
 			items = append(items, sidebarItem{label: provider, provider: provider})
 		}

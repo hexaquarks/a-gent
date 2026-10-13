@@ -11,7 +11,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const maximumProjectRows = 6
+const (
+	maximumProjectRows       = 6
+	defaultProjectHeadingRow = 11
+	defaultProviderRows      = 2
+	minimumProjectHeadingRow = 9
+	minimumProjectFooterRows = 4
+)
 
 // WithProjectPins loads the user's pinned projects from the supplied file.
 func WithProjectPins(path string) ModelOption {
@@ -75,10 +81,10 @@ func (model Model) matchingProjects() []string {
 func (model Model) projectItemStart() int {
 	count := len(sidebarViews())
 	providers := model.providers()
-	if len(providers) > 3 {
+	if len(providers) > visibleProviderLimit {
 		count++
 	}
-	if len(providers) <= 3 || model.agentsExpanded {
+	if len(providers) <= visibleProviderLimit || model.agentsExpanded {
 		count += len(providers)
 	}
 	return count
@@ -171,10 +177,9 @@ func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (model Model) projectTop() int {
-	top := 11
-	// Keep the three default providers visible without requiring sidebar focus.
-	if len(model.providers()) == 3 {
-		top++
-	}
-	return max(9, min(top, model.sidebarHeight()-4))
+	top := defaultProjectHeadingRow
+	// Reserve enough room for up to five provider rows without sidebar scrolling.
+	providerRows := min(len(model.providers()), visibleProviderLimit)
+	top += max(0, providerRows-defaultProviderRows)
+	return max(minimumProjectHeadingRow, min(top, model.sidebarHeight()-minimumProjectFooterRows))
 }
