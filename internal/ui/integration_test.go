@@ -303,7 +303,7 @@ func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture.key("Down") // Recent
 	fixture.key("Enter")
 	fixture.key("Tab")
-	fixture.waitText("◷ Recent")
+	fixture.waitText("◷  Recent")
 	screen = fixture.waitText("SESSIONS (1 of 1)")
 	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") ||
 		!strings.Contains(screen, "1 unseen") {

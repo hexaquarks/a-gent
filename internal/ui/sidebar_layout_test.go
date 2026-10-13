@@ -20,7 +20,7 @@ func TestSidebarLabelsAndCountsAlign(t *testing.T) {
 		for index, item := range model.sidebarItems() {
 			model.sidebarCursor = index
 			row := ansi.Strip(model.sidebarItemView(item, index, 1))
-			if !strings.HasPrefix(string([]rune(row)[3:]), item.label) {
+			if !strings.HasPrefix(string([]rune(row)[sidebarGutterWidth:]), item.label) {
 				t.Fatalf("name does not start after the fixed gutter: %q", row)
 			}
 			if !strings.HasSuffix(strings.Replace(row, "★", " ", 1), "  1 ") || lipgloss.Width(row) != model.sidebarWidth() {
@@ -176,6 +176,20 @@ func TestSidebarSectionsHaveEqualSpacing(t *testing.T) {
 			if blankRows != sidebarSectionGap {
 				t.Fatalf("section %q has %d blank rows, want %d", line, blankRows, sidebarSectionGap)
 			}
+		}
+	}
+}
+
+func TestProviderIconsKeepNamesAndCountsAligned(t *testing.T) {
+	model := NewModel(nil)
+	for _, provider := range []string{"codex", "claude", "opencode", "pi", "hermes"} {
+		item := sidebarItem{label: "Example", provider: provider}
+		row := ansi.Strip(model.sidebarItemView(item, 0, 1))
+		if !strings.HasPrefix(string([]rune(row)[sidebarGutterWidth:]), "Example") {
+			t.Fatalf("provider %s moved the name column: %q", provider, row)
+		}
+		if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(row, "  1 ") {
+			t.Fatalf("provider %s moved the count or overflowed the row: %q", provider, row)
 		}
 	}
 }

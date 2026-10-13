@@ -16,9 +16,8 @@ const (
 	visibleProviderLimit = 5
 	sidebarSectionGap    = 2
 
-	// Nerd Fonts 3.5.1 names: nf-cod-openai and nf-cod-claude.
-	openAILogo = "\uec81"
-	claudeLogo = "\uec82"
+	sidebarIconWidth   = 2
+	sidebarGutterWidth = sidebarIconWidth + 2
 )
 
 type sessionSummary struct {
@@ -222,14 +221,13 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 // Every row reserves the same gutter, pin slot, and count column before
 // allocating space to the name. Larger totals widen all count cells together.
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
-	const gutterWidth = 3
 	const pinWidth = 1
-	const nameToPinSpacing = 2
+	const nameToPinSpacing = 1
 	const rightPadding = 1
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - rightPadding
+	nameWidth := model.sidebarWidth() - sidebarGutterWidth - pinWidth - nameToPinSpacing - countWidth - rightPadding
 	label := sidebarLabel(name, max(0, nameWidth))
-	return markerStyle.Render(" "+marker+" ") +
+	return markerStyle.Render(" "+sidebarLabel(marker, sidebarIconWidth)+" ") +
 		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
 		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)+strings.Repeat(" ", rightPadding))
 }
@@ -240,12 +238,13 @@ func sidebarLabel(label string, width int) string {
 	return label + strings.Repeat(" ", max(0, width-lipgloss.Width(label)))
 }
 
+// Use widely available characters; recent Nerd Fonts brand glyphs are missing in older fonts.
 func sidebarProviderIcon(provider string) string {
 	switch provider {
 	case "codex":
-		return openAILogo
+		return ">_"
 	case "claude":
-		return claudeLogo
+		return "✳"
 	case "opencode":
 		return "▣"
 	case "pi":
