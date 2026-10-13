@@ -75,7 +75,7 @@ func (model Model) detailView() string {
 
 	stateText := displayState(sessionState(selectedSession))
 	if selectedSession.Stale {
-		stateText = "Stale · last known data"
+		stateText = "stale · last known data"
 	}
 
 	directory := displayDirectory(selectedSession.WorkingDirectory)

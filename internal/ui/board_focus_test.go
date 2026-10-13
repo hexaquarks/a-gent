@@ -32,7 +32,7 @@ func TestBoardFocusUsesSelectedSessionPreview(t *testing.T) {
 
 	view := ansi.Strip(model.boardFocusView(160))
 	for _, text := range []string{
-		"FOCUS", selected.Name, "codex", "swiftyprompt", "Idle", "selected.go", "+2", "−1", "v details / diff",
+		"FOCUS", selected.Name, "codex", "swiftyprompt", "idle", "selected.go", "+2", "−1", "v details / diff",
 	} {
 		if !strings.Contains(view, text) {
 			t.Errorf("selected focus is missing %q:\n%s", text, view)

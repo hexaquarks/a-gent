@@ -21,10 +21,10 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.appendOutput("codex", "BOARD_OUTPUT")
 	fixture.waitText("BOARD_OUTPUT")
 	fixture.key("m")
-	fixture.waitText("RUNNING · 2")
+	fixture.waitText("running · 2")
 	fixture.capture("board-running")
 	fixture.setState("codex", agent.StateWaiting)
-	screen := fixture.waitText("NEEDS YOU · 1")
+	screen := fixture.waitText("needs you · 1")
 	if !strings.Contains(screen, "BOARD_OUTPUT") || !strings.Contains(screen, "codex fixture") {
 		t.Fatal("status change lost the selected card or preview")
 	}
@@ -55,11 +55,11 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.waitText("FOCUS")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
-	fixture.waitText("RUNNING · 1")
+	fixture.waitText("running · 1")
 	fixture.capture("board-narrow")
 	fixture.key("Right")
 	screen = fixture.waitText("BOARD_OUTPUT")
-	if !strings.Contains(screen, "NEEDS YOU · 1") || strings.Contains(screen, "CLAUDE_OUTPUT") {
+	if !strings.Contains(screen, "needs you · 1") || strings.Contains(screen, "CLAUDE_OUTPUT") {
 		t.Fatal("narrow navigation did not follow the selected column and preview")
 	}
 	fixture.capture("board-narrow-codex")
@@ -68,7 +68,7 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")
 	fixture.waitFor("returned to list", 4*time.Second, func(screen string) bool {
-		return strings.Contains(screen, "Age") && !strings.Contains(screen, "RUNNING ·")
+		return strings.Contains(screen, "Age") && !strings.Contains(screen, "running ·")
 	})
 }
 
@@ -377,7 +377,7 @@ func TestIntegrationReadyPulse(t *testing.T) {
 	row := func() string {
 		screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
 		for _, line := range strings.Split(screen, "\n") {
-			if strings.Contains(line, "codex fixture") && strings.Contains(line, "Idle") {
+			if strings.Contains(line, "codex fixture") && strings.Contains(line, "idle") {
 				// Ignore the changing Age timestamp; inspect only backgrounds.
 				colors := backgroundCodes.FindAllString(line, -1)
 				if len(colors) == 0 {
@@ -453,7 +453,7 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 	fixture.waitText("claude fixture")
 	fixture.waitText("codex fixture")
 	fixture.key("m")
-	fixture.waitText("RUNNING · 2")
+	fixture.waitText("running · 2")
 	screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
 	if !regexp.MustCompile(`38;2;89;223;240m(?:\x1b\[[0-9;]*m)*┌`).MatchString(screen) ||
 		!strings.Contains(screen, "▌") || !strings.Contains(screen, "38;2;163;239;120") {
@@ -464,7 +464,7 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 		t.Fatalf("board kept its redundant selection arrow:\n%s", plain)
 	}
 	for _, line := range strings.Split(plain, "\n") {
-		if strings.Contains(line, "RUNNING · 2") && strings.Count(line, "│") < 4 {
+		if strings.Contains(line, "running · 2") && strings.Count(line, "│") < 4 {
 			t.Fatalf("board lost vertical column dividers: %s", line)
 		}
 	}
@@ -523,7 +523,7 @@ func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 	for _, board := range []bool{true, false} {
 		fixture.key("m")
 		if board {
-			fixture.waitText("RUNNING · 2")
+			fixture.waitText("running · 2")
 		} else {
 			fixture.waitText("SELECTED SESSION")
 		}
@@ -540,7 +540,7 @@ func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 		fixture.tmux("respawn-pane", "-t", "dashboard:0.0", fixture.launchCommand)
 		fixture.waitText("2 sessions")
 		if board {
-			fixture.waitText("RUNNING · 2")
+			fixture.waitText("running · 2")
 			fixture.capture("reopened-board")
 		} else {
 			fixture.waitText("SELECTED SESSION")

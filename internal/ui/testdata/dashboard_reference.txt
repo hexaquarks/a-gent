@@ -4,12 +4,12 @@
 │  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                         Age ↓  |  LIVE  │
 │  ▶ Active           1  │                                                                                             │
 │  ◷ Recent           5  │      Agent   Session                       Project          Status                 Age ↓    │
-│  ≡ All           •  6  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
-│                        │   •  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
-│  AGENTS                │ › •  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
-│  ✳ claude           1  │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
-│  ⌘ codex            5  │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
-│                        │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │
+│  ≡ All           •  6  │      claude  Investigate terminal notifi…  a-gent           ● running                 2m    │
+│                        │   •  codex   Investigate AGENTS.md overr…  codex-audit      ● needs input             3m    │
+│  AGENTS                │ › •  codex   Restore response navigation   swiftyprompt     ● idle                    4m    │
+│  ✳ claude           1  │      codex   Align selected agent cursor   a-gent           ● idle                    5m    │
+│  ⌘ codex            5  │      codex   Add Claude session discovery  mihailanghelici  ● idle                    8m    │
+│                        │      codex   Untitled session              swiftyprompt     ● idle                   13m    │
 │                        │                                                                                             │
 │                        │                                                                                             │
 │  PROJECTS (4)          │                                                                                             │
@@ -20,7 +20,7 @@
 │                        │  SELECTED SESSION                                        │  LAST EDIT               1m ago  │
 │                        │  Restore response navigation                             │  internal/navigation.go          │
 │                        │  Agent      codex                                        │  @@ openSession                  │
-│                        │  Status     ● Idle                                       │   if session != nil {            │
+│                        │  Status     ● idle                                       │   if session != nil {            │
 │                        │  Project    swiftyprompt                                 │  -    navigator.Open(cwd)        │
 │ ────────────────────── │  Directory  /projects/swiftyprompt                       │  +    navigator.Navigate(        │
 │ / find · p pin         │  Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e         │  +3 −1 … truncated     v expand  │

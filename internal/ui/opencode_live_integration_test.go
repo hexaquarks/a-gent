@@ -257,11 +257,11 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 			if !strings.Contains(selectedTitle(screen), "[subagent]") {
 				t.Fatalf("native child was not selectable:\n%s", screen)
 			}
-			fixture.waitText("Status     ● Running")
+			fixture.waitText("Status     ● running")
 			fixture.capture("child-running")
 			close(fixture.liveOpenCode.release)
 			fixture.waitText("CHILD_PUBLIC_OUTPUT")
-			fixture.waitText("Status     ● Idle")
+			fixture.waitText("Status     ● idle")
 			fixture.capture("child-idle")
 			fixture.key("k")
 			screen = fixture.waitText("PARENT_PUBLIC_OUTPUT")
@@ -271,7 +271,7 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 			fixture.capture("parent-preview")
 			fixture.key("m")
 			screen = fixture.waitFor("Board columns", 4*time.Second, func(screen string) bool {
-				return strings.Contains(screen, "RUNNING") && strings.Contains(screen, "NEEDS YOU")
+				return strings.Contains(screen, "running") && strings.Contains(screen, "needs you")
 			})
 			if strings.Contains(screen, "[subagent]") {
 				t.Fatalf("Board includes a subagent:\n%s", screen)
