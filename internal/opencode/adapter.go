@@ -168,23 +168,70 @@ func (adapter Adapter) instanceSessions(
 			known[session.TranscriptID] = true
 		}
 	}
+	available := make(map[string]sessionRecord, len(records))
+	for _, record := range records {
+		if record.ID != "" && record.Time.Archived == 0 && record.Directory == instance.directory {
+			available[record.ID] = record
+		}
+	}
+
+	owned := make(map[string]bool)
 	continued := false
 	for _, record := range records {
-		if record.ID == "" || record.ParentID != "" || record.Time.Archived > 0 || record.Directory != instance.directory {
+		if _, valid := available[record.ID]; !valid || record.ParentID != "" {
 			continue
 		}
-		status, active := statuses[record.ID]
+		_, active := statuses[record.ID]
 		explicit := record.ID == instance.sessionID
 		if instance.continuing && !continued && len(known) == 0 {
 			explicit = true
 			continued = true
 		}
-		// Session history is shared across processes, even in the same project.
-		// Runtime status or an explicit resume establishes ownership; retain those
-		// sessions after OpenCode removes their idle entries from the status map.
+		// Session history is shared across processes. Only runtime status, an
+		// explicit resume, or previous observation establishes root ownership.
 		if !active && !waiting[record.ID] && !explicit && !known[record.ID] {
 			continue
 		}
+		owned[record.ID] = true
+	}
+
+	for _, record := range records {
+		_, active := statuses[record.ID]
+		if record.ParentID == "" || (!active && !waiting[record.ID] && !known[record.ID]) {
+			continue
+		}
+		if _, valid := available[record.ID]; !valid {
+			continue
+		}
+		// A child must connect to an owned root. This also handles nested tasks
+		// arriving before their parents in the most-recent-first API response.
+		var ancestry []string
+		seen := make(map[string]bool)
+		for current := record; !seen[current.ID]; {
+			seen[current.ID] = true
+			ancestry = append(ancestry, current.ID)
+			if current.ParentID == "" {
+				if !owned[current.ID] {
+					break
+				}
+				for _, id := range ancestry {
+					owned[id] = true
+				}
+				break
+			}
+			parent, found := available[current.ParentID]
+			if !found {
+				break
+			}
+			current = parent
+		}
+	}
+
+	for _, record := range records {
+		if !owned[record.ID] {
+			continue
+		}
+		status, active := statuses[record.ID]
 		state := agent.StateIdle // OpenCode removes idle sessions from its status map.
 		if active {
 			switch status.Type {
@@ -199,10 +246,21 @@ func (adapter Adapter) instanceSessions(
 		if waiting[record.ID] {
 			state = agent.StateWaiting
 		}
+		parentID := ""
+		if record.ParentID != "" {
+			parentID = instance.identity() + ":" + record.ParentID
+		}
 		sessions = append(sessions, agent.Session{
-			ID: instance.identity() + ":" + record.ID, TranscriptID: record.ID, TranscriptPath: instance.endpoint,
-			Provider: "opencode", Name: record.Title, WorkingDirectory: record.Directory,
-			ProcessID: &instance.pid, State: state, LastActiveAt: time.UnixMilli(record.Time.Updated),
+			ID:               instance.identity() + ":" + record.ID,
+			ParentID:         parentID,
+			TranscriptID:     record.ID,
+			TranscriptPath:   instance.endpoint,
+			Provider:         "opencode",
+			Name:             record.Title,
+			WorkingDirectory: record.Directory,
+			ProcessID:        &instance.pid,
+			State:            state,
+			LastActiveAt:     time.UnixMilli(record.Time.Updated),
 		})
 	}
 	if len(sessions) == 0 {

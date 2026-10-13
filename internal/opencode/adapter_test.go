@@ -109,10 +109,12 @@ func TestSessionHistoryDoesNotAssignOtherInstancesToPane(t *testing.T) {
 	instances := []instance{{pid: 10, directory: "/project", endpoint: servers[0].URL}, {pid: 20, directory: "/project", endpoint: servers[1].URL}}
 	adapter.discover = func(context.Context) ([]instance, error) { return instances, nil }
 	sessions, err := adapter.Sessions(context.Background())
-	if err != nil || len(sessions) != 2 {
+	if err != nil || len(sessions) != 3 {
 		t.Fatalf("sessions: %+v, %v", sessions, err)
 	}
-	if sessions[0].TranscriptID != "ses_one" || *sessions[0].ProcessID != 10 || sessions[1].TranscriptID != "ses_two" || *sessions[1].ProcessID != 20 {
+	if sessions[0].TranscriptID != "ses_one" || *sessions[0].ProcessID != 10 ||
+		sessions[1].TranscriptID != "ses_child" || sessions[1].ParentID != sessions[0].ID ||
+		sessions[2].TranscriptID != "ses_two" || *sessions[2].ProcessID != 20 {
 		t.Fatalf("wrong ownership: %+v", sessions)
 	}
 	// Exited processes disappear; reused PIDs must not inherit their old session.
