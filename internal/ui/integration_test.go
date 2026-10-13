@@ -68,7 +68,7 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")
 	fixture.waitFor("returned to list", 4*time.Second, func(screen string) bool {
-		return strings.Contains(screen, "Last active") && !strings.Contains(screen, "RUNNING ·")
+		return strings.Contains(screen, "Age") && !strings.Contains(screen, "RUNNING ·")
 	})
 }
 
@@ -240,7 +240,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 func assertProjectColumn(t *testing.T, screen string, visible bool) {
 	t.Helper()
 	for _, line := range strings.Split(screen, "\n") {
-		if strings.Contains(line, "Agent") && strings.Contains(line, "Last active") {
+		if strings.Contains(line, "Agent") && strings.Contains(line, "Age") {
 			if strings.Contains(line, "Project") != visible {
 				t.Fatalf("project column visibility should be %t:\n%s", visible, screen)
 			}
@@ -378,7 +378,7 @@ func TestIntegrationReadyPulse(t *testing.T) {
 		screen := fixture.tmux("capture-pane", "-p", "-e", "-t", "dashboard:0.0")
 		for _, line := range strings.Split(screen, "\n") {
 			if strings.Contains(line, "codex fixture") && strings.Contains(line, "Idle") {
-				// Ignore the changing Last active timestamp; inspect only backgrounds.
+				// Ignore the changing Age timestamp; inspect only backgrounds.
 				colors := backgroundCodes.FindAllString(line, -1)
 				if len(colors) == 0 {
 					t.Fatalf("idle session has no background color: %q", line)

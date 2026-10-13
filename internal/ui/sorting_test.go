@@ -150,7 +150,7 @@ func TestSortKeyCyclesVisibleColumnsAndPreservesSelection(t *testing.T) {
 			if command != nil || navigator.session.ID != "" {
 				t.Fatal("cycling sort navigated or closed the dashboard")
 			}
-			if model.sort.column != column.Title || model.sort.descending != (column.Title == "Last active") {
+			if model.sort.column != column.Title || model.sort.descending != (column.Title == "Age") {
 				t.Fatalf("width %d: sort = %+v, want %s with its default direction", width, model.sort, column.Title)
 			}
 			if selected, ok := model.selectedSession(); !ok || selected.ID != "a" || !model.sidebarFocus {
@@ -160,7 +160,7 @@ func TestSortKeyCyclesVisibleColumnsAndPreservesSelection(t *testing.T) {
 				t.Fatalf("width %d: cycling sort changed height from %d to %d", width, initialHeight, got)
 			}
 		}
-		if model.sort.column != "Last active" || !model.sort.descending {
+		if model.sort.column != "Age" || !model.sort.descending {
 			t.Fatal("full cycle did not return to the default sort")
 		}
 		assertSessionOrder(t, model, "b", "a")
@@ -168,7 +168,7 @@ func TestSortKeyCyclesVisibleColumnsAndPreservesSelection(t *testing.T) {
 }
 
 func TestCapitalSReversesCurrentSortAndPreservesSelection(t *testing.T) {
-	for _, column := range []string{"Last active", "Session", "Agent", "Status", "Project", "Directory"} {
+	for _, column := range []string{"Age", "Session", "Agent", "Status", "Project", "Directory"} {
 		t.Run(column, func(t *testing.T) {
 			model := NewModel(nil)
 			model.sessions = []agent.Session{
@@ -207,7 +207,7 @@ func TestSortIndicatorsFitResponsiveLayouts(t *testing.T) {
 		updated, _ := model.Update(tea.WindowSizeMsg{Width: width, Height: PopupContentHeight})
 		model = updated.(Model)
 		view := model.View()
-		if !strings.Contains(view, "Last active ↓") || !strings.Contains(view, "LIVE") {
+		if !strings.Contains(view, "Age ↓") || !strings.Contains(view, "LIVE") {
 			t.Fatalf("width %d: missing sort indicators or shortcut:\n%s", width, view)
 		}
 		if footer := ansi.Strip(model.footerText()); !strings.Contains(footer, "?") || strings.Contains(footer, "sort") {
@@ -228,7 +228,7 @@ func TestResizeResetsSortWhenColumnIsHidden(t *testing.T) {
 	model.sort = sessionSort{column: "Project"}
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 64, Height: PopupContentHeight})
 	model = updated.(Model)
-	if model.sort.column != "Last active" || !model.sort.descending {
+	if model.sort.column != "Age" || !model.sort.descending {
 		t.Fatal("resize left the active sort on a hidden column")
 	}
 }

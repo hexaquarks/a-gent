@@ -1,9 +1,9 @@
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                 Last active ↓  |  LIVE  │
+│  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                         Age ↓  |  LIVE  │
 │  ▶ Active           1  │                                                                                             │
-│  ◷ Recent           5  │      Agent   Session                       Project          Status         Last active ↓    │
+│  ◷ Recent           5  │      Agent   Session                       Project          Status                 Age ↓    │
 │  ≡ All           ●  6  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
 │                        │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
 │  AGENTS                │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │

@@ -24,7 +24,7 @@ func (model Model) sessionTableView() string {
 			title = runewidth.Truncate(title, max(0, column.Width-4), "…") + " " + model.sort.arrow()
 		}
 		style := sectionStyle
-		if column.Title == "Last active" {
+		if column.Title == "Age" {
 			style = style.Align(lipgloss.Right)
 		}
 		headerCells[index] = renderTableCell(title, column.Width, style, lipgloss.Color(colorTableHeader))
@@ -115,7 +115,7 @@ func (model Model) sessionRowView(session agent.Session, selected bool, columns 
 			)
 			continue
 		}
-		if column.Title == "Last active" {
+		if column.Title == "Age" {
 			style = style.Align(lipgloss.Right)
 		}
 		cells[columnIndex] = renderTableCell(value, column.Width, style, background)
@@ -205,7 +205,7 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
 		return "● " + displayState(sessionState(session)), statusStyle(sessionState(session))
-	case "Last active":
+	case "Age":
 		// Use the provider timestamp when available; an active session without
 		// a timestamp still has a meaningful fallback.
 		if sessionState(session) == agent.StateRunning && session.LastActiveAt.IsZero() {

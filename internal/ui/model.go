@@ -102,7 +102,7 @@ func NewModel(updates <-chan polling.Update, options ...ModelOption) Model {
 		updates:        updates,
 		providerErrors: make(map[string]error),
 		selectedView:   allView,
-		sort:           sessionSort{column: "Last active", descending: true},
+		sort:           sessionSort{column: "Age", descending: true},
 	}
 	for _, option := range options {
 		option(&model)

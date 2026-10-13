@@ -31,7 +31,7 @@ func (sort sessionSort) arrow() string {
 func (model Model) sortSessions(sessions []agent.Session) {
 	slices.SortStableFunc(sessions, func(left, right agent.Session) int {
 		comparison := 0
-		if model.sort.column == "Last active" {
+		if model.sort.column == "Age" {
 			// Unknown activity stays last in both directions.
 			if left.LastActiveAt.IsZero() != right.LastActiveAt.IsZero() {
 				if left.LastActiveAt.IsZero() {
@@ -100,7 +100,7 @@ func (model *Model) cycleSortColumn() {
 		}
 	}
 	column := columns[nextIndex].Title
-	model.sort = sessionSort{column: column, descending: column == "Last active"}
+	model.sort = sessionSort{column: column, descending: column == "Age"}
 	model.updateTableRows()
 }
 

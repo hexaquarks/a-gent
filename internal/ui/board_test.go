@@ -71,7 +71,7 @@ func TestBoardLayoutAndScrolling(t *testing.T) {
 			model := referenceDashboard()
 			model.boardVisible = true
 			model.sessions = nil
-			model.sort = sessionSort{column: "Last active", descending: true}
+			model.sort = sessionSort{column: "Age", descending: true}
 			for index := 0; index < 20; index++ {
 				model.sessions = append(model.sessions, agent.Session{
 					ID:       fmt.Sprintf("%02d", index),
