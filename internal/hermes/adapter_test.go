@@ -166,11 +166,52 @@ func TestStaleObserverKeepsSessionIdentityAndLastActivity(t *testing.T) {
 	adapter, record, _ := fixtureAdapter(t)
 	sessions, _ := adapter.Sessions(context.Background())
 	id := sessions[0].ID
+
 	record.UpdatedAt -= 6000
 	writeRuntime(t, adapter, record)
 	sessions, err := adapter.Sessions(context.Background())
 	if err != nil || len(sessions) != 1 || sessions[0].ID != id ||
 		sessions[0].State != agent.StateUnavailable || sessions[0].LastActiveAt.UnixMilli() != record.LastActiveAt {
 		t.Fatalf("stale observer lost session identity: %+v, %v", sessions, err)
+	}
+}
+
+func TestSubagentsRequireLiveRootAndValidParentTree(t *testing.T) {
+	adapter, record, instances := fixtureAdapter(t)
+
+	child := runtimeRecord{SessionID: "child", ParentID: record.SessionID, Name: "Review", Directory: record.Directory, State: agent.StateRunning}
+	nested := child
+	nested.SessionID, nested.ParentID = "nested", "child"
+	orphan := child
+	orphan.SessionID, orphan.ParentID = "orphan", "unknown"
+	cycle := child
+	cycle.SessionID, cycle.ParentID = "cycle", "cycle"
+	invalid := child
+	invalid.SessionID, invalid.State = "invalid", "unknown"
+	record.Children = []runtimeRecord{child, nested, child, orphan, cycle, invalid}
+
+	writeRuntime(t, adapter, record)
+	sessions, err := adapter.Sessions(t.Context())
+	if err != nil || len(sessions) != 3 {
+		t.Fatalf("sessions: %+v, %v", sessions, err)
+	}
+
+	for _, session := range sessions[1:] {
+		if session.ParentID == "" || session.ProcessID == nil || *session.ProcessID != 42 {
+			t.Fatalf("child metadata: %+v", session)
+		}
+	}
+
+	record.UpdatedAt -= 6000
+	writeRuntime(t, adapter, record)
+	sessions, _ = adapter.Sessions(t.Context())
+	if len(sessions) != 1 {
+		t.Fatal("stale heartbeat exposed children")
+	}
+
+	*instances = nil
+	sessions, _ = adapter.Sessions(t.Context())
+	if len(sessions) != 0 {
+		t.Fatal("dead process exposed children")
 	}
 }

@@ -49,11 +49,29 @@ func (adapter Adapter) LatestPreview(ctx context.Context, session agent.Session)
 		if err != nil {
 			return agent.Preview{}, err
 		}
-		if session.ID != instance.identity()+":"+record.SessionID || session.TranscriptID != record.SessionID ||
-			session.WorkingDirectory != record.Directory {
+		selected := record
+		if session.ParentID != "" {
+			selected = runtimeRecord{}
+			for _, child := range record.Children {
+				if child.SessionID == session.TranscriptID &&
+					session.ParentID == instance.identity()+":"+child.ParentID {
+					selected = child
+					break
+				}
+			}
+		}
+		if session.ID != instance.identity()+":"+selected.SessionID ||
+			session.TranscriptID != selected.SessionID || session.WorkingDirectory != selected.Directory {
 			return agent.Preview{}, fmt.Errorf("Hermes session changed")
 		}
-		file, err := os.Open(filepath.Join(adapter.directory, "previews", strconv.Itoa(instance.pid)+".json"))
+		filename := strconv.Itoa(instance.pid)
+		if session.ParentID != "" {
+			if !safeSessionID(session.TranscriptID) {
+				return agent.Preview{}, fmt.Errorf("invalid Hermes child session ID")
+			}
+			filename += "-" + session.TranscriptID
+		}
+		file, err := os.Open(filepath.Join(adapter.directory, "previews", filename+".json"))
 		if err != nil {
 			return agent.Preview{}, err
 		}
@@ -62,7 +80,7 @@ func (adapter Adapter) LatestPreview(ctx context.Context, session agent.Session)
 		if err := json.NewDecoder(io.LimitReader(file, 512*1024)).Decode(&value); err != nil {
 			return agent.Preview{}, fmt.Errorf("decode Hermes public preview: %w", err)
 		}
-		if value.SessionID != record.SessionID || value.Directory != record.Directory {
+		if value.SessionID != selected.SessionID || value.Directory != selected.Directory {
 			return agent.Preview{}, fmt.Errorf("Hermes preview does not match the selected session")
 		}
 		var preview agent.Preview
