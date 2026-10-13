@@ -268,10 +268,14 @@ func (model *Model) updateTableRows() {
 	}
 }
 
-// sessionDisplayName supplies a label when a provider has not named a session.
+// sessionDisplayName identifies subagents and supplies a fallback for unnamed sessions.
 func sessionDisplayName(session agent.Session) string {
-	if strings.TrimSpace(safeDisplayText(session.Name)) == "" {
-		return "Untitled session"
+	name := session.Name
+	if strings.TrimSpace(safeDisplayText(name)) == "" {
+		name = "Untitled session"
 	}
-	return session.Name
+	if session.ParentID != "" {
+		return "[subagent] " + name
+	}
+	return name
 }

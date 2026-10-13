@@ -28,7 +28,7 @@ func TestSubagentRowsStayWithParentsAndRemainSelectable(t *testing.T) {
 			t.Fatalf("row %d = %s, want %s", index, ordered[index].ID, id)
 		}
 	}
-	if name := model.listSessionName(ordered[3]); name != "    ↳ A nested" {
+	if name := model.listSessionName(ordered[3]); name != "    ↳ [subagent] A nested" {
 		t.Fatalf("nested name = %q", name)
 	}
 	model.table.SetCursor(2)
@@ -37,7 +37,7 @@ func TestSubagentRowsStayWithParentsAndRemainSelectable(t *testing.T) {
 		t.Fatalf("selected = %+v", selected)
 	}
 	row := ansi.Strip(model.sessionRowView(selected, true, model.table.Columns()))
-	if !strings.Contains(row, "↳ B child") {
+	if !strings.Contains(row, "↳ [subagent] B child") {
 		t.Fatalf("child marker absent: %s", row)
 	}
 	// Polling must preserve child selection even when the parent sort changes.
@@ -71,7 +71,7 @@ func TestSubagentGroupingHandlesFiltersProvidersAndCycles(t *testing.T) {
 	model.sessions = sessions
 	model.selectedView = activeView
 	filtered := model.filteredSessions()
-	if len(filtered) != 1 || filtered[0].ID != "child" || model.listSessionName(filtered[0]) != "  ↳ Child" {
+	if len(filtered) != 1 || filtered[0].ID != "child" || model.listSessionName(filtered[0]) != "  ↳ [subagent] Child" {
 		t.Fatalf("filtered child = %+v", filtered)
 	}
 	cyclic := []agent.Session{{Provider: "codex", ID: "a", ParentID: "b"}, {Provider: "codex", ID: "b", ParentID: "a"}}
