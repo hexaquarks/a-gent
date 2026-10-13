@@ -58,11 +58,13 @@ def register(ctx):
     stream_key = None
     stream_text = ""
     completed_turns = []
+    children = {}
 
     if inherited is not None:
-        old_record, old_preview, lease_session = inherited
+        old_record, old_preview, lease_session, old_children = inherited
         record.update(old_record)
         preview.update(old_preview)
+        children.update(old_children)
 
     def write(target, value):
         target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -77,8 +79,16 @@ def register(ctx):
     def publish():
         if record["sessionID"]:
             record["updatedAt"] = round(time.time() * 1000)
+            record["children"] = [child["record"] for child in children.values()]
+            for session, child in children.items():
+                write(directory / "previews" / f"{pid}-{session}.json", child["preview"])
             write(preview_path, preview)
             write(path, record)
+
+    def clear_children():
+        for old_session in children:
+            (directory / "previews" / f"{pid}-{old_session}.json").unlink(missing_ok=True)
+        children.clear()
 
     def select(session):
         nonlocal stream_key, stream_text
@@ -88,6 +98,7 @@ def register(ctx):
             preview.update(sessionID=session, activity=None, edit=None)
             stream_key, stream_text = None, ""
             completed_turns.clear()
+            clear_children()
 
     def refresh_lease():
         nonlocal lease_session
@@ -118,6 +129,90 @@ def register(ctx):
 
             stop.wait(1)
 
+    # Root and delegated sessions use the same native public-event decoder.
+    def update(target, event_type, data):
+        now = round(time.time() * 1000)
+        target["record"]["lastActiveAt"] = now
+
+        if event_type in ("start", "running"):
+            target["record"]["state"] = "running"
+
+        elif event_type == "waiting":
+            target["record"]["state"] = "waiting"
+
+        elif event_type == "end":
+            target["record"]["state"] = "idle"
+
+            turn = data.get("turn_id")
+            if turn:
+                target["completed_turns"].append(turn)
+                del target["completed_turns"][:-8]
+
+        elif event_type == "delta":
+            turn = data.get("turn_id")
+            if data.get("kind") != "text" or not turn or turn in target["completed_turns"]:
+                return
+
+            delta = data.get("delta")
+            if not isinstance(delta, str) or not delta:
+                return
+
+            key = (turn, data.get("iteration"))
+            if key != target["stream_key"]:
+                target["stream_key"], target["stream_text"] = key, ""
+
+            target["stream_text"] = (target["stream_text"] + delta)[-8192:]
+            target["preview"]["activity"] = {"label": "Assistant", "text": target["stream_text"], "at": now}
+
+        elif event_type == "interim":
+            text = data.get("text")
+            if isinstance(text, str) and text.strip():
+                target["preview"]["activity"] = {"label": "Assistant", "text": text[-8192:], "at": now}
+
+        elif event_type == "assistant":
+            turn = data.get("turn_id")
+            if turn:
+                target["completed_turns"].append(turn)
+                del target["completed_turns"][:-8]
+
+            text = data.get("assistant_response")
+            if isinstance(text, str) and text.strip():
+                target["preview"]["activity"] = {"label": "Assistant", "text": text[-8192:], "at": now}
+
+        elif event_type == "tool":
+            result = data.get("result")
+            if isinstance(result, str):
+                try:
+                    result = json.loads(result)
+                except ValueError:
+                    result = {"output": result}
+
+            if isinstance(result, dict):
+                tool = data.get("tool_name", "Tool")
+                text = result.get("output") or result.get("message") or result.get("diff")
+                if isinstance(text, str) and text.strip():
+                    target["preview"]["activity"] = {"label": tool, "text": text[-8192:], "at": now}
+
+                # Only a successful native patch result proves an edit.
+                diff = result.get("diff")
+                files = result.get("files_modified")
+                if (
+                    tool == "patch"
+                    and data.get("status") == "ok"
+                    and result.get("success") is True
+                    and isinstance(diff, str)
+                    and diff
+                    and isinstance(files, list)
+                    and len(files) == 1
+                    and isinstance(files[0], str)
+                ):
+                    target["preview"]["edit"] = {
+                        "filename": files[0],
+                        "diff": diff[:32768],
+                        "at": now,
+                        "truncated": len(diff) > 32768,
+                    }
+
     def event(event_type, **data):
         nonlocal stream_key, stream_text
 
@@ -128,8 +223,66 @@ def register(ctx):
             with lock:
                 session = data.get("session_id") or data.get("session_key")
 
+                if event_type == "child_start":
+                    parent = data.get("parent_session_id")
+                    session = data.get("child_session_id")
+                    if (
+                        not record["sessionID"]
+                        or not isinstance(session, str)
+                        or not session
+                        or session in (".", "..", record["sessionID"], parent)
+                        or "/" in session
+                        or "\\" in session
+                        or parent not in (record["sessionID"], *children)
+                    ):
+                        return
+
+                    if session not in children:
+                        children[session] = {
+                            "record": {
+                                "sessionID": session, "parentID": parent,
+                                "name": data.get("child_goal", "Hermes subagent")[:200],
+                                "directory": record["directory"], "state": "running",
+                                "lastActiveAt": round(time.time() * 1000),
+                            },
+                            "preview": {
+                                "sessionID": session, "directory": record["directory"],
+                                "activity": None, "edit": None,
+                            },
+                            "stream_key": None, "stream_text": "", "completed_turns": [],
+                        }
+                    publish()
+                    return
+
+                if event_type == "child_stop":
+                    session = data.get("child_session_id")
+                    if session not in children:
+                        return
+
+                    target = children[session]
+                    target["record"]["state"] = (
+                        "idle" if data.get("child_status") == "completed" else "error"
+                    )
+                    target["record"]["lastActiveAt"] = round(time.time() * 1000)
+                    summary = data.get("child_summary")
+                    if isinstance(summary, str) and summary.strip():
+                        target["preview"]["activity"] = {
+                            "label": "Assistant", "text": summary[-8192:],
+                            "at": target["record"]["lastActiveAt"],
+                        }
+                    publish()
+                    return
+
+                # In-process children share the plugin, so events without a
+                # native session identity cannot be assigned to the root.
+                if not session:
+                    return
+
                 if event_type == "reset":
+                    if session in children or data.get("platform") == "subagent":
+                        return
                     select(session)
+                    clear_children()
                     preview.update(activity=None, edit=None)
 
                 elif event_type == "command":
@@ -144,93 +297,24 @@ def register(ctx):
 
                     select(session)
 
-                elif session and session != record["sessionID"]:
+                elif session and session != record["sessionID"] and session not in children:
                     return  # Another agent's tools and output cannot enter this preview.
 
                 if not record["sessionID"]:
                     return
 
-                now = round(time.time() * 1000)
-                record["lastActiveAt"] = now
+                if session in children:
+                    target = children[session]
+                else:
+                    target = {
+                        "record": record, "preview": preview,
+                        "stream_key": stream_key, "stream_text": stream_text,
+                        "completed_turns": completed_turns,
+                    }
 
-                if event_type in ("start", "running"):
-                    record["state"] = "running"
-
-                elif event_type == "waiting":
-                    record["state"] = "waiting"
-
-                elif event_type == "end":
-                    record["state"] = "idle"
-
-                    turn = data.get("turn_id")
-                    if turn:
-                        completed_turns.append(turn)
-                        del completed_turns[:-8]
-
-                elif event_type == "delta":
-                    turn = data.get("turn_id")
-                    if data.get("kind") != "text" or not turn or turn in completed_turns:
-                        return
-
-                    delta = data.get("delta")
-                    if not isinstance(delta, str) or not delta:
-                        return
-
-                    key = (turn, data.get("iteration"))
-                    if key != stream_key:
-                        stream_key, stream_text = key, ""
-
-                    stream_text = (stream_text + delta)[-8192:]
-                    preview["activity"] = {"label": "Assistant", "text": stream_text, "at": now}
-
-                elif event_type == "interim":
-                    text = data.get("text")
-                    if isinstance(text, str) and text.strip():
-                        preview["activity"] = {"label": "Assistant", "text": text[-8192:], "at": now}
-
-                elif event_type == "assistant":
-                    turn = data.get("turn_id")
-                    if turn:
-                        completed_turns.append(turn)
-                        del completed_turns[:-8]
-
-                    text = data.get("assistant_response")
-                    if isinstance(text, str) and text.strip():
-                        preview["activity"] = {"label": "Assistant", "text": text[-8192:], "at": now}
-
-                elif event_type == "tool":
-                    result = data.get("result")
-                    if isinstance(result, str):
-                        try:
-                            result = json.loads(result)
-                        except ValueError:
-                            result = {"output": result}
-
-                    if isinstance(result, dict):
-                        tool = data.get("tool_name", "Tool")
-                        text = result.get("output") or result.get("message") or result.get("diff")
-                        if isinstance(text, str) and text.strip():
-                            preview["activity"] = {"label": tool, "text": text[-8192:], "at": now}
-
-                        # Only a successful native patch result proves an edit.
-                        diff = result.get("diff")
-                        files = result.get("files_modified")
-                        if (
-                            tool == "patch"
-                            and data.get("status") == "ok"
-                            and result.get("success") is True
-                            and isinstance(diff, str)
-                            and diff
-                            and isinstance(files, list)
-                            and len(files) == 1
-                            and isinstance(files[0], str)
-                        ):
-                            preview["edit"] = {
-                                "filename": files[0],
-                                "diff": diff[:32768],
-                                "at": now,
-                                "truncated": len(diff) > 32768,
-                            }
+                update(target, event_type, data)
+                if target["record"] is record:
+                    stream_key, stream_text = target["stream_key"], target["stream_text"]
 
                 publish()
         except Exception:
@@ -239,12 +323,19 @@ def register(ctx):
     thread = threading.Thread(target=heartbeat, name="a-gent-hermes", daemon=True)
 
     def close():
-        stop.set()
+        with lock:
+            if stop.is_set():
+                return
+            stop.set()
         if thread.is_alive() and threading.current_thread() is not thread:
             thread.join(timeout=2)
 
         with lock:
-            for target in (path, preview_path):
+            child_paths = [
+                directory / "previews" / f"{pid}-{session}.json"
+                for session in children
+            ]
+            for target in (path, preview_path, *child_paths):
                 try:
                     target.unlink(missing_ok=True)
                 except OSError:
@@ -252,7 +343,7 @@ def register(ctx):
 
     def snapshot():
         with lock:
-            return dict(record), copy.deepcopy(preview), lease_session
+            return dict(record), copy.deepcopy(preview), lease_session, copy.deepcopy(children)
 
     close.snapshot = snapshot
     builtins._a_gent_hermes_observer = close
@@ -261,6 +352,8 @@ def register(ctx):
     atexit.register(close)
 
     for hook, kind in (
+        ("subagent_start", "child_start"),
+        ("subagent_stop", "child_stop"),
         ("on_session_start", "start"),
         ("on_session_reset", "reset"),
         ("pre_command", "command"),

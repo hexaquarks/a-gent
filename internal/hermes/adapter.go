@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"a-gent/internal/agent"
@@ -52,6 +53,9 @@ type runtimeRecord struct {
 
 	Name  string      `json:"name"`
 	State agent.State `json:"state"`
+
+	ParentID string          `json:"parentID"`
+	Children []runtimeRecord `json:"children"`
 }
 
 func (adapter Adapter) runtime(instance instance) (runtimeRecord, error) {
@@ -120,6 +124,55 @@ func (adapter Adapter) Sessions(ctx context.Context) ([]agent.Session, error) {
 			}
 		}
 		sessions = append(sessions, entry)
+		if err != nil {
+			continue
+		}
+
+		// Children share the validated live process, but have distinct session
+		// identities and previews. Only trees rooted in this session are live.
+		children := make(map[string]runtimeRecord)
+		for _, child := range record.Children {
+			validState := child.State == agent.StateRunning || child.State == agent.StateIdle ||
+				child.State == agent.StateWaiting || child.State == agent.StateError
+			if !safeSessionID(child.SessionID) || child.ParentID == "" || child.SessionID == record.SessionID ||
+				child.Directory != record.Directory || !validState {
+				continue
+			}
+			children[child.SessionID] = child
+		}
+		for _, child := range children {
+			parent := child.ParentID
+			visited := map[string]bool{child.SessionID: true}
+			for parent != record.SessionID && !visited[parent] {
+				visited[parent] = true
+				ancestor, exists := children[parent]
+				if !exists {
+					break
+				}
+				parent = ancestor.ParentID
+			}
+			if parent != record.SessionID {
+				continue
+			}
+			var lastActiveAt time.Time
+			if child.LastActiveAt > 0 {
+				lastActiveAt = time.UnixMilli(child.LastActiveAt)
+			}
+
+			sessions = append(sessions, agent.Session{
+				ID:       instance.identity() + ":" + child.SessionID,
+				ParentID: instance.identity() + ":" + child.ParentID,
+				Provider: "hermes", Name: child.Name, ProcessID: &instance.pid,
+				TranscriptID: child.SessionID, WorkingDirectory: child.Directory,
+				State: child.State, LastActiveAt: lastActiveAt,
+			})
+		}
 	}
 	return sessions, nil
+}
+
+// safeSessionID keeps native child IDs inside a single preview filename.
+func safeSessionID(sessionID string) bool {
+	return sessionID != "" && sessionID != "." && sessionID != ".." &&
+		!strings.ContainsAny(sessionID, "/\\")
 }

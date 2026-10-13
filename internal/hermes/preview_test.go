@@ -88,3 +88,51 @@ func TestPreviewShortensNativePatchHeadersInsideProject(t *testing.T) {
 		t.Fatalf("native patch preview: %+v, %v", preview.Edit, err)
 	}
 }
+
+func TestSubagentPreviewReadsOnlySelectedSnapshot(t *testing.T) {
+	adapter, record, _ := fixtureAdapter(t)
+	record.Children = []runtimeRecord{{
+		SessionID: "child", ParentID: record.SessionID,
+		Directory: record.Directory, State: agent.StateRunning,
+	}}
+	writeRuntime(t, adapter, record)
+	sessions, _ := adapter.Sessions(t.Context())
+	child := sessions[1]
+	writePublicPreview(t, adapter, map[string]any{
+		"sessionID": record.SessionID, "directory": record.Directory,
+		"activity": map[string]any{"label": "Assistant", "text": "ROOT ONLY"},
+	})
+	value := map[string]any{
+		"sessionID": child.TranscriptID, "directory": record.Directory,
+		"activity": map[string]any{"label": "Assistant", "text": "CHILD ONLY"},
+	}
+	data, _ := json.Marshal(value)
+	path := filepath.Join(adapter.directory, "previews", "42-"+child.TranscriptID+".json")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := adapter.LatestPreview(t.Context(), child)
+	if err != nil || preview.Activity.Text != "CHILD ONLY" {
+		t.Fatalf("child preview: %+v %v", preview, err)
+	}
+
+	// Corrupting another session's preview must not prevent this selected read.
+	if err := os.WriteFile(filepath.Join(adapter.directory, "previews", "42.json"), []byte("broken"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := adapter.LatestPreview(t.Context(), child); err != nil {
+		t.Fatal(err)
+	}
+
+	child.ParentID = "foreign"
+	if _, err := adapter.LatestPreview(t.Context(), child); err == nil {
+		t.Fatal("accepted wrong parent")
+	}
+
+	record.Children = nil
+	writeRuntime(t, adapter, record)
+	child = sessions[1]
+	if _, err := adapter.LatestPreview(t.Context(), child); err == nil {
+		t.Fatal("read removed child")
+	}
+}

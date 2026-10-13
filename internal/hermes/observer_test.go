@@ -96,16 +96,49 @@ ctx.emit(
 ctx.emit('on_stream_delta', session_id='one', turn_id='turn', iteration=1, kind='text', delta='LATE')
 ctx.emit('post_llm_call', session_id='child', assistant_response='OTHER')
 ctx.emit('on_session_end', session_id='one')
+ctx.emit('pre_llm_call', platform='subagent')
+ctx.emit('post_llm_call', platform='subagent', assistant_response='UNATTRIBUTED')
+ctx.emit('post_tool_call', tool_name='terminal', result={'output':'UNATTRIBUTED TOOL'})
+ctx.emit('on_stream_delta', turn_id='foreign-turn', iteration=1, kind='text', delta='UNATTRIBUTED STREAM')
 assert json.loads(status.read_text())['state'] == 'idle'
 p = json.loads(preview.read_text())
 assert p['activity']['text'] == 'PUBLIC' and p['edit']['filename'] == 'file'
 assert 'PRIVATE' not in preview.read_text() and 'OTHER' not in preview.read_text()
 
+ctx.emit('subagent_start', parent_session_id='one', child_session_id='child', child_goal='Review')
+ctx.emit('subagent_start', parent_session_id='one', child_session_id='child', child_goal='Duplicate')
+ctx.emit('subagent_start', parent_session_id='foreign', child_session_id='foreign-child', child_goal='Foreign')
+ctx.emit('subagent_start', parent_session_id='one', child_session_id='../escape', child_goal='Unsafe')
+ctx.emit('subagent_start', parent_session_id='one', child_session_id='one', child_goal='Self')
+ctx.emit('subagent_start', parent_session_id='child', child_session_id='nested', child_goal='Nested')
+ctx.emit('on_stream_delta', session_id='child', turn_id='child-turn', iteration=1, kind='text', delta='CHILD')
+ctx.emit('post_llm_call', session_id='child', turn_id='child-turn', assistant_response='CHILD PUBLIC')
+ctx.emit('on_stream_delta', session_id='child', turn_id='child-turn', iteration=1, kind='text', delta='LATE CHILD')
+child_path = cache / 'previews' / (str(os.getpid()) + '-child.json')
+assert json.loads(child_path.read_text())['activity']['text'] == 'CHILD PUBLIC'
+assert json.loads(preview.read_text())['activity']['text'] == 'PUBLIC'
+assert len(json.loads(status.read_text())['children']) == 2
+ctx.emit('subagent_stop', child_session_id='child', child_status='completed', child_summary='CHILD DONE')
+assert json.loads(status.read_text())['children'][0]['state'] == 'idle'
+assert json.loads(child_path.read_text())['activity']['text'] == 'CHILD DONE'
+ctx.emit('subagent_stop', child_session_id='nested', child_status='interrupted')
+assert json.loads(status.read_text())['children'][1]['state'] == 'error'
+old_ctx = ctx
+reload_ctx = Context()
+module.register(reload_ctx)
+ctx = reload_ctx
+ctx.emit('post_llm_call', session_id='child', assistant_response='AFTER RELOAD')
+assert json.loads(status.read_text())['children'][0]['sessionID'] == 'child'
+old_ctx.close()
+assert json.loads(status.read_text())['children'][0]['sessionID'] == 'child'
+assert json.loads(child_path.read_text())['activity']['text'] == 'AFTER RELOAD'
 ctx.emit('pre_command', session_key='one', command='undo')
 assert json.loads(preview.read_text())['activity'] is None
 
 ctx.emit('on_session_reset', session_id='two')
 assert json.loads(preview.read_text())['sessionID'] == 'two'
+assert json.loads(status.read_text())['children'] == []
+assert not child_path.exists()
 ctx.emit('pre_llm_call', session_id='two')
 
 new = Context()

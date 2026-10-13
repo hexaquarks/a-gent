@@ -71,6 +71,7 @@ func (fixture *dashboardFixture) setupLiveHermes() {
 	t.Setenv("HERMES_DISABLE_UPDATE_CHECK", "1")
 	t.Setenv("PATH", filepath.Dir(executable)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	fixture.liveHermes = &liveHermesFixture{release: make(chan struct{}, 1)}
+	subagents := os.Getenv("A_GENT_TEST_HERMES_SUBAGENTS") == "1"
 	var sequence atomic.Int32
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/models") {
@@ -90,12 +91,36 @@ func (fixture *dashboardFixture) setupLiveHermes() {
 			message["tool_calls"] = []any{map[string]any{"id": "fixture-edit", "type": "function",
 				"function": map[string]string{"name": "patch", "arguments": `{"path":"fixture.txt","old_string":"old value","new_string":"verified Hermes change"}`}}}
 		}
+		if subagents && index == 1 {
+			message["tool_calls"] = []any{map[string]any{
+				"id": "fixture-delegate", "type": "function",
+				"function": map[string]string{
+					"name":      "delegate_task",
+					"arguments": `{"tasks":[{"goal":"Hermes child fixture","toolsets":["file"]}]}`,
+				},
+			}}
+		}
 		var request struct {
-			Stream bool `json:"stream"`
+			Stream   bool `json:"stream"`
+			Messages []struct {
+				Role    string `json:"role"`
+				Content any    `json:"content"`
+			} `json:"messages"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Errorf("decode fixture request: %v", err)
 			return
+		}
+		childRequest := false
+		if subagents {
+			for _, entry := range request.Messages {
+				if entry.Role == "user" && entry.Content == "Hermes child fixture" {
+					childRequest = true
+				}
+			}
+			if childRequest {
+				message["content"] = "HERMES CHILD PUBLIC OUTPUT"
+			}
 		}
 		if request.Stream {
 			w.Header().Set("Content-Type", "text/event-stream")
@@ -111,7 +136,7 @@ func (fixture *dashboardFixture) setupLiveHermes() {
 					"model": "fixture-model", "choices": []any{map[string]any{"index": 0, "delta": delta, "finish_reason": reason}}}
 				data, _ := json.Marshal(chunk)
 				fmt.Fprintf(w, "data: %s\n\n", data)
-				if i == 0 && index != 1 {
+				if i == 0 && index != 1 && (!subagents || childRequest) {
 					w.(http.Flusher).Flush()
 					select {
 					case <-fixture.liveHermes.release:
@@ -122,6 +147,13 @@ func (fixture *dashboardFixture) setupLiveHermes() {
 			}
 			fmt.Fprint(w, "data: [DONE]\n\n")
 		} else {
+			if subagents && childRequest {
+				select {
+				case <-fixture.liveHermes.release:
+				case <-r.Context().Done():
+					return
+				}
+			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": "fixture", "object": "chat.completion", "created": 1,
 				"model": "fixture-model", "choices": []any{map[string]any{"index": 0, "message": message, "finish_reason": finish}},
@@ -173,7 +205,7 @@ terminal:
 	// Use an ordinary interactive shell launch: the normal plugin directory is
 	// the only mechanism that loads the observer. No launcher-only status flags.
 	fixture.tmux("-f", "/dev/null", "new-session", "-d", "-s", "hermes", "-x", "120", "-y", "32",
-		"-c", fixture.root, "exec "+shellQuote(executable)+" chat --cli --ignore-rules --toolsets file")
+		"-c", fixture.root, "exec "+shellQuote(executable)+" chat --cli --ignore-rules --toolsets file,delegation")
 	pid, err := strconv.Atoi(strings.TrimSpace(fixture.tmux("display-message", "-p", "-t", "hermes:0", "#{pane_pid}")))
 	if err != nil {
 		t.Fatal(err)
@@ -262,4 +294,39 @@ func (fixture *dashboardFixture) sendHermesInput(text string) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	fixture.t.Fatal("Hermes did not render the fixture input")
+}
+
+func TestIntegrationPlainHermesSubagents(t *testing.T) {
+	if os.Getenv("A_GENT_LIVE_HERMES_TESTS") != "1" {
+		t.Skip("set A_GENT_LIVE_HERMES_TESTS=1 to test real Hermes")
+	}
+	t.Setenv("A_GENT_TEST_HERMES_SUBAGENTS", "1")
+	fixture := newDashboardFixtureWithProvider(t, "hermes-live")
+	fixture.key("g")
+	fixture.waitText("│  Hermes ")
+	fixture.sendHermesInput("Delegate the child fixture task.")
+	fixture.waitText("[subagent] Hermes child")
+	fixture.key("j")
+	fixture.waitText("Status     ● Running")
+	fixture.capture("hermes-child-running")
+	fixture.key("k")
+	fixture.waitText("Status     ● Idle")
+	fixture.waitFor("parent preview excludes child output", 4*time.Second, func(screen string) bool {
+		return !strings.Contains(screen, "HERMES CHILD PUBLIC OUTPUT")
+	})
+	fixture.key("j")
+	fixture.liveHermes.release <- struct{}{}
+	fixture.waitText("Status     ● Idle")
+	fixture.waitText("HERMES CHILD PUBLIC OUTPUT")
+	fixture.capture("hermes-child-idle")
+	fixture.key("k")
+	fixture.waitText("hermes-live-completed-3")
+	fixture.sendHermesInput("/new")
+	fixture.waitFor("Hermes confirms reset", 4*time.Second, func(screen string) bool {
+		return strings.Contains(fixture.tmux("capture-pane", "-p", "-t", "hermes:0"), "Approve Once")
+	})
+	fixture.tmux("send-keys", "-t", "hermes:0", "1", "Enter")
+	fixture.waitFor("new parent clears old child", 4*time.Second, func(screen string) bool {
+		return !strings.Contains(screen, "[subagent]")
+	})
 }
