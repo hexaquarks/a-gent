@@ -227,9 +227,12 @@ def register(ctx):
                     parent = data.get("parent_session_id")
                     session = data.get("child_session_id")
                     if (
-                        not record["sessionID"] or not isinstance(session, str) or not session or len(session) > 128
+                        not record["sessionID"]
+                        or not isinstance(session, str)
+                        or not session
                         or session in (".", "..", record["sessionID"], parent)
-                        or "/" in session or "\\" in session
+                        or "/" in session
+                        or "\\" in session
                         or parent not in (record["sessionID"], *children)
                     ):
                         return

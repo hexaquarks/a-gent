@@ -154,12 +154,17 @@ func (adapter Adapter) Sessions(ctx context.Context) ([]agent.Session, error) {
 			if parent != record.SessionID {
 				continue
 			}
+			var lastActiveAt time.Time
+			if child.LastActiveAt > 0 {
+				lastActiveAt = time.UnixMilli(child.LastActiveAt)
+			}
+
 			sessions = append(sessions, agent.Session{
 				ID:       instance.identity() + ":" + child.SessionID,
 				ParentID: instance.identity() + ":" + child.ParentID,
 				Provider: "hermes", Name: child.Name, ProcessID: &instance.pid,
 				TranscriptID: child.SessionID, WorkingDirectory: child.Directory,
-				State: child.State, LastActiveAt: time.UnixMilli(child.LastActiveAt),
+				State: child.State, LastActiveAt: lastActiveAt,
 			})
 		}
 	}
@@ -168,6 +173,6 @@ func (adapter Adapter) Sessions(ctx context.Context) ([]agent.Session, error) {
 
 // safeSessionID keeps native child IDs inside a single preview filename.
 func safeSessionID(sessionID string) bool {
-	return sessionID != "" && len(sessionID) <= 128 && sessionID != "." && sessionID != ".." &&
+	return sessionID != "" && sessionID != "." && sessionID != ".." &&
 		!strings.ContainsAny(sessionID, "/\\")
 }

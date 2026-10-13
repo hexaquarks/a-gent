@@ -179,9 +179,13 @@ func TestStaleObserverKeepsSessionIdentityAndLastActivity(t *testing.T) {
 func TestSubagentsRequireLiveRootAndValidParentTree(t *testing.T) {
 	adapter, record, instances := fixtureAdapter(t)
 
-	child := runtimeRecord{SessionID: "child", ParentID: record.SessionID, Name: "Review", Directory: record.Directory, State: agent.StateRunning}
+	child := runtimeRecord{
+		SessionID: "child", ParentID: record.SessionID, Name: "Review",
+		Directory: record.Directory, State: agent.StateRunning,
+	}
 	nested := child
 	nested.SessionID, nested.ParentID = "nested", "child"
+	nested.LastActiveAt = -1
 	orphan := child
 	orphan.SessionID, orphan.ParentID = "orphan", "unknown"
 	cycle := child
@@ -199,6 +203,9 @@ func TestSubagentsRequireLiveRootAndValidParentTree(t *testing.T) {
 	for _, session := range sessions[1:] {
 		if session.ParentID == "" || session.ProcessID == nil || *session.ProcessID != 42 {
 			t.Fatalf("child metadata: %+v", session)
+		}
+		if !session.LastActiveAt.IsZero() {
+			t.Fatalf("unknown child activity time should be zero: %v", session.LastActiveAt)
 		}
 	}
 

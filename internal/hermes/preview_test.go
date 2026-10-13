@@ -91,15 +91,21 @@ func TestPreviewShortensNativePatchHeadersInsideProject(t *testing.T) {
 
 func TestSubagentPreviewReadsOnlySelectedSnapshot(t *testing.T) {
 	adapter, record, _ := fixtureAdapter(t)
-	record.Children = []runtimeRecord{{SessionID: "child", ParentID: record.SessionID,
-		Directory: record.Directory, State: agent.StateRunning}}
+	record.Children = []runtimeRecord{{
+		SessionID: "child", ParentID: record.SessionID,
+		Directory: record.Directory, State: agent.StateRunning,
+	}}
 	writeRuntime(t, adapter, record)
 	sessions, _ := adapter.Sessions(t.Context())
 	child := sessions[1]
-	writePublicPreview(t, adapter, map[string]any{"sessionID": record.SessionID, "directory": record.Directory,
-		"activity": map[string]any{"label": "Assistant", "text": "ROOT ONLY"}})
-	value := map[string]any{"sessionID": child.TranscriptID, "directory": record.Directory,
-		"activity": map[string]any{"label": "Assistant", "text": "CHILD ONLY"}}
+	writePublicPreview(t, adapter, map[string]any{
+		"sessionID": record.SessionID, "directory": record.Directory,
+		"activity": map[string]any{"label": "Assistant", "text": "ROOT ONLY"},
+	})
+	value := map[string]any{
+		"sessionID": child.TranscriptID, "directory": record.Directory,
+		"activity": map[string]any{"label": "Assistant", "text": "CHILD ONLY"},
+	}
 	data, _ := json.Marshal(value)
 	path := filepath.Join(adapter.directory, "previews", "42-"+child.TranscriptID+".json")
 	if err := os.WriteFile(path, data, 0600); err != nil {
