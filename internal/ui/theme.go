@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	indicatorDot = "•"
+
 	colorBackground  = "#0C1112"
 	colorMainText    = "#EDF2F4"
 	colorSecondary   = "#A7B3C5"
@@ -110,13 +112,13 @@ func statusStyle(state agent.State) lipgloss.Style {
 
 func displayState(state agent.State) string {
 	if state == "" {
-		return "Unavailable"
+		return "unavailable"
 	}
 
 	if state == agent.StateWaiting {
-		return "Needs input"
+		return "needs input"
 	}
-	return strings.ToUpper(string(state[:1])) + string(state[1:])
+	return string(state)
 }
 
 // providerStyle keeps each provider's color consistent across the dashboard.

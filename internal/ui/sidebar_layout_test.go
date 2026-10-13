@@ -20,7 +20,7 @@ func TestSidebarLabelsAndCountsAlign(t *testing.T) {
 		for index, item := range model.sidebarItems() {
 			model.sidebarCursor = index
 			row := ansi.Strip(model.sidebarItemView(item, index, 1))
-			if !strings.HasPrefix(string([]rune(row)[3:]), item.label) {
+			if !strings.HasPrefix(string([]rune(row)[sidebarGutterWidth:]), item.label) {
 				t.Fatalf("name does not start after the fixed gutter: %q", row)
 			}
 			if !strings.HasSuffix(strings.Replace(row, "★", " ", 1), "  1 ") || lipgloss.Width(row) != model.sidebarWidth() {
@@ -70,6 +70,8 @@ func TestProjectsStayAnchoredWhileFilteringAndRefreshing(t *testing.T) {
 		model.updateTableRows()
 		check()
 		model.sessions = nil
+		// Removing the agent section moves Projects up by design.
+		projectLine = -1
 		model.updateTableRows()
 		check()
 	}
@@ -118,11 +120,11 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(strings.Replace(row, "★", " ", 1), countText+" ") {
 					t.Fatalf("count was truncated or moved: %q", row)
 				}
-				if !(strings.HasPrefix(row, "  ") || strings.HasPrefix(row, " \uf07b ")) || !strings.Contains(row, "…") {
+				if !strings.HasPrefix(row, " ") || !strings.Contains(row, "…") {
 					t.Fatalf("missing blank gutter or truncated name: %q", row)
 				}
 				// Ignore pins and folder icons when comparing name and count alignment.
-				markers := strings.NewReplacer("★", " ", "\uf07b", " ")
+				markers := strings.NewReplacer("★", " ", "\uf07b", " ", "▶", " ", "◈", " ")
 				if markers.Replace(row) != markers.Replace(unpinned) {
 					t.Fatalf("sections disagree on reserved columns: %q versus %q", row, unpinned)
 				}
@@ -150,6 +152,44 @@ func TestThreeProviderNamesFitDashboard(t *testing.T) {
 	for _, provider := range []string{"codex", "claude", "longprovider"} {
 		if !strings.Contains(sidebar, provider) {
 			t.Fatalf("sidebar omitted %s", provider)
+		}
+	}
+}
+
+func TestSidebarSectionsHaveEqualSpacing(t *testing.T) {
+	for _, providers := range [][]string{{"codex"}, {"claude", "codex", "hermes", "opencode", "pi"}} {
+		model := NewModel(nil)
+		for _, provider := range providers {
+			model.sessions = append(model.sessions, agent.Session{Provider: provider, WorkingDirectory: "/project"})
+		}
+		updated, _ := model.Update(tea.WindowSizeMsg{Width: PopupWidth, Height: PopupHeight})
+		model = updated.(Model)
+		lines := strings.Split(ansi.Strip(model.renderSidebar(summarizeSessions(model.sessions))), "\n")
+		for index, line := range lines {
+			if !strings.HasPrefix(line, " AGENTS") && !strings.HasPrefix(line, " PROJECTS") {
+				continue
+			}
+			blankRows := 0
+			for previous := index - 1; previous >= 0 && strings.TrimSpace(lines[previous]) == ""; previous-- {
+				blankRows++
+			}
+			if blankRows != sidebarSectionGap {
+				t.Fatalf("section %q has %d blank rows, want %d", line, blankRows, sidebarSectionGap)
+			}
+		}
+	}
+}
+
+func TestProviderIconsKeepNamesAndCountsAligned(t *testing.T) {
+	model := NewModel(nil)
+	for _, provider := range []string{"codex", "claude", "opencode", "pi", "hermes"} {
+		item := sidebarItem{label: "Example", provider: provider}
+		row := ansi.Strip(model.sidebarItemView(item, 0, 1))
+		if !strings.HasPrefix(string([]rune(row)[sidebarGutterWidth:]), "Example") {
+			t.Fatalf("provider %s moved the name column: %q", provider, row)
+		}
+		if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(row, "  1 ") {
+			t.Fatalf("provider %s moved the count or overflowed the row: %q", provider, row)
 		}
 	}
 }

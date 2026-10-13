@@ -46,7 +46,7 @@ func (model *Model) resizeTable() {
 	}
 	if !visibleSortColumn {
 		// Keep the active sort indicator on screen when a column is hidden.
-		model.sort = sessionSort{column: "Last active", descending: true}
+		model.sort = sessionSort{column: "Age", descending: true}
 	}
 	model.updateTableRows()
 
@@ -66,8 +66,8 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	// Fit the provider names, longest status, and activity heading without
 	// reserving extra padding that would shorten session titles.
 	const (
-		statusWidth     = 15
-		lastActiveWidth = 15
+		statusWidth = 15
+		ageWidth    = 15
 	)
 	agentWidth := 8
 	for _, provider := range providers {
@@ -76,8 +76,8 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	if tableWidth < 44 {
 		return []table.Column{
 			{Title: "Agent", Width: agentWidth},
-			{Title: "Status", Width: tableWidth - agentWidth - lastActiveWidth},
-			{Title: "Last active", Width: lastActiveWidth},
+			{Title: "Status", Width: tableWidth - agentWidth - ageWidth},
+			{Title: "Age", Width: ageWidth},
 		}
 	}
 	// Show projects only when there is also room for a readable session name.
@@ -87,14 +87,14 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	}
 	columns := []table.Column{
 		{Title: "Agent", Width: agentWidth},
-		{Title: "Session", Width: tableWidth - agentWidth - projectWidth - statusWidth - lastActiveWidth},
+		{Title: "Session", Width: tableWidth - agentWidth - projectWidth - statusWidth - ageWidth},
 	}
 	if projectWidth > 0 {
 		columns = append(columns, table.Column{Title: "Project", Width: projectWidth})
 	}
 	return append(columns,
 		table.Column{Title: "Status", Width: statusWidth},
-		table.Column{Title: "Last active", Width: lastActiveWidth},
+		table.Column{Title: "Age", Width: ageWidth},
 	)
 }
 

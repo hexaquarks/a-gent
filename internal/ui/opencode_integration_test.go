@@ -163,22 +163,22 @@ func TestIntegrationOpenCodeStatus(t *testing.T) {
 	fixture.waitText("3 running")
 	fixture.capture("opencode-running")
 	fixture.writeOpenCodeState(openCodeFixtureState(directory, "busy", "", true))
-	fixture.waitText("Needs input")
+	fixture.waitText("needs input")
 	fixture.capture("opencode-waiting")
 	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "", false))
-	fixture.waitText("Status     ● Idle")
+	fixture.waitText("Status     ● idle")
 	fixture.capture("opencode-idle")
 	state := openCodeFixtureState(directory, "idle", "", false)
 	state["/session/status"] = nil
 	fixture.writeOpenCodeState(state)
-	fixture.waitText("Unavailable")
+	fixture.waitText("unavailable")
 	fixture.capture("opencode-unavailable")
 	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "", false))
-	fixture.waitText("Status     ● Idle")
+	fixture.waitText("Status     ● idle")
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.width, fixture.height = 80, 24
 	fixture.waitFor("narrow OpenCode layout", 4*time.Second, func(screen string) bool {
-		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "opencode · Idle") &&
+		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "opencode · idle") &&
 			!strings.Contains(screen, "│  PREVIEW")
 	})
 	fixture.capture("opencode-narrow")

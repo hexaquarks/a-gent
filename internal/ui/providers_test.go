@@ -26,7 +26,7 @@ func TestProviderFailureDoesNotBlockHealthyUpdates(t *testing.T) {
 			if matchesView(session, activeView) || !matchesView(session, recentView) {
 				t.Fatal("stale session is in the wrong view")
 			}
-			value, _ := sessionColumnValue(session, "Last active")
+			value, _ := sessionColumnValue(session, "Age")
 			if value == "Now" {
 				t.Fatal("stale running session shows current activity")
 			}

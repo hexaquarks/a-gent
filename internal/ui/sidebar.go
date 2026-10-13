@@ -12,6 +12,14 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+const (
+	visibleProviderLimit = 5
+	sidebarSectionGap    = 2
+
+	sidebarIconWidth   = 2
+	sidebarGutterWidth = sidebarIconWidth + 2
+)
+
 type sessionSummary struct {
 	total   int
 	running int
@@ -52,19 +60,22 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
 
-	// Reserve the same project area even when filtering leaves fewer rows.
+	// Session filtering keeps each sidebar section in place.
 	projectTop := model.projectTop()
 	providers := model.providers()
 	if len(providers) > 0 {
 		title := "AGENTS"
-		if len(providers) > 3 {
+		if len(providers) > visibleProviderLimit {
 			arrow := "▸"
 			if model.agentsExpanded {
 				arrow = "▾"
 			}
 			title = fmt.Sprintf("AGENTS (%d) %s", len(providers), arrow)
 		}
-		lines = append(lines, "", sectionBar(" "+title, model.sidebarWidth(), titleStyle))
+		for range sidebarSectionGap {
+			lines = append(lines, "")
+		}
+		lines = append(lines, sectionBar(" "+title, model.sidebarWidth(), titleStyle))
 		start := len(sidebarViews())
 		end := model.projectItemStart()
 		available := max(1, projectTop-len(lines)-1-len(model.failedProviders()))
@@ -137,10 +148,10 @@ func (model Model) sidebarItems() []sidebarItem {
 		items = append(items, sidebarItem{label: string(view), view: view})
 	}
 	providers := model.providers()
-	if len(providers) > 3 {
+	if len(providers) > visibleProviderLimit {
 		items = append(items, sidebarItem{label: "All types", agentGroup: true, allTypes: true})
 	}
-	if len(providers) <= 3 || model.agentsExpanded {
+	if len(providers) <= visibleProviderLimit || model.agentsExpanded {
 		for _, provider := range providers {
 			items = append(items, sidebarItem{label: provider, provider: provider})
 		}
@@ -165,12 +176,22 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	} else if selected {
 		style = accentStyle
 	}
-	marker := " "
-	if selected {
-		marker = "●"
+	marker, selectionMark := " ", " "
+	if item.view != "" {
+		marker = sidebarViewIcon(item.view)
+		if selected {
+			selectionMark = indicatorDot
+		}
+	} else if item.provider != "" {
+		marker = sidebarProviderIcon(item.provider)
+		if selected {
+			selectionMark = indicatorDot
+		}
 	}
 	if focused {
-		marker = "›"
+		if item.view == "" && item.provider == "" {
+			marker = "›"
+		}
 		style = style.Background(lipgloss.Color(colorSelection))
 	}
 	countText := fmt.Sprint(count)
@@ -194,20 +215,19 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if focused {
 		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
-	return model.renderSidebarRow(item.label, marker, " ", countText, style, style, countStyle)
+	return model.renderSidebarRow(item.label, marker, selectionMark, countText, style, style, countStyle)
 }
 
 // Every row reserves the same gutter, pin slot, and count column before
 // allocating space to the name. Larger totals widen all count cells together.
 func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
-	const gutterWidth = 3
 	const pinWidth = 1
-	const nameToPinSpacing = 2
+	const nameToPinSpacing = 1
 	const rightPadding = 1
 	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - gutterWidth - pinWidth - nameToPinSpacing - countWidth - rightPadding
+	nameWidth := model.sidebarWidth() - sidebarGutterWidth - pinWidth - nameToPinSpacing - countWidth - rightPadding
 	label := sidebarLabel(name, max(0, nameWidth))
-	return markerStyle.Render(" "+marker+" ") +
+	return markerStyle.Render(" "+sidebarLabel(marker, sidebarIconWidth)+" ") +
 		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
 		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)+strings.Repeat(" ", rightPadding))
 }
@@ -216,6 +236,35 @@ func (model Model) renderSidebarRow(name, marker, pin, count string, style, mark
 func sidebarLabel(label string, width int) string {
 	label = runewidth.Truncate(safeDisplayText(label), width, "…")
 	return label + strings.Repeat(" ", max(0, width-lipgloss.Width(label)))
+}
+
+// Use widely available characters; recent Nerd Fonts brand glyphs are missing in older fonts.
+func sidebarProviderIcon(provider string) string {
+	switch provider {
+	case "codex":
+		return ">_"
+	case "claude":
+		return "✳"
+	case "opencode":
+		return "▣"
+	case "pi":
+		return "π"
+	case "hermes":
+		return " "
+	default:
+		return "◈"
+	}
+}
+
+func sidebarViewIcon(view sidebarView) string {
+	switch view {
+	case activeView:
+		return "▶"
+	case recentView:
+		return "◷"
+	default:
+		return "≡"
+	}
 }
 
 func (model Model) viewCount(view sidebarView, summary sessionSummary) int {

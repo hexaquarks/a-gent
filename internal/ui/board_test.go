@@ -71,7 +71,7 @@ func TestBoardLayoutAndScrolling(t *testing.T) {
 			model := referenceDashboard()
 			model.boardVisible = true
 			model.sessions = nil
-			model.sort = sessionSort{column: "Last active", descending: true}
+			model.sort = sessionSort{column: "Age", descending: true}
 			for index := 0; index < 20; index++ {
 				model.sessions = append(model.sessions, agent.Session{
 					ID:       fmt.Sprintf("%02d", index),
@@ -106,7 +106,7 @@ func TestBoardReferenceCapture(t *testing.T) {
 	model := referenceDashboard()
 	model.boardVisible = true
 	view := model.View()
-	for _, text := range []string{"NEEDS YOU · 1", "RUNNING · 1", "IDLE · 4", " List  Board ", "FOCUS"} {
+	for _, text := range []string{"needs you · 1", "running · 1", "idle · 4", " List  Board ", "FOCUS"} {
 		if !strings.Contains(ansi.Strip(view), text) {
 			t.Errorf("board is missing %q", text)
 		}
@@ -137,7 +137,7 @@ func TestBoardCardFramesAndMetadata(t *testing.T) {
 		}
 		lines := strings.Split(ansi.Strip(view), "\n")
 		if !strings.Contains(lines[1], "Readable title") || !strings.Contains(lines[2], "codex · a-gent") ||
-			!strings.HasSuffix(lines[2], "—│") || !strings.Contains(lines[3], "Running") {
+			!strings.HasSuffix(lines[2], "—│") || !strings.Contains(lines[3], "running") {
 			t.Fatalf("card content or aligned age changed:\n%s", ansi.Strip(view))
 		}
 		if !strings.Contains(view, "38;2;163;239;120") {
@@ -164,7 +164,7 @@ func TestBoardColumnDividersAndSelectedCardVisibility(t *testing.T) {
 		t.Fatalf("board lost the column dividers or heading underlines:\n%s", view)
 	}
 	for _, height := range []int{1, 2, 3, 6, 7, 12} {
-		column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2}}
+		column := boardColumn{title: "idle", color: colorSecondary, indexes: []int{0, 1, 2}}
 		sessions := []agent.Session{{Name: "First"}, {Name: "Second"}, {Name: "Selected"}}
 		model.table.SetCursor(2)
 		view := model.boardColumnView(column, sessions, 24, height)
@@ -177,7 +177,7 @@ func TestBoardColumnDividersAndSelectedCardVisibility(t *testing.T) {
 
 func TestBoardStandardPopupFitsFourCards(t *testing.T) {
 	model := referenceDashboard()
-	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
+	column := boardColumn{title: "idle", color: colorSecondary, indexes: []int{0, 1, 2, 3}}
 	sessions := []agent.Session{{Name: "One"}, {Name: "Two"}, {Name: "Three"}, {Name: "Four"}}
 	for _, selected := range []int{0, 1, 2, 3} {
 		model.table.SetCursor(selected)
@@ -199,7 +199,7 @@ func TestBoardStandardPopupFitsFourCards(t *testing.T) {
 
 func TestBoardCardsShareBorderRowWithoutClippingSelection(t *testing.T) {
 	model := referenceDashboard()
-	column := boardColumn{title: "IDLE", color: colorSecondary, indexes: []int{0, 1, 2}}
+	column := boardColumn{title: "idle", color: colorSecondary, indexes: []int{0, 1, 2}}
 	sessions := []agent.Session{{Name: "First"}, {Name: "Middle"}, {Name: "Last"}}
 	for _, selected := range []int{0, 1, 2} {
 		model.table.SetCursor(selected)
@@ -226,7 +226,7 @@ func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
 			lines := strings.Split(ansi.Strip(model.boardCardView(session, selected, 24)), "\n")
 			prefix := "│▌"
 			if unread {
-				prefix += "● "
+				prefix += "• "
 			}
 			if strings.Contains(strings.Join(lines, "\n"), "›") || !strings.HasPrefix(lines[1], prefix+"Title") ||
 				!strings.HasPrefix(lines[2], "│▌codex") {
@@ -238,7 +238,7 @@ func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
 
 func TestBoardColumnShowsHiddenCardCounts(t *testing.T) {
 	model := referenceDashboard()
-	column := boardColumn{title: "IDLE", color: colorSecondary}
+	column := boardColumn{title: "idle", color: colorSecondary}
 	var sessions []agent.Session
 	for index := range 10 {
 		column.indexes = append(column.indexes, index)
@@ -275,9 +275,9 @@ func TestBoardColumnOrder(t *testing.T) {
 		title string
 		state agent.State
 	}{
-		{"RUNNING", agent.StateRunning},
-		{"IDLE", agent.StateIdle},
-		{"NEEDS YOU", agent.StateWaiting},
+		{"running", agent.StateRunning},
+		{"idle", agent.StateIdle},
+		{"needs you", agent.StateWaiting},
 	} {
 		if columns[index].title != want.title || boardColumnIndex(agent.Session{State: want.state}) != index {
 			t.Fatalf("column %d should be %s", index, want.title)

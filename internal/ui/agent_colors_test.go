@@ -37,11 +37,11 @@ func TestProviderColorsAcrossDashboard(t *testing.T) {
 
 func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 	model := NewModel(nil)
-	for _, provider := range []string{"claude", "codex", "gemini", "other"} {
+	for _, provider := range []string{"claude", "codex", "hermes", "opencode", "other", "pi"} {
 		model.sessions = append(model.sessions, agent.Session{ID: provider, Provider: provider})
 	}
 	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
-	if !strings.Contains(sidebar, "AGENTS (4)") || !strings.Contains(sidebar, "All types") || strings.Contains(sidebar, "gemini") {
+	if !strings.Contains(sidebar, "AGENTS (6)") || !strings.Contains(sidebar, "All types") || strings.Contains(sidebar, "hermes") {
 		t.Fatalf("unexpected collapsed agents: %s", sidebar)
 	}
 	model.sidebarFocus = true
@@ -58,12 +58,12 @@ func TestAgentSectionCollapseExpandAndFilter(t *testing.T) {
 		t.Fatal("provider selection did not filter sessions")
 	}
 	model.moveSidebarCursor(-1)
-	if model.selectedProvider != "claude" || len(model.table.Rows()) != 4 {
+	if model.selectedProvider != "claude" || len(model.table.Rows()) != 6 {
 		t.Fatal("All types must preview all agents without clearing the confirmed filter")
 	}
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(Model)
-	if len(model.filteredSessions()) != 4 {
+	if len(model.filteredSessions()) != 6 {
 		t.Fatal("All types did not clear provider filter")
 	}
 	model.sessions = model.sessions[:2]
@@ -107,5 +107,25 @@ func TestBrowsingAgentsRequiresEnterToSelectAndClearFilter(t *testing.T) {
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyDown})
 	if model.selectedProvider != "" {
 		t.Fatal("browsing past the agents left a provider filter")
+	}
+}
+
+func TestFiveProvidersRemainVisibleWithoutExpanding(t *testing.T) {
+	model := NewModel(nil)
+	providers := []string{"claude", "codex", "hermes", "opencode", "pi"}
+	for _, provider := range providers {
+		model.sessions = append(model.sessions, agent.Session{ID: provider, Provider: provider})
+	}
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: PopupWidth, Height: PopupHeight})
+	model = updated.(Model)
+
+	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
+	if strings.Contains(sidebar, "All types") {
+		t.Fatal("five providers should not require expansion")
+	}
+	for _, provider := range providers {
+		if !strings.Contains(sidebar, provider) {
+			t.Fatalf("provider %s is hidden without sidebar focus", provider)
+		}
 	}
 }

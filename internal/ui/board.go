@@ -31,9 +31,9 @@ func boardColumnIndex(session agent.Session) int {
 
 func (model Model) boardColumns() []boardColumn {
 	columns := []boardColumn{
-		{title: "RUNNING", color: colorRunning},
-		{title: "IDLE", color: colorSecondary},
-		{title: "NEEDS YOU", color: colorAttention},
+		{title: "running", color: colorRunning},
+		{title: "idle", color: colorSecondary},
+		{title: "needs you", color: colorAttention},
 	}
 
 	for index, session := range model.filteredSessions() {
@@ -182,7 +182,7 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	}
 	marker := ""
 	if model.unreadSessions[identity] {
-		marker = accentStyle.Background(background).Render("● ")
+		marker = accentStyle.Background(background).Render(indicatorDot + " ")
 	}
 
 	// Reserve the outer frame and the colored status bar.
