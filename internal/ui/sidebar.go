@@ -18,6 +18,9 @@ const (
 
 	sidebarIconWidth   = 2
 	sidebarGutterWidth = sidebarIconWidth + 2
+
+	// Nerd Fonts nf-fa-terminal fits in one cell, unlike the two-character >_ mark.
+	terminalIcon = "\uf120"
 )
 
 type sessionSummary struct {
@@ -247,7 +250,7 @@ func sidebarLabel(label string, width int) string {
 func sidebarProviderIcon(provider string) string {
 	switch provider {
 	case "codex":
-		return ">_"
+		return terminalIcon
 	case "claude":
 		return "✳"
 	case "opencode":
