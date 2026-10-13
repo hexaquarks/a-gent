@@ -131,7 +131,7 @@ func (model Model) sessionGutter(session agent.Session, selected bool, backgroun
 		cursor = "›"
 	}
 	if model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}] {
-		dot = "●"
+		dot = indicatorDot
 	}
 	style := accentStyle
 	if background != "" {

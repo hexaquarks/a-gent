@@ -226,7 +226,7 @@ func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
 			lines := strings.Split(ansi.Strip(model.boardCardView(session, selected, 24)), "\n")
 			prefix := "│▌"
 			if unread {
-				prefix += "● "
+				prefix += "• "
 			}
 			if strings.Contains(strings.Join(lines, "\n"), "›") || !strings.HasPrefix(lines[1], prefix+"Title") ||
 				!strings.HasPrefix(lines[2], "│▌codex") {

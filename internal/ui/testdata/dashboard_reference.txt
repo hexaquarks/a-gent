@@ -4,9 +4,9 @@
 │  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                         Age ↓  |  LIVE  │
 │  ▶ Active           1  │                                                                                             │
 │  ◷ Recent           5  │      Agent   Session                       Project          Status                 Age ↓    │
-│  ≡ All           ●  6  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
-│                        │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
-│  AGENTS                │ › ●  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
+│  ≡ All           •  6  │      claude  Investigate terminal notifi…  a-gent           ● Running                 2m    │
+│                        │   •  codex   Investigate AGENTS.md overr…  codex-audit      ● Needs input             3m    │
+│  AGENTS                │ › •  codex   Restore response navigation   swiftyprompt     ● Idle                    4m    │
 │  ✳ claude           1  │      codex   Align selected agent cursor   a-gent           ● Idle                    5m    │
 │  ⌘ codex            5  │      codex   Add Claude session discovery  mihailanghelici  ● Idle                    8m    │
 │                        │      codex   Untitled session              swiftyprompt     ● Idle                   13m    │

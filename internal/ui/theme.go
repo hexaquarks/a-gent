@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	indicatorDot = "•"
+
 	colorBackground  = "#0C1112"
 	colorMainText    = "#EDF2F4"
 	colorSecondary   = "#A7B3C5"

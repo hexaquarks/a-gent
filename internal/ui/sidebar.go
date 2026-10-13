@@ -171,12 +171,12 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if item.view != "" {
 		marker = sidebarViewIcon(item.view)
 		if selected {
-			selectionMark = "●"
+			selectionMark = indicatorDot
 		}
 	} else if item.provider != "" {
 		marker = sidebarProviderIcon(item.provider)
 		if selected {
-			selectionMark = "●"
+			selectionMark = indicatorDot
 		}
 	}
 	if focused {

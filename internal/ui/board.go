@@ -182,7 +182,7 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	}
 	marker := ""
 	if model.unreadSessions[identity] {
-		marker = accentStyle.Background(background).Render("● ")
+		marker = accentStyle.Background(background).Render(indicatorDot + " ")
 	}
 
 	// Reserve the outer frame and the colored status bar.
