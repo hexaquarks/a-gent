@@ -118,11 +118,11 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 				if lipgloss.Width(row) != model.sidebarWidth() || !strings.HasSuffix(strings.Replace(row, "★", " ", 1), countText+" ") {
 					t.Fatalf("count was truncated or moved: %q", row)
 				}
-				if !(strings.HasPrefix(row, "  ") || strings.HasPrefix(row, " \uf07b ")) || !strings.Contains(row, "…") {
+				if !strings.HasPrefix(row, " ") || !strings.Contains(row, "…") {
 					t.Fatalf("missing blank gutter or truncated name: %q", row)
 				}
 				// Ignore pins and folder icons when comparing name and count alignment.
-				markers := strings.NewReplacer("★", " ", "\uf07b", " ")
+				markers := strings.NewReplacer("★", " ", "\uf07b", " ", "▶", " ")
 				if markers.Replace(row) != markers.Replace(unpinned) {
 					t.Fatalf("sections disagree on reserved columns: %q versus %q", row, unpinned)
 				}

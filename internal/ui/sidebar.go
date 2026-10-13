@@ -167,12 +167,19 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	} else if selected {
 		style = accentStyle
 	}
-	marker := " "
-	if selected {
+	marker, selectionMark := " ", " "
+	if item.view != "" {
+		marker = sidebarViewIcon(item.view)
+		if selected {
+			selectionMark = "●"
+		}
+	} else if selected {
 		marker = "●"
 	}
 	if focused {
-		marker = "›"
+		if item.view == "" {
+			marker = "›"
+		}
 		style = style.Background(lipgloss.Color(colorSelection))
 	}
 	countText := fmt.Sprint(count)
@@ -196,7 +203,7 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if focused {
 		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
-	return model.renderSidebarRow(item.label, marker, " ", countText, style, style, countStyle)
+	return model.renderSidebarRow(item.label, marker, selectionMark, countText, style, style, countStyle)
 }
 
 // Every row reserves the same gutter, pin slot, and count column before
@@ -218,6 +225,17 @@ func (model Model) renderSidebarRow(name, marker, pin, count string, style, mark
 func sidebarLabel(label string, width int) string {
 	label = runewidth.Truncate(safeDisplayText(label), width, "…")
 	return label + strings.Repeat(" ", max(0, width-lipgloss.Width(label)))
+}
+
+func sidebarViewIcon(view sidebarView) string {
+	switch view {
+	case activeView:
+		return "▶"
+	case recentView:
+		return "◷"
+	default:
+		return "≡"
+	}
 }
 
 func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
