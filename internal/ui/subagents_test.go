@@ -55,6 +55,17 @@ func TestSubagentRowsStayWithParentsAndRemainSelectable(t *testing.T) {
 			t.Fatal("Board includes child rows")
 		}
 	}
+	selected, _ = model.selectedSession()
+	if selected.ID != "parent" {
+		t.Fatalf("Board should select the child's parent, got %s", selected.ID)
+	}
+	model.boardView()
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	model = updated.(Model)
+	selected, _ = model.selectedSession()
+	if selected.ID != "parent" || len(model.filteredSessions()) != len(sessions) {
+		t.Fatal("returning to List lost parent selection or subagents")
+	}
 }
 
 func TestSubagentGroupingHandlesFiltersProvidersAndCycles(t *testing.T) {
