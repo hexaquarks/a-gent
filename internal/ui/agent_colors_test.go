@@ -129,3 +129,26 @@ func TestFiveProvidersRemainVisibleWithoutExpanding(t *testing.T) {
 		}
 	}
 }
+
+func TestProviderIconsUseNeutralColor(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+
+	for _, provider := range []string{"codex", "claude", "opencode", "pi"} {
+		model := NewModel(nil)
+		item := sidebarItem{label: provider, provider: provider}
+		for _, focused := range []bool{false, true} {
+			model.sidebarFocus = focused
+			iconStyle := mutedStyle
+			if focused {
+				iconStyle = iconStyle.Background(lipgloss.Color(colorSelection))
+			}
+
+			expected := iconStyle.Render(" " + sidebarLabel(sidebarProviderIcon(provider), sidebarIconWidth) + " ")
+			if row := model.sidebarItemView(item, 0, 1); !strings.HasPrefix(row, expected) {
+				t.Fatalf("provider %s icon is not neutral: %q", provider, row)
+			}
+		}
+	}
+}
