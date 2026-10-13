@@ -111,6 +111,7 @@ type dashboardFixture struct {
 	pi            *piFixtureState
 	livePi        *livePiFixture
 	liveCodex     *liveCodexFixture
+	liveOpenCode  *liveOpenCodeFixture
 	liveHermes    *liveHermesFixture
 }
 
@@ -141,6 +142,9 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	fixture.sessions = make(map[string]agent.Session)
 	if provider == "opencode" {
 		fixture.setupOpenCode()
+	}
+	if strings.HasPrefix(provider, "opencode-live-") {
+		fixture.setupLiveOpenCode(provider == "opencode-live-launcher")
 	}
 	if provider == "pi" {
 		fixture.setupPi()
@@ -193,6 +197,7 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	fixture.launchCommand = launchCommand
 	t.Cleanup(func() {
 		fixture.stopLiveHermes()
+		fixture.stopLiveOpenCode()
 		if fixture.liveCodex != nil && fixture.liveCodex.stop != nil {
 			fixture.liveCodex.stop()
 		}
@@ -233,6 +238,9 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	count := "2 sessions"
 	if provider != "" {
 		count = "3 sessions"
+	}
+	if strings.HasPrefix(provider, "opencode-live-") {
+		count = "4 sessions"
 	}
 	fixture.waitFor("all providers", 8*time.Second, func(screen string) bool { return strings.Contains(screen, count) })
 	if provider == "" {
