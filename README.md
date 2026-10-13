@@ -13,8 +13,12 @@ agents across projects. See which agents are working or waiting for you, preview
 their activity and file edits, and jump to their tmux panes.
 
 <p align="center">
-  <img src="assets/dashboard.png" width="700" alt="a-gent dashboard showing pinned projects, unread session updates, and a color-coded edit preview" />
+  <img src="assets/dashboard-views.svg" width="1000" alt="a-gent List view with Codex and OpenCode subagents, overlapping Board view behind it at the top right" />
 </p>
+
+Switch between List and Board; a-gent remembers your last view. List shows
+subagents beneath their parent sessions for Codex, OpenCode, and Hermes. Board
+shows top-level sessions grouped into running, idle, and needs you.
 
 ## Supported adapters
 
@@ -72,6 +76,8 @@ a-gent
 Inside tmux, the dashboard opens in a popup. Select a session and press Enter to
 jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 
+- Press `m` to switch between List and Board. In Board, use `h`/`l` or the
+  left/right arrows to move between columns.
 - Press Tab to switch between the sidebar and sessions; use `j`/`k` or the arrow
   keys to browse.
 - Use the sidebar to filter by project, provider, or session state. Press Enter
