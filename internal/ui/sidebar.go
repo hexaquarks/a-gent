@@ -15,6 +15,10 @@ import (
 const (
 	visibleProviderLimit = 5
 	sidebarSectionGap    = 2
+
+	// Nerd Fonts 3.5.1 names: nf-cod-openai and nf-cod-claude.
+	openAILogo = "\uec81"
+	claudeLogo = "\uec82"
 )
 
 type sessionSummary struct {
@@ -239,15 +243,15 @@ func sidebarLabel(label string, width int) string {
 func sidebarProviderIcon(provider string) string {
 	switch provider {
 	case "codex":
-		return "⌘"
+		return openAILogo
 	case "claude":
-		return "✳"
+		return claudeLogo
 	case "opencode":
-		return "◇"
+		return "▣"
 	case "pi":
 		return "π"
 	case "hermes":
-		return "☿"
+		return " "
 	default:
 		return "◈"
 	}
