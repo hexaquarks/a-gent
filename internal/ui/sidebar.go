@@ -19,8 +19,8 @@ const (
 	sidebarIconWidth   = 2
 	sidebarGutterWidth = sidebarIconWidth + 2
 
-	// Nerd Fonts nf-fa-terminal fits in one cell, unlike the two-character >_ mark.
-	terminalIcon = "\uf120"
+	// Nerd Fonts nf-cod-terminal uses a compact terminal-window shape.
+	terminalIcon = "\uea85"
 )
 
 type sessionSummary struct {
