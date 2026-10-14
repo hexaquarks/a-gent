@@ -204,7 +204,7 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 	case "Directory":
 		return filepath.Base(session.WorkingDirectory), mutedStyle
 	case "Status":
-		return "● " + displayState(sessionState(session)), statusStyle(sessionState(session))
+		return indicatorDot + " " + displayState(sessionState(session)), statusStyle(sessionState(session))
 	case "Age":
 		// Use the provider timestamp when available; an active session without
 		// a timestamp still has a meaningful fallback.
