@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	indicatorDot = "•"
+	indicatorDot = "●"
 
 	colorBackground  = "#0C1112"
 	colorMainText    = "#EDF2F4"

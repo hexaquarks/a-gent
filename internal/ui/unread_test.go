@@ -44,23 +44,23 @@ func TestUnreadGutterIsConditionalAndHeadingFits(t *testing.T) {
 			first := agent.Session{ID: "a", Provider: "codex", Name: "Alpha", State: agent.StateRunning}
 			second := agent.Session{ID: "b", Provider: "codex", Name: "Beta", State: agent.StateIdle}
 			model = refreshUnreadTestModel(model, first, second)
-			if strings.Contains(model.sessionGutter(first, true, ""), "•") {
+			if strings.Contains(model.sessionGutter(first, true, ""), "●") {
 				t.Fatal("initial session is marked unread")
 			}
 			first.State = agent.StateIdle
 			model = refreshUnreadTestModel(model, first, second)
-			if !strings.Contains(model.sessionGutter(first, true, ""), "•") {
+			if !strings.Contains(model.sessionGutter(first, true, ""), "●") {
 				t.Fatal("completion did not mark the session unread")
 			}
 			heading := ansi.Strip(model.detailHeadingView())
 			if lipgloss.Width(heading) != model.table.Width()-detailStyle.GetHorizontalFrameSize() || strings.Contains(heading, "\n") {
 				t.Fatalf("heading overflowed its panel: %q", heading)
 			}
-			if strings.Contains(model.sessionGutter(second, false, ""), "•") {
+			if strings.Contains(model.sessionGutter(second, false, ""), "●") {
 				t.Fatal("unread mark leaked to another session")
 			}
 			model.markSelectedSessionRead()
-			if strings.Contains(model.sessionGutter(first, true, ""), "•") {
+			if strings.Contains(model.sessionGutter(first, true, ""), "●") {
 				t.Fatal("acknowledging the session left its unread dot visible")
 			}
 		})
@@ -135,11 +135,11 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 	first.State = agent.StateWaiting
 	program.Send(polling.Update{Provider: "codex", Sessions: []agent.Session{first, second}})
 	before := next()
-	if before.unread != 1 || !strings.Contains(before.view, "•  codex") {
+	if before.unread != 1 || !strings.Contains(before.view, "●  codex") {
 		t.Fatalf("unread session is not visible before hover:\n%s", before.view)
 	}
 	for y, line := range strings.Split(before.view, "\n") {
-		x := strings.Index(line, "•  codex")
+		x := strings.Index(line, "●  codex")
 		if x < 0 {
 			continue
 		}
@@ -167,14 +167,14 @@ func TestRawTerminalBrowsingPreservesDotsUntilEnter(t *testing.T) {
 		t.Fatal(err)
 	}
 	read := next()
-	if read.unread != 1 || !strings.Contains(read.view, "•  codex") {
+	if read.unread != 1 || !strings.Contains(read.view, "●  codex") {
 		t.Fatal("moving the keyboard highlight cleared the dot or unseen label")
 	}
 	if _, err := io.WriteString(writer, "\r"); err != nil {
 		t.Fatal(err)
 	}
 	acknowledged := next()
-	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "•  codex") {
+	if acknowledged.unread != 0 || strings.Contains(acknowledged.view, "●  codex") {
 		t.Fatal("Enter did not clear both dot and label")
 	}
 }
@@ -253,7 +253,7 @@ func TestUnreadDotSurvivesSortingFilteringAndKeyboardBrowsing(t *testing.T) {
 	model.sort = sessionSort{column: "Session", descending: true}
 	model.updateTableRows()
 	identity := sessionIdentity{provider: "codex", id: "b"}
-	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(model.filteredSessions()[0], model.table.Cursor() == 0, model.table.Columns())), "•  codex") {
+	if !model.unreadSessions[identity] || !strings.Contains(ansi.Strip(model.sessionRowView(model.filteredSessions()[0], model.table.Cursor() == 0, model.table.Columns())), "●  codex") {
 		t.Fatal("sorting or filtering lost the unread dot")
 	}
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
