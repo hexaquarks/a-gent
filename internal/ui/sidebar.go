@@ -18,6 +18,9 @@ const (
 
 	sidebarIconWidth   = 2
 	sidebarGutterWidth = sidebarIconWidth + 2
+
+	// Nerd Fonts nf-cod-terminal uses a compact terminal-window shape.
+	terminalIcon = "\uea85"
 )
 
 type sessionSummary struct {
@@ -215,7 +218,12 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if focused {
 		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
-	return model.renderSidebarRow(item.label, marker, selectionMark, countText, style, style, countStyle)
+
+	markerStyle := style
+	if item.provider != "" {
+		markerStyle = countStyle
+	}
+	return model.renderSidebarRow(item.label, marker, selectionMark, countText, style, markerStyle, countStyle)
 }
 
 // Every row reserves the same gutter, pin slot, and count column before
@@ -242,7 +250,7 @@ func sidebarLabel(label string, width int) string {
 func sidebarProviderIcon(provider string) string {
 	switch provider {
 	case "codex":
-		return ">_"
+		return terminalIcon
 	case "claude":
 		return "✳"
 	case "opencode":

@@ -93,7 +93,7 @@ func TestProjectFolderAndNames(t *testing.T) {
 	model.sessions = []agent.Session{{ID: "run", WorkingDirectory: "/long", State: agent.StateRunning}}
 	item := sidebarItem{label: "非常に長いプロジェクト名-example", project: "/long"}
 	row := model.projectItemView(item, false, false)
-	if !strings.Contains(row, "\uf07b") {
+	if !strings.Contains(row, "\uea83") {
 		t.Fatal("project row is missing its folder icon")
 	}
 	for _, state := range []agent.State{agent.StateIdle, agent.StateWaiting, agent.StateError} {

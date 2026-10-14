@@ -14,6 +14,9 @@ import (
 const (
 	maximumProjectRows       = 6
 	minimumProjectFooterRows = 4
+
+	// Nerd Fonts nf-cod-folder matches the compact terminal icon's visual weight.
+	folderIcon = "\uea83"
 )
 
 // WithProjectPins loads the user's pinned projects from the supplied file.
@@ -120,7 +123,10 @@ func (model Model) projectItemView(item sidebarItem, focused, selected bool) str
 		markerStyle = markerStyle.Background(lipgloss.Color(colorSelection))
 		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
-	return model.renderSidebarRow(item.label, "\uf07b", star, fmt.Sprint(model.projectCount(item.project)), style, markerStyle, countStyle)
+	return model.renderSidebarRow(
+		item.label, folderIcon, star, fmt.Sprint(model.projectCount(item.project)),
+		style, markerStyle, countStyle,
+	)
 }
 
 func (model Model) updateProjectSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {

@@ -124,7 +124,7 @@ func TestSidebarReservesPinAndCountSpaceBeforeTruncatingNames(t *testing.T) {
 					t.Fatalf("missing blank gutter or truncated name: %q", row)
 				}
 				// Ignore pins and folder icons when comparing name and count alignment.
-				markers := strings.NewReplacer("★", " ", "\uf07b", " ", "▶", " ", "◈", " ")
+				markers := strings.NewReplacer("★", " ", "\uea83", " ", "▶", " ", "◈", " ")
 				if markers.Replace(row) != markers.Replace(unpinned) {
 					t.Fatalf("sections disagree on reserved columns: %q versus %q", row, unpinned)
 				}
