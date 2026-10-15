@@ -58,6 +58,7 @@ type Model struct {
 	sort             sessionSort
 	tableSessionIDs  []sessionIdentity
 	unreadSessions   map[sessionIdentity]bool
+	finishedSessions map[sessionIdentity]time.Time
 	helpOpen         bool
 	helpScroll       int
 
