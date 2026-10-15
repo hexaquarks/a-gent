@@ -244,7 +244,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 		t.Fatal("returning to a cached session mixed providers")
 	}
 	fixture.key("Escape")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 }
 
 func assertProjectColumn(t *testing.T, screen string, visible bool) {
