@@ -67,20 +67,31 @@ func (model Model) View() string {
 }
 
 func (model Model) expandedPreviewView(width, height int) string {
-	selectedSession, selected := model.selectedSession()
-	if !selected || height < 8 {
+	session, selected := model.selectedSession()
+	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+	var metadata []string
+	if selected && height >= 8 {
+		metadata = []string{
+			mainTextStyle.Bold(true).Render(safeDisplayText(sessionDisplayName(session))),
+			mutedStyle.Render("Directory: " + displayDirectory(session.WorkingDirectory)),
+			mutedStyle.Render("Session: " + safeDisplayText(session.ID)),
+		}
+	}
+
+	if cached.activity != nil && cached.edit != nil && height > len(metadata)+1 {
+		activityStyle, editStyle := accentStyle, mutedStyle
+		if model.previewShowsEdit {
+			activityStyle, editStyle = mutedStyle, accentStyle
+		}
+		metadata = append(metadata, activityStyle.Render("Activity")+"  "+editStyle.Render("Latest edit")+
+			mutedStyle.Render(" · Tab switch"))
+	}
+
+	if len(metadata) == 0 {
 		return model.previewView(width, height, true)
 	}
 
-	directory := displayDirectory(selectedSession.WorkingDirectory)
-
-	metadata := []string{
-		mainTextStyle.Bold(true).Render(safeDisplayText(sessionDisplayName(selectedSession))),
-		mutedStyle.Render("Directory: " + directory),
-		mutedStyle.Render("Session: " + safeDisplayText(selectedSession.ID)),
-		"",
-	}
-
+	metadata = append(metadata, "")
 	preview := model.previewView(width, height-len(metadata), true)
 	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).
 		Render(clipLines(strings.Join(metadata, "\n"), width) + "\n" + preview)

@@ -19,6 +19,7 @@ func helpLines(width int) []string {
 		{"s", "Change sort column"},
 		{"Shift+S", "Reverse sort order"},
 		{"v", "Expand preview"},
+		{"Tab (in v)", "Switch activity / latest edit"},
 		{"i", "Collapse / show inspector"},
 		{"n", "New agent in pane"},
 		{"Shift+N", "New agent in window"},

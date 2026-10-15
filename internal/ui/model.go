@@ -27,6 +27,7 @@ type Model struct {
 	previewRevision    int
 	previewCancel      context.CancelFunc
 	previewExpanded    bool
+	previewShowsEdit   bool
 	inspectorCollapsed bool
 	previewScroll      int
 	previewFrame       int

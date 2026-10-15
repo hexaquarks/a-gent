@@ -105,6 +105,11 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if message.String() == "v" {
 			model.previewExpanded = true
 			model.previewScroll = 0
+
+			session, _ := model.selectedSession()
+			cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+			model.previewShowsEdit = cached.edit != nil && !model.showActivity(session, cached)
+
 			command := model.syncPreview()
 			return model, command
 		}
@@ -112,6 +117,14 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			switch message.String() {
 			case "esc", "q":
 				model.previewExpanded = false
+				return model, nil
+			case "tab":
+				session, _ := model.selectedSession()
+				cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+				if cached.activity != nil && cached.edit != nil {
+					model.previewShowsEdit = !model.previewShowsEdit
+					model.previewScroll = 0
+				}
 				return model, nil
 			case "j", "down":
 				model.previewScroll++
@@ -221,7 +234,11 @@ func (model Model) thinkingIndicator(provider string, width int) string {
 func (model Model) previewContentView(width, height int, expanded bool) string {
 	session, ok := model.selectedSession()
 	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
-	if model.showActivity(session, cached) {
+	showActivity := model.showActivity(session, cached)
+	if expanded {
+		showActivity = cached.activity != nil && !model.previewShowsEdit
+	}
+	if showActivity {
 		return model.activityView(session, cached, width, height, expanded)
 	}
 	if cached.edit == nil {

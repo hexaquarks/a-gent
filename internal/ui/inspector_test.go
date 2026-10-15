@@ -89,3 +89,73 @@ func TestInspectorFitsResizedTerminals(t *testing.T) {
 		}
 	}
 }
+
+func TestExpandedInspectorSwitchesBetweenActivityAndScrollableEdit(t *testing.T) {
+	for _, state := range []agent.State{agent.StateRunning, agent.StateWaiting, agent.StateIdle} {
+		t.Run(string(state), func(t *testing.T) {
+			model := referenceDashboard()
+			model.sessions[2].State = state
+			selected, _ := model.selectedSession()
+			key := sessionIdentity{provider: selected.Provider, id: selected.ID}
+			diff := []string{"@@ change", "+DIFF_START"}
+			for index := 0; index < 40; index++ {
+				diff = append(diff, "+more changed code")
+			}
+			diff = append(diff, "+DIFF_END")
+			cached := model.previewCache[key]
+			cached.edit.Diff = strings.Join(diff, "\n")
+			cached.activity = &agent.Activity{Label: "Testing", Text: "ACTIVITY_OUTPUT", At: time.Now()}
+			model.previewCache[key] = cached
+
+			updated, _ := model.Update(runeKey('v'))
+			model = updated.(Model)
+			if state == agent.StateIdle {
+				if !model.previewShowsEdit {
+					t.Fatal("idle session should initially expand its latest edit")
+				}
+				updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+				model = updated.(Model)
+			}
+			activity := ansi.Strip(model.View())
+			for _, text := range []string{"ACTIVITY_OUTPUT", "Tab switch", selected.ID} {
+				if !strings.Contains(activity, text) {
+					t.Fatalf("expanded activity omitted %q:\n%s", text, activity)
+				}
+			}
+
+			updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+			model = updated.(Model)
+			edit := ansi.Strip(model.View())
+			if !strings.Contains(edit, "DIFF_START") || strings.Contains(edit, "ACTIVITY_OUTPUT") {
+				t.Fatalf("Tab did not select latest edit:\n%s", edit)
+			}
+			for index := 0; index < len(diff); index++ {
+				updated, _ = model.Update(runeKey('j'))
+				model = updated.(Model)
+			}
+			if !strings.Contains(ansi.Strip(model.View()), "DIFF_END") {
+				t.Fatal("expanded edit could not scroll to its last changed line")
+			}
+			updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+			model = updated.(Model)
+			if model.previewScroll != 0 || !strings.Contains(model.View(), "ACTIVITY_OUTPUT") {
+				t.Fatal("switching back to activity did not reset scrolling")
+			}
+		})
+	}
+}
+
+func TestInspectorDistinguishesEmptyFilterFromNoLiveSessions(t *testing.T) {
+	model := referenceDashboard()
+	model.selectedProject = "/missing"
+	model.updateTableRows()
+	view := ansi.Strip(model.detailWithPreview())
+	if !strings.Contains(view, "No sessions match this filter.") || strings.Contains(view, "No live sessions") {
+		t.Fatalf("empty filter was reported as an empty dashboard:\n%s", view)
+	}
+	model.sessions = nil
+	model.updateTableRows()
+	if !strings.Contains(ansi.Strip(model.detailWithPreview()), "No live sessions found.") {
+		t.Fatal("empty dashboard lost its no-live-sessions message")
+	}
+}

@@ -25,6 +25,9 @@ func (model Model) inspectorView(width, height int) string {
 	session, selected := model.selectedSession()
 	if !selected {
 		message := "No live sessions found."
+		if len(model.sessions) > 0 {
+			message = "No sessions match this filter."
+		}
 		if model.lastError != nil {
 			message = "Could not read live sessions."
 		}
