@@ -11,6 +11,12 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const (
+	boardColumnHeadingRows = 2
+	boardCardContentRows   = 3
+	boardCardBorderRows    = 2
+)
+
 type boardColumn struct {
 	title   string
 	color   string
@@ -125,17 +131,41 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 		return lipgloss.NewStyle().Width(width).Height(height).Render(strings.Split(card, "\n")[1])
 	}
 
-	// Cards share border rows; the first upper border occupies the heading divider row.
-	capacity := max(1, (height-2)/4)
-	start := 0
+	// Worker summaries add a row to parent cards. Fit complete cards around
+	// selection rather than assuming every card has the same height.
+	selectedPosition := 0
 	for position, index := range column.indexes {
 		if index == model.table.Cursor() {
-			start = max(0, position-capacity+1)
+			selectedPosition = position
 			break
 		}
 	}
 
-	end := min(len(column.indexes), start+capacity)
+	availableRows := max(0, height-boardColumnHeadingRows)
+	start := 0
+	usedRows := 0
+	for position := 0; position <= selectedPosition && position < len(column.indexes); position++ {
+		usedRows += model.boardCardHeight(sessions[column.indexes[position]]) - 1
+	}
+	for usedRows > availableRows && start < selectedPosition {
+		usedRows -= model.boardCardHeight(sessions[column.indexes[start]]) - 1
+		start++
+	}
+
+	end := start
+	usedRows = 0
+	for end < len(column.indexes) {
+		cardRows := model.boardCardHeight(sessions[column.indexes[end]]) - 1
+		if usedRows+cardRows > availableRows && end > start {
+			break
+		}
+		usedRows += cardRows
+		end++
+		if usedRows >= availableRows {
+			break
+		}
+	}
+
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(column.color)).Bold(true)
 	heading := fmt.Sprintf("%s · %d", column.title, len(column.indexes))
 	more := ""
@@ -194,7 +224,12 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	project := model.projectStyle(session.WorkingDirectory).Background(background).Render(
 		safeDisplayText(projectName(session.WorkingDirectory)),
 	)
-	state := statusStyle(sessionState(session)).Background(background).Render(displayState(sessionState(session)))
+	summaryStyle := mutedStyle.Background(background)
+	if sessionState(session) == agent.StateWaiting || sessionState(session) == agent.StateError ||
+		sessionState(session) == agent.StateUnavailable {
+		summaryStyle = waitingStyle.Background(background)
+	}
+	summary := summaryStyle.Render(model.boardActivitySummary(session, time.Now()))
 	activity := mutedStyle.Background(background).Render(formatLastActiveAt(session.LastActiveAt, time.Now()))
 	separator := mutedStyle.Background(background).Render(" · ")
 
@@ -216,8 +251,15 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	lines := []string{
 		edge + lineStyle.Render(marker+title),
 		edge + lineStyle.Render(metadata),
-		edge + lineStyle.Render(clipLines(state, contentWidth)),
+		edge + lineStyle.Render(clipLines(summary, contentWidth)),
 	}
+	workers, running := model.boardWorkerCounts(session)
+	if workers > 0 {
+		workerSummary := mutedStyle.Background(background).Render(fmt.Sprintf("%d subagents · ", workers)) +
+			runningStyle.Background(background).Render(fmt.Sprintf("%d running", running))
+		lines = append(lines, edge+lineStyle.Render(clipLines(workerSummary, contentWidth)))
+	}
+
 	border := lipgloss.NormalBorder()
 	borderColor := lipgloss.Color(colorBackground)
 	if selected {
@@ -226,4 +268,29 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	return lipgloss.NewStyle().Background(background).
 		Border(border).BorderForeground(borderColor).BorderBackground(lipgloss.Color(colorBackground)).
 		Render(strings.Join(lines, "\n"))
+}
+
+func (model Model) boardWorkerCounts(session agent.Session) (total, running int) {
+	if session.ID == "" {
+		return 0, 0
+	}
+
+	for _, candidate := range model.sessions {
+		if candidate.Provider != session.Provider || candidate.ParentID != session.ID {
+			continue
+		}
+		total++
+		if sessionState(candidate) == agent.StateRunning {
+			running++
+		}
+	}
+	return total, running
+}
+
+func (model Model) boardCardHeight(session agent.Session) int {
+	height := boardCardContentRows + boardCardBorderRows
+	if total, _ := model.boardWorkerCounts(session); total > 0 {
+		height++
+	}
+	return height
 }

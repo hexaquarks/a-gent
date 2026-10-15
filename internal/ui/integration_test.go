@@ -548,3 +548,56 @@ func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestIntegrationBoardActivityAndObservedCompletion(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("codex fixture")
+	fixture.waitText("claude fixture")
+	fixture.appendOutput("codex", "CARD_ONE")
+	fixture.waitText("CARD_ONE")
+	fixture.key("m")
+	fixture.waitText("FOCUS")
+
+	// The compact inspector also contains output. Require it in the cards.
+	cardArea := func(screen string) string {
+		return strings.Split(screen, "FOCUS")[0]
+	}
+	waitCard := func(text string) string {
+		t.Helper()
+		return fixture.waitFor("card summary "+text, 4*time.Second, func(screen string) bool {
+			return strings.Contains(cardArea(screen), text)
+		})
+	}
+	waitCard("CARD_ONE")
+	fixture.capture("card-first-output")
+	fixture.appendOutput("codex", "CARD_TWO")
+	waitCard("CARD_TWO")
+	fixture.capture("card-updated-output")
+
+	fixture.selectProvider("claude")
+	fixture.appendOutput("claude", "CLAUDE_CARD")
+	screen := waitCard("CLAUDE_CARD")
+	if strings.Contains(cardArea(screen), "CARD_TWO") {
+		t.Fatalf("unselected card retained current-output summary:\n%s", screen)
+	}
+	fixture.capture("card-selected-claude")
+
+	fixture.setState("codex", agent.StateIdle)
+	waitCard("Finished this visit")
+	fixture.capture("card-finished-this-visit")
+	fixture.setState("codex", agent.StateRunning)
+	fixture.waitFor("rerun clears finished hint", 4*time.Second, func(screen string) bool {
+		return strings.Contains(screen, "running · 2") &&
+			!strings.Contains(cardArea(screen), "Finished this visit")
+	})
+
+	fixture.setState("claude", agent.StateWaiting)
+	waitCard("Waiting for input")
+	fixture.width, fixture.height = 64, 20
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "64", "-y", "20")
+	screen = waitCard("Waiting for input")
+	if runewidth.StringWidth(strings.Split(screen, "\n")[0]) != fixture.width {
+		t.Fatal("narrow board exceeded the terminal width")
+	}
+	fixture.capture("card-narrow-waiting")
+}
