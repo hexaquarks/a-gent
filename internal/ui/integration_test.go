@@ -32,7 +32,7 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.appendOutput("claude", "CLAUDE_OUTPUT")
 	fixture.key("j")
 	fixture.waitText("BOARD_OUTPUT")
-	fixture.key("h")
+	fixture.key("l")
 	fixture.waitFor("focused Claude card", 4*time.Second, func(screen string) bool {
 		for _, line := range strings.Split(screen, "\n") {
 			if strings.Contains(line, "FOCUS") && strings.Contains(line, "claude fixture") {
@@ -57,13 +57,13 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.waitText("running · 1")
 	fixture.capture("board-narrow")
-	fixture.key("Right")
+	fixture.key("Left")
 	screen = fixture.waitText("BOARD_OUTP")
 	if !strings.Contains(screen, "needs you · 1") || strings.Contains(screen, "CLAUDE_OUTP") {
 		t.Fatal("narrow navigation did not follow the selected column and preview")
 	}
 	fixture.capture("board-narrow-codex")
-	fixture.key("Left")
+	fixture.key("Right")
 	fixture.waitText("CLAUDE_OUTPUT")
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")
@@ -297,7 +297,7 @@ func TestIntegrationAttentionFilters(t *testing.T) {
 	fixture.waitText("claude fixture")
 	fixture.waitText("codex fixture")
 	fixture.setState("claude", agent.StateWaiting)
-	fixture.waitText("1 needs input")
+	fixture.waitText("1 needs you")
 	fixture.waitText("1 unseen")
 
 	fixture.key("Tab")
@@ -332,7 +332,7 @@ func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture.setState("claude", agent.StateWaiting)
 	screen := fixture.waitFor("live activity order", 4*time.Second, func(screen string) bool {
 		codexRow, claudeRow := strings.Index(screen, "codex fixture"), strings.Index(screen, "claude fixture")
-		return strings.Contains(screen, "1 needs input") && strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
+		return strings.Contains(screen, "1 needs you") && strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
 	})
 	if !strings.Contains(screen, "LIVE_OUTPUT") {
 		t.Fatal("reordering sessions lost the selected preview")

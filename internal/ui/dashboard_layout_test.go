@@ -133,7 +133,14 @@ func writeReferenceCapture(t *testing.T, view, plain string) {
 	var cast strings.Builder
 	encoder := json.NewEncoder(&cast)
 	for _, record := range []any{
-		map[string]any{"version": 2, "width": PopupWidth, "height": PopupHeight, "theme": map[string]string{"fg": colorMainText, "bg": colorBackground, "palette": "#000000:#cd0000:#00cd00:#cdcd00:#0000ee:#cd00cd:#00cdcd:#e5e5e5:#7f7f7f:#ff0000:#00ff00:#ffff00:#5c5cff:#ff00ff:#00ffff:#ffffff"}},
+		map[string]any{
+			"version": 2, "width": lipgloss.Width(view), "height": lipgloss.Height(view),
+			"theme": map[string]string{
+				"fg": colorMainText, "bg": colorBackground,
+				"palette": "#000000:#cd0000:#00cd00:#cdcd00:#0000ee:#cd00cd:#00cdcd:#e5e5e5:" +
+					"#7f7f7f:#ff0000:#00ff00:#ffff00:#5c5cff:#ff00ff:#00ffff:#ffffff",
+			},
+		},
 		[]any{0, "o", frame.String()}, []any{0.2, "o", ""},
 	} {
 		if err := encoder.Encode(record); err != nil {

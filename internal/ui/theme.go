@@ -14,18 +14,19 @@ import (
 const (
 	indicatorDot = "●"
 
-	colorBackground  = "#0C1112"
-	colorMainText    = "#EDF2F4"
-	colorSecondary   = "#A7B3C5"
-	colorAccent      = "#59DFF0"
-	colorSelection   = "#183740"
-	colorAgent       = "#BC80FF"
-	colorRunning     = "#A3EF78"
-	colorAttention   = "#FFCA64"
-	colorError       = "#FF6D7A"
-	colorSection     = "#202B2D"
-	colorTableHeader = "#2D3B3E"
-	colorDivider     = "#354548"
+	colorBackground    = "#0C1112"
+	colorMainText      = "#EDF2F4"
+	colorSecondary     = "#A7B3C5"
+	colorAccent        = "#59DFF0"
+	colorSelection     = "#183740"
+	colorAgent         = "#AC9ABF"
+	colorRunning       = "#A3EF78"
+	colorAttention     = "#FFCA64"
+	colorError         = "#FF6D7A"
+	colorSection       = "#202B2D"
+	colorTableHeader   = "#1B292C"
+	colorSectionHeader = "#172224"
+	colorDivider       = "#354548"
 )
 
 var (
@@ -63,7 +64,7 @@ var (
 			Foreground(lipgloss.Color(colorSecondary))
 	sectionStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(colorMainText))
+			Foreground(lipgloss.Color(colorSecondary))
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(colorAccent))
@@ -127,9 +128,9 @@ func providerStyle(provider string) lipgloss.Style {
 	switch strings.ToLower(provider) {
 	case "codex":
 	case "claude":
-		color = "#FF997D"
+		color = "#C49B8B"
 	default:
-		palette := []string{colorAccent, "#7DCFFF", "#73DACA", "#FFCA64", "#FF6D7A"}
+		palette := []string{"#8CBBB7", "#97B5CA", "#91B7A6", "#BDB18D", "#BF9598"}
 		hash := fnv.New32a()
 		_, _ = hash.Write([]byte(strings.ToLower(provider)))
 		color = palette[int(hash.Sum32())%len(palette)]
@@ -146,8 +147,8 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 	// Pink, blue, and mint come first; cyan, violet, and status colors already
 	// carry meaning elsewhere in the dashboard.
 	palette := [...]string{
-		"#F28FC4", "#82B1FF", "#65D6AD", "#E6D9B2", "#D4A76A",
-		"#A9C4B5", "#FFA86B", "#9CA8FF", "#BEDC7F", "#63D6E6",
+		"#C59DB5", "#93ABC9", "#8CB7A4", "#B8B0A0", "#B7A38C",
+		"#A0B3A8", "#C4A089", "#A3A8C5", "#ADB996", "#8FB7BD",
 	}
 	projects := model.projects()
 	slices.Sort(projects)
@@ -158,8 +159,7 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 		}
 		if project == directory {
 			return lipgloss.NewStyle().
-				Foreground(lipgloss.Color(palette[colorIndex%len(palette)])).
-				Bold(true)
+				Foreground(lipgloss.Color(palette[colorIndex%len(palette)]))
 		}
 		colorIndex++
 	}
@@ -168,5 +168,5 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 
 // Section bars fill their panel, including the space after the heading.
 func sectionBar(text string, width int, style lipgloss.Style) string {
-	return style.Background(lipgloss.Color(colorSection)).Width(width).MaxWidth(width).Render(ansi.Truncate(text, max(1, width), "…"))
+	return style.Background(lipgloss.Color(colorSectionHeader)).Width(width).MaxWidth(width).Render(ansi.Truncate(text, max(1, width), "…"))
 }

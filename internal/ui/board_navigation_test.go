@@ -52,19 +52,19 @@ func TestBoardNavigationClampsCardRowAndColumnBoundaries(t *testing.T) {
 			id  string
 		}{
 			{"j", "a2"},
-			{"l", "a2"},
-			{"h", "c0"},
-			{"h", "b0"},
-			{"h", "b0"},
-			{"j", "b1"},
-			{"j", "b1"},
+			{"h", "a2"},
+			{"l", "b1"},
 			{"l", "c0"},
-			{"k", "c0"},
-			{"l", "a0"},
+			{"l", "c0"},
+			{"h", "b0"},
+			{"j", "b1"},
+			{"j", "b1"},
+			{"h", "a1"},
 			{"k", "a0"},
-			{"j", "a1"},
-			{"h", "c0"},
-			{"l", "a0"},
+			{"h", "a0"},
+			{"l", "b0"},
+			{"l", "c0"},
+			{"h", "b0"},
 		}
 		for _, step := range steps {
 			key := runeKey(rune(step.key[0]))
@@ -82,9 +82,9 @@ func TestBoardNavigationSkipsEmptyColumns(t *testing.T) {
 	model.sessions = append(model.sessions[:3], model.sessions[5:]...)
 	model.updateTableRows()
 	model.table.SetCursor(2)
-	model = sendProjectKey(model, runeKey('h'))
-	requireBoardSelection(t, model, "c0")
 	model = sendProjectKey(model, runeKey('l'))
+	requireBoardSelection(t, model, "c0")
+	model = sendProjectKey(model, runeKey('h'))
 	requireBoardSelection(t, model, "a0")
 
 	model.sessions = model.sessions[:3]
@@ -109,7 +109,9 @@ func TestBoardNavigationUsesFilteredSortAndPreservesLiveIdentity(t *testing.T) {
 	model.updateTableRows()
 	model.table.SetCursor(3) // A2 is first in Needs You under the reversed sort.
 	requireBoardSelection(t, model, "a2")
-	model = sendProjectKey(model, runeKey('h'))
+	model = sendProjectKey(model, runeKey('l'))
+	requireBoardSelection(t, model, "b1")
+	model = sendProjectKey(model, runeKey('l'))
 	requireBoardSelection(t, model, "c0")
 	model = sendProjectKey(model, runeKey('h'))
 	requireBoardSelection(t, model, "b1")
@@ -163,7 +165,9 @@ func TestBoardColumnNavigationPreviewIsolation(t *testing.T) {
 			activity: &agent.Activity{Text: "OUTPUT_" + session.ID, At: time.Now()},
 		}
 	}
-	model = sendProjectKey(model, runeKey('h'))
+	model = sendProjectKey(model, runeKey('l'))
+	requireBoardSelection(t, model, "b0")
+	model = sendProjectKey(model, runeKey('l'))
 	requireBoardSelection(t, model, "c0")
 	model = sendProjectKey(model, runeKey('h'))
 	requireBoardSelection(t, model, "b0")

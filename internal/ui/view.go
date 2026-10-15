@@ -108,10 +108,24 @@ func displayDirectory(directory string) string {
 }
 
 func (model Model) headerView(summary sessionSummary, width int) string {
-	brand := accentStyle.Render("a-gent") + mutedStyle.Render(fmt.Sprintf("  /  %d sessions", summary.total))
+	subagents := 0
+	for _, session := range model.sessions {
+		if session.ParentID != "" {
+			subagents++
+		}
+	}
+	count := fmt.Sprintf("  /  %d sessions", summary.total-subagents)
+	if subagents > 0 {
+		label := "subagents"
+		if subagents == 1 {
+			label = "subagent"
+		}
+		count += fmt.Sprintf(" · %d %s", subagents, label)
+	}
+	brand := accentStyle.Render("a-gent") + mutedStyle.Render(count)
 	badges := []string{
 		summaryBadge(fmt.Sprintf("%d running", summary.running), colorRunning, "#202D1C"),
-		summaryBadge(fmt.Sprintf("%d needs input", summary.waiting), colorAttention, "#30291B"),
+		summaryBadge(fmt.Sprintf("%d needs you", summary.total-summary.running-summary.idle), colorAttention, "#30291B"),
 		summaryBadge(fmt.Sprintf("%d unseen", len(model.unreadSessions)), colorAccent, "#152B30"),
 	}
 	status := runningStyle.Render("●") + mutedStyle.Render(" live")

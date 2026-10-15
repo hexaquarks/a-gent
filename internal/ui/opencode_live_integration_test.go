@@ -220,7 +220,7 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 	for _, mode := range []string{"plain", "launcher"} {
 		t.Run(mode, func(t *testing.T) {
 			fixture := newDashboardFixtureWithProvider(t, "opencode-live-"+mode)
-			fixture.waitText("[subagent]")
+			fixture.waitText("└─")
 			selectedTitle := func(screen string) string {
 				for _, row := range strings.Split(screen, "\n") {
 					if strings.Contains(row, "v expand") {
@@ -281,7 +281,8 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 			fixture.capture("child-narrow")
 			fixture.stopLiveOpenCode()
 			fixture.waitFor("exited process and children disappear", 5*time.Second, func(screen string) bool {
-				return strings.Contains(screen, "2 sessions") && !strings.Contains(screen, "[subagent]")
+				return strings.Contains(screen, "2 sessions") &&
+					!strings.Contains(screen, "subagent") && !strings.Contains(screen, "↳")
 			})
 			fixture.capture("process-exited")
 		})

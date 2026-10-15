@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
 	"a-gent/internal/agent"
 )
+
+const maxSessionTreeDepth = 4
 
 // Sorting applies to siblings; children remain directly beneath their parent.
 // A child whose parent is filtered out still appears with its subagent marker.
@@ -52,24 +55,56 @@ func groupSubagents(sessions []agent.Session) []agent.Session {
 }
 
 func (model Model) listSessionName(session agent.Session) string {
+	name := session.Name
+	if strings.TrimSpace(safeDisplayText(name)) == "" {
+		name = "Untitled session"
+	}
 	if session.ParentID == "" {
-		return sessionDisplayName(session)
+		return name
 	}
-	parents := make(map[sessionIdentity]string, len(model.sessions))
-	for _, candidate := range model.sessions {
-		parents[sessionIdentity{candidate.Provider, candidate.ID}] = candidate.ParentID
+
+	visible := model.filteredSessions()
+	byIdentity := make(map[sessionIdentity]agent.Session, len(visible))
+	lastSibling := make(map[sessionIdentity]sessionIdentity)
+	for _, candidate := range visible {
+		identity := sessionIdentity{candidate.Provider, candidate.ID}
+		byIdentity[identity] = candidate
+		lastSibling[sessionIdentity{candidate.Provider, candidate.ParentID}] = identity
 	}
-	depth := 1
+
+	// Draw only visible ancestry, and bound malformed or deeply nested trees
+	// so their branches cannot consume the entire task column.
+	path := []agent.Session{session}
 	seen := map[string]bool{session.ID: true}
-	for parent := session.ParentID; parent != "" && !seen[parent]; {
-		seen[parent] = true
-		parent = parents[sessionIdentity{session.Provider, parent}]
-		if parent != "" {
-			depth++
+	for len(path) < maxSessionTreeDepth {
+		parent, ok := byIdentity[sessionIdentity{session.Provider, session.ParentID}]
+		if !ok || parent.ParentID == "" || seen[parent.ID] {
+			break
+		}
+		path = append(path, parent)
+		seen[parent.ID] = true
+		session = parent
+	}
+	slices.Reverse(path)
+
+	var gutter strings.Builder
+	for index, node := range path {
+		identity := sessionIdentity{node.Provider, node.ID}
+		last, known := lastSibling[sessionIdentity{node.Provider, node.ParentID}]
+		isLast := !known || last == identity
+		if index == len(path)-1 {
+			if isLast {
+				gutter.WriteString("└─ ")
+			} else {
+				gutter.WriteString("├─ ")
+			}
+		} else if isLast {
+			gutter.WriteString("   ")
+		} else {
+			gutter.WriteString("│  ")
 		}
 	}
-	// Bound indentation so deeply nested agents retain a readable title.
-	return strings.Repeat("  ", min(depth, 4)) + "↳ " + sessionDisplayName(session)
+	return gutter.String() + name
 }
 
 func (model Model) sessionWorkspace(session agent.Session) agent.Session {
