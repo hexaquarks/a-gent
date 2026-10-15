@@ -58,8 +58,8 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.waitText("running · 1")
 	fixture.capture("board-narrow")
 	fixture.key("Right")
-	screen = fixture.waitText("BOARD_OUTPUT")
-	if !strings.Contains(screen, "needs you · 1") || strings.Contains(screen, "CLAUDE_OUTPUT") {
+	screen = fixture.waitText("BOARD_OUTP")
+	if !strings.Contains(screen, "needs you · 1") || strings.Contains(screen, "CLAUDE_OUTP") {
 		t.Fatal("narrow navigation did not follow the selected column and preview")
 	}
 	fixture.capture("board-narrow-codex")
@@ -238,10 +238,13 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	fixture.key("q")
 	fixture.waitText("ACTIVITY")
 	fixture.selectProvider("codex")
+	fixture.key("v") // Expand output that may be clipped in the narrow preview.
 	screen = fixture.waitText("CODEX_ONLY")
 	if strings.Contains(screen, "CLAUDE_ONLY") {
 		t.Fatal("returning to a cached session mixed providers")
 	}
+	fixture.key("Escape")
+	fixture.waitText("SELECTED SESSION")
 }
 
 func assertProjectColumn(t *testing.T, screen string, visible bool) {
@@ -289,6 +292,35 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture.capture("no-edits")
 }
 
+func TestIntegrationAttentionFilters(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("claude fixture")
+	fixture.waitText("codex fixture")
+	fixture.setState("claude", agent.StateWaiting)
+	fixture.waitText("1 needs input")
+	fixture.waitText("1 unseen")
+
+	fixture.key("Tab")
+	fixture.key("Enter") // Confirm Needs you.
+	fixture.key("Tab")
+	screen := fixture.waitText("SESSIONS (1 of 1)")
+	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") {
+		t.Fatalf("Needs you did not isolate the waiting session:\n%s", screen)
+	}
+	fixture.capture("needs-you-filter")
+
+	fixture.key("Tab")
+	fixture.key("Down")
+	fixture.key("Enter") // Confirm Unseen.
+	fixture.key("Tab")
+	fixture.waitText("SESSIONS (1 of 1)")
+	fixture.capture("unseen-filter")
+	fixture.key("Enter")
+	fixture.waitText("0 unseen")
+	fixture.waitText("No sessions match this filter.")
+	fixture.capture("unseen-acknowledged")
+}
+
 func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	fixture.appendOutput("codex", "LIVE_OUTPUT")
@@ -307,7 +339,9 @@ func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	}
 	fixture.capture("live-order-and-output")
 	fixture.key("Tab")
-	fixture.key("Down") // Recent
+	for range 3 {
+		fixture.key("Down") // Needs you → Unseen → Active → Recent.
+	}
 	fixture.key("Enter")
 	fixture.key("Tab")
 	fixture.waitText("◷  Recent")

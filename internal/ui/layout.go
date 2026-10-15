@@ -10,8 +10,11 @@ const (
 	scrollbarGutterWidth = 2
 	defaultTableWidth    = 70
 	minimumTableWidth    = 36
-	sidebarContentWidth  = 24
+	sidebarContentWidth  = 26
 	defaultSessionRows   = 8
+
+	// The sidebar separator and two outer borders share the terminal width.
+	sidebarLayoutFrameWidth = 3
 
 	// PopupWidth and PopupHeight keep the dashboard's wide proportions stable
 	// across terminal sizes. tmux clamps these dimensions to the available space.
@@ -24,7 +27,7 @@ const (
 func (model *Model) resizeTable() {
 	tableWidth := defaultTableWidth
 	if model.width > 0 {
-		tableWidth = model.width - sidebarContentWidth - 3
+		tableWidth = model.width - sidebarContentWidth - sidebarLayoutFrameWidth
 	}
 	if model.width > 0 && !model.sidebarVisible() {
 		tableWidth = max(8, model.width-2)
@@ -114,7 +117,8 @@ func (model Model) inlinePreviewHeight() int {
 }
 
 func (model Model) sidebarVisible() bool {
-	return (model.width == 0 || model.width >= 64) && (model.height == 0 || model.height >= 21)
+	minimumWidth := sidebarContentWidth + minimumTableWidth + sidebarLayoutFrameWidth
+	return (model.width == 0 || model.width >= minimumWidth) && (model.height == 0 || model.height >= 21)
 }
 
 // The board uses the space released by compact details rather than the list's

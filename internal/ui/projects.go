@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"a-gent/internal/agent"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -123,8 +125,18 @@ func (model Model) projectItemView(item sidebarItem, focused, selected bool) str
 		markerStyle = markerStyle.Background(lipgloss.Color(colorSelection))
 		countStyle = countStyle.Background(lipgloss.Color(colorSelection))
 	}
+	attention := ""
+	waiting := 0
+	for _, session := range model.sessions {
+		if session.WorkingDirectory == item.project && sessionState(session) == agent.StateWaiting {
+			waiting++
+		}
+	}
+	if waiting > 0 {
+		attention = fmt.Sprintf("!%d", waiting)
+	}
 	return model.renderSidebarRow(
-		item.label, folderIcon, star, fmt.Sprint(model.projectCount(item.project)),
+		item.label, folderIcon, star, fmt.Sprint(model.projectCount(item.project)), attention,
 		style, markerStyle, countStyle,
 	)
 }

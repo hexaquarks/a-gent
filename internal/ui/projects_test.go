@@ -96,7 +96,7 @@ func TestProjectFolderAndNames(t *testing.T) {
 	if !strings.Contains(row, "\uea83") {
 		t.Fatal("project row is missing its folder icon")
 	}
-	for _, state := range []agent.State{agent.StateIdle, agent.StateWaiting, agent.StateError} {
+	for _, state := range []agent.State{agent.StateIdle, agent.StateError} {
 		model.sessions[0].State = state
 		if model.projectItemView(item, false, false) != row {
 			t.Fatal("project identity changed with session status")

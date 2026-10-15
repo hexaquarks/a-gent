@@ -272,7 +272,7 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 			// Capture the destination before acknowledgement can remove the row
-			// from Updates and select the next unread session.
+			// from Unseen and select the next unread session.
 			next, command := model.navigateSelectedSession()
 			model = next.(Model)
 			model.markSelectedSessionRead()

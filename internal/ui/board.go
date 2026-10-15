@@ -205,13 +205,12 @@ func (model Model) boardColumnView(column boardColumn, sessions []agent.Session,
 }
 
 func (model Model) boardCardView(session agent.Session, selected bool, width int) string {
-	identity := sessionIdentity{provider: session.Provider, id: session.ID}
 	background := lipgloss.Color(colorSection)
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
 	marker := ""
-	if model.unreadSessions[identity] {
+	if model.boardSessionUnread(session) {
 		marker = accentStyle.Background(background).Render(indicatorDot + " ")
 	}
 

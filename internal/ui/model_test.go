@@ -283,12 +283,12 @@ func TestSidebarRendersViewsAndProjects(t *testing.T) {
 	}
 
 	sidebar := model.renderSidebar(summarizeSessions(model.sessions))
-	for _, expected := range []string{"VIEWS", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
+	for _, expected := range []string{"FILTERS", "Needs you", "Unseen", "Active", "Recent", "All", "PROJECTS", "a-gent", "other"} {
 		if !strings.Contains(sidebar, expected) {
 			t.Errorf("sidebar does not contain %q:\n%s", expected, sidebar)
 		}
 	}
-	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " \uea83  a-gent") || !strings.HasSuffix(row, "  2 ") {
+	if row := ansi.Strip(model.projectItemView(sidebarItem{label: "a-gent", project: "/projects/a-gent"}, false, false)); !strings.HasPrefix(row, " \uea83  a-gent") || !strings.HasSuffix(row, "2    ") {
 		t.Fatalf("sidebar does not show the a-gent agent count:\n%s", sidebar)
 	}
 }
@@ -357,6 +357,7 @@ func TestViewsRequireEnterToSelectAndClear(t *testing.T) {
 		{ID: "waiting", State: agent.StateWaiting, WorkingDirectory: "/two"},
 	}
 	model.updateTableRows()
+	model.sidebarCursor = sidebarViewIndex(activeView)
 	model = sendProjectKey(model, tea.KeyMsg{Type: tea.KeyTab})
 	if model.selectedView != allView || len(model.table.Rows()) != 1 {
 		t.Fatal("browsing Active did not preview without committing")
