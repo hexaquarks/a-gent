@@ -40,11 +40,7 @@ func (model Model) boardActivitySummary(session agent.Session, now time.Time) st
 
 	// Only the selected session is refreshed. Old public output must not look
 	// like a tool operation that is still in progress.
-	label := strings.TrimSpace(safeDisplayText(cached.activity.Label))
-	activityAge := now.Sub(cached.activity.At)
-	if activityAge < 0 || activityAge > boardActivityFreshness {
-		label = "Last output"
-	}
+	label := currentActivityLabel(*cached.activity, now)
 
 	text := ""
 	for _, line := range strings.Split(ansi.Strip(cached.activity.Text), "\n") {
@@ -64,4 +60,14 @@ func (model Model) boardActivitySummary(session agent.Session, now time.Time) st
 	default:
 		return label + " · " + text
 	}
+}
+
+// A fresh cache read can still contain an old completed action. Keep its output
+// visible without presenting that action as work the agent is doing now.
+func currentActivityLabel(activity agent.Activity, now time.Time) string {
+	age := now.Sub(activity.At)
+	if activity.At.IsZero() || age < 0 || age > boardActivityFreshness {
+		return "Last output"
+	}
+	return strings.TrimSpace(safeDisplayText(activity.Label))
 }

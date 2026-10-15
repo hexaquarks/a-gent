@@ -133,7 +133,7 @@ func TestIntegrationOpenCodeStatusAndRealtimePreview(t *testing.T) {
 	fixture.waitText("Waiting for input")
 	fixture.capture("opencode-waiting")
 	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "opencode-completed", false))
-	fixture.waitText("Last output · idle")
+	fixture.waitText("Last output")
 	fixture.waitText("opencode-completed")
 	fixture.capture("opencode-idle")
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")

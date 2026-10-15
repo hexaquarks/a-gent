@@ -81,17 +81,25 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	// Fit the provider names, longest status, and activity heading without
 	// reserving extra padding that would shorten session titles.
 	const (
-		statusWidth = 15
-		ageWidth    = 15
+		statusWidth         = 15
+		minimumStatusWidth  = 3
+		minimumSessionWidth = 3
+		ageWidth            = 15
 	)
 	agentWidth := 8
 	for _, provider := range providers {
 		agentWidth = max(agentWidth, min(16, ansi.StringWidth(safeDisplayText(provider))+2))
 	}
-	if tableWidth < 44 {
+	remainingSessionWidth := tableWidth - agentWidth - statusWidth - ageWidth
+	if tableWidth < 44 || remainingSessionWidth < minimumSessionWidth {
+		remainingStatusWidth := tableWidth - agentWidth - ageWidth
+		if remainingStatusWidth < minimumStatusWidth {
+			// Keep the task readable when provider trees leave no room for status.
+			return []table.Column{{Title: "Session", Width: tableWidth}}
+		}
 		return []table.Column{
 			{Title: "Agent", Width: agentWidth},
-			{Title: "Status", Width: tableWidth - agentWidth - ageWidth},
+			{Title: "Status", Width: remainingStatusWidth},
 			{Title: "Age", Width: ageWidth},
 		}
 	}

@@ -231,7 +231,7 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
 	showActivity := model.showActivity(session, cached)
 	if expanded {
-		showActivity = cached.activity != nil && !model.previewShowsEdit
+		showActivity = cached.activity != nil && (!model.previewShowsEdit || cached.edit == nil)
 	}
 	if showActivity {
 		return model.activityView(session, cached, width, height, expanded)

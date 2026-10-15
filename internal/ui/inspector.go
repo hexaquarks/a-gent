@@ -99,6 +99,7 @@ func (model Model) inspectorActivity(session agent.Session, cached previewEntry,
 	if height <= 0 {
 		return ""
 	}
+	workers, running, _ := model.boardWorkerCounts(session)
 	title := "ACTIVITY"
 	if cached.err != nil || session.Stale || (!cached.checked.IsZero() && time.Since(cached.checked) > previewStaleAfter) {
 		title += " · stale"
@@ -116,22 +117,27 @@ func (model Model) inspectorActivity(session agent.Session, cached previewEntry,
 		lines = append(lines, mutedStyle.Render(message))
 	} else {
 		activity := cached.activity
-		label := safeDisplayText(activity.Label)
+		label := currentActivityLabel(*activity, time.Now())
 		if session.State == agent.StateWaiting {
 			label = "Waiting for input · " + label
 		} else if session.State == agent.StateIdle {
-			label = "Last output · idle · " + label
+			if label == "Assistant" || label == "" || label == "Last output" {
+				label = "Last output"
+			} else {
+				label = "Last output · " + label
+			}
 		}
 		lines = append(lines, statusStyle(sessionState(session)).Bold(true).Render(indicatorDot+" "+label))
 
-		textLines := strings.Split(activity.Text, "\n")
-		for index, line := range textLines {
-			textLines[index] = safeDisplayText(strings.ReplaceAll(line, "\t", "  "))
+		if height-len(lines) > 1 {
+			lines = append(lines, "")
 		}
-		text := strings.Join(textLines, "\n")
-		lines = append(lines, strings.Split(ansi.Wrap(text, width, ""), "\n")...)
+		textRows := min(inspectorActivityMaxTextRows, max(0, height-len(lines)))
+		if workers > 0 && height >= inspectorWorkerSummaryMinRows {
+			textRows = min(textRows, max(0, height-len(lines)-1))
+		}
+		lines = append(lines, inspectorActivityExcerpt(activity.Text, width, textRows)...)
 	}
-	workers, running, _ := model.boardWorkerCounts(session)
 	if workers > 0 && height >= inspectorWorkerSummaryMinRows {
 		lines = lines[:min(len(lines), height-1)]
 		for len(lines) < height-1 {
@@ -198,13 +204,14 @@ func (model Model) inspectorEdit(session agent.Session, cached previewEntry, wid
 			break
 		}
 	}
+	rows = compactInspectorDiffRows(rows[:min(len(rows), max(0, height-len(lines)))])
 	numberWidth := 1
 	for _, row := range rows {
 		if row.numberKnown {
 			numberWidth = max(numberWidth, len(strconv.Itoa(row.number)))
 		}
 	}
-	for _, row := range rows[:min(len(rows), max(0, height-len(lines)))] {
+	for _, row := range rows {
 		number := ""
 		if row.numberKnown {
 			number = strconv.Itoa(row.number)

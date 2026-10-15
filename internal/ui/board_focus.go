@@ -100,7 +100,7 @@ func (model Model) boardFocusActivity(session agent.Session) string {
 		return mutedStyle.Render(message)
 	}
 
-	activity := safeDisplayText(cached.activity.Label) + " · " + safeDisplayText(cached.activity.Text)
+	activity := currentActivityLabel(*cached.activity, time.Now()) + " · " + safeDisplayText(cached.activity.Text)
 	if cached.err != nil || session.Stale || time.Since(cached.checked) > previewStaleAfter {
 		return waitingStyle.Render("stale · ") + mutedStyle.Render(activity)
 	}

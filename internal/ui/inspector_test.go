@@ -200,3 +200,65 @@ func TestInspectorActivityAnchorsWorkerSummaryInsteadOfThinking(t *testing.T) {
 		t.Fatalf("activity lost its status dot or bottom worker summary:\n%s", view)
 	}
 }
+
+func TestExpandedInspectorFallsBackWhenSelectedEditDisappears(t *testing.T) {
+	model := referenceDashboard()
+	selected, _ := model.selectedSession()
+	key := sessionIdentity{provider: selected.Provider, id: selected.ID}
+	cached := model.previewCache[key]
+	cached.activity = &agent.Activity{Label: "Assistant", Text: "Retained public output", At: time.Now()}
+	model.previewCache[key] = cached
+	model.previewKey = key
+	model.previewExpanded = true
+	model.previewShowsEdit = true
+	if !strings.Contains(ansi.Strip(model.View()), "EDIT PREVIEW") {
+		t.Fatal("test did not start on the expanded edit")
+	}
+	updated, _ := model.Update(previewResult{
+		key: model.previewKey, revision: model.previewRevision, activity: cached.activity,
+	})
+	model = updated.(Model)
+	view := ansi.Strip(model.View())
+	if !strings.Contains(view, "Retained public output") || !strings.Contains(view, "LIVE ACTIVITY") ||
+		strings.Contains(view, "Tab switch") {
+		t.Fatalf("expanded edit did not fall back to the available activity after a reset:\n%s", view)
+	}
+}
+
+func TestInspectorsDoNotPresentOldRecordedActionsAsCurrent(t *testing.T) {
+	now := time.Now()
+	for _, test := range []struct {
+		name string
+		at   time.Time
+		want string
+	}{
+		{name: "recent", at: now, want: "Testing"},
+		{name: "old", at: now.Add(-time.Minute), want: "Last output"},
+		{name: "future", at: now.Add(time.Minute), want: "Last output"},
+		{name: "missing time", want: "Last output"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			model := referenceDashboard()
+			model.sessions[2].State = agent.StateRunning
+			selected, _ := model.selectedSession()
+			key := sessionIdentity{provider: selected.Provider, id: selected.ID}
+			model.previewKey = key
+			cached := previewEntry{loaded: true, checked: now, activity: &agent.Activity{
+				Label: "Testing", Text: "Navigation checks complete", At: test.at,
+			}}
+			model.previewCache[key] = cached
+			views := []string{
+				model.inspectorActivity(selected, cached, 60, 9),
+				model.boardFocusActivity(selected),
+				model.boardActivitySummary(selected, now),
+			}
+			for _, view := range views {
+				text := ansi.Strip(view)
+				if !strings.Contains(text, test.want) || !strings.Contains(text, "Navigation checks complete") ||
+					(test.want == "Last output" && strings.Contains(text, "Testing")) {
+					t.Fatalf("fresh cache read misrepresented the recorded action:\n%s", text)
+				}
+			}
+		})
+	}
+}
