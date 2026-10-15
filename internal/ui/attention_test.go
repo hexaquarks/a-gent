@@ -102,10 +102,17 @@ func TestProjectWaitingBadgeReservesStableColumns(t *testing.T) {
 				WorkingDirectory: "/projects/長いプロジェクト名",
 			})
 		}
+		// A different project keeps the shared badge column present throughout.
+		for index := 0; index < count; index++ {
+			model.sessions = append(model.sessions, agent.Session{
+				ID: fmt.Sprintf("other-%d", index), Provider: "codex", State: agent.StateWaiting,
+				WorkingDirectory: "/projects/other",
+			})
+		}
 		item := sidebarItem{label: "長いプロジェクト名", project: model.sessions[0].WorkingDirectory}
 		model.pinnedProjects = map[string]bool{item.project: true}
 		before := ansi.Strip(model.projectItemView(item, false, false))
-		for index := range model.sessions {
+		for index := range model.sessions[:count] {
 			model.sessions[index].State = agent.StateWaiting
 		}
 		after := ansi.Strip(model.projectItemView(item, false, false))
@@ -119,7 +126,7 @@ func TestProjectWaitingBadgeReservesStableColumns(t *testing.T) {
 		if lipgloss.Width(after) != model.sidebarWidth() {
 			t.Fatalf("badge overflowed sidebar: %q", after)
 		}
-		for index := range model.sessions {
+		for index := range model.sessions[:count] {
 			model.sessions[index].Stale = true
 		}
 		if stale := ansi.Strip(model.projectItemView(item, false, false)); stale != before {
@@ -226,5 +233,54 @@ func TestBoardAcknowledgesOnlyOwningTree(t *testing.T) {
 				t.Fatal("Board group remains unread after opening its workspace")
 			}
 		})
+	}
+}
+
+func TestSidebarReclaimsUnusedAttentionSpace(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = []agent.Session{{Provider: "codex", State: agent.StateIdle}}
+	item := sidebarItem{label: "long-provider-x", provider: "codex"}
+	withoutWaiting := ansi.Strip(model.sidebarItemView(item, 0, 1))
+	if !strings.Contains(withoutWaiting, item.label) || !strings.HasSuffix(withoutWaiting, "1 ") {
+		t.Fatalf("name or total lost space to an absent badge: %q", withoutWaiting)
+	}
+	if width := model.sidebarAttentionWidth(); width != 0 {
+		t.Fatalf("absent attention badge reserves %d cells", width)
+	}
+
+	model.sessions[0].State = agent.StateWaiting
+	withWaiting := ansi.Strip(model.sidebarItemView(item, 0, 1))
+	if !strings.HasSuffix(withWaiting, "1    ") || !strings.Contains(withWaiting, "…") {
+		t.Fatalf("waiting badges did not get a shared suffix: %q", withWaiting)
+	}
+	if lipgloss.Width(withoutWaiting) != lipgloss.Width(withWaiting) {
+		t.Fatal("showing waiting badges changed the sidebar width")
+	}
+
+	model.sessions[0].Stale = true
+	if stale := ansi.Strip(model.sidebarItemView(item, 0, 1)); stale != withoutWaiting {
+		t.Fatalf("stale waiting session kept an empty badge column: %q", stale)
+	}
+}
+
+func TestSidebarSeparatesMarkersFromFullWidthTotals(t *testing.T) {
+	model := NewModel(nil)
+	model.sessions = make([]agent.Session, 12)
+	for _, marker := range []string{"★", indicatorDot} {
+		row := ansi.Strip(model.renderSidebarRow(
+			"Example", "", marker, "12", "", mainTextStyle, mutedStyle, mutedStyle,
+		))
+		if !strings.HasSuffix(row, marker+" 12 ") {
+			t.Fatalf("marker touches the total or leaves a ghost suffix: %q", row)
+		}
+		if lipgloss.Width(row) != model.sidebarWidth() {
+			t.Fatalf("row width changed: %q", row)
+		}
+	}
+
+	model.sessions = make([]agent.Session, 1000)
+	model.sessions[0].State = agent.StateWaiting
+	if width := model.sidebarAttentionWidth(); width != len("!1") {
+		t.Fatalf("badge width uses session total instead of actual waiting count: %d", width)
 	}
 }

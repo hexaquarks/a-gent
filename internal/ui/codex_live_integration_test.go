@@ -328,7 +328,7 @@ func TestIntegrationCodexSubagents(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "70", "-y", "25")
 	fixture.key("j")
 	fixture.waitText("CHILD_PUBLIC_OUTPUT")
-	fixture.waitText("↳codex")
+	fixture.waitText("└─ codex")
 	fixture.capture("child-narrow")
 
 	loaded := fixture.codexRequest("thread/loaded/list", map[string]any{})

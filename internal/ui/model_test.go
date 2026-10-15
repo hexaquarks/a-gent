@@ -142,14 +142,14 @@ func TestSessionListUsesAvailableHeightAndScrolls(t *testing.T) {
 	model.height = 40
 	model.resizeTable()
 
-	if model.table.Height() != 23 {
-		t.Fatalf("table height = %d, want 23", model.table.Height())
+	if model.table.Height() != 22 {
+		t.Fatalf("table height = %d, want 22", model.table.Height())
 	}
 
-	model.table.SetCursor(23)
+	model.table.SetCursor(22)
 	start, end := model.visibleSessionRange()
-	if start != 1 || end != 24 {
-		t.Fatalf("visible range = %d-%d, want 1-24", start, end)
+	if start != 1 || end != 23 {
+		t.Fatalf("visible range = %d-%d, want 1-23", start, end)
 	}
 }
 

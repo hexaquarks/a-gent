@@ -117,12 +117,12 @@ func TestNarrowListStillMarksSubagents(t *testing.T) {
 	model := NewModel(nil)
 	child := agent.Session{Provider: "codex", ID: "child", ParentID: "parent"}
 	row := ansi.Strip(model.sessionRowView(child, false, tableColumns(40, "codex")))
-	if !strings.Contains(row, "↳codex") {
+	if !strings.Contains(row, "└─ co") {
 		t.Fatalf("narrow child marker absent: %s", row)
 	}
 }
 
-func TestSessionTreeKeepsBranchesInTaskColumn(t *testing.T) {
+func TestSessionTreeKeepsAgentAndTaskBranchesConsistent(t *testing.T) {
 	model := NewModel(nil)
 	model.sort = sessionSort{column: "Session"}
 	model.sessions = []agent.Session{
@@ -143,9 +143,17 @@ func TestSessionTreeKeepsBranchesInTaskColumn(t *testing.T) {
 		if got := model.listSessionName(session); got != want[session.ID] {
 			t.Fatalf("session %s = %q, want %q", session.ID, got, want[session.ID])
 		}
-		row := ansi.Strip(model.sessionRowView(session, false, tableColumns(120, "codex", "claude")))
+		columns := tableColumns(150, "codex", "claude")
+		columns[0].Width = 20
+		row := ansi.Strip(model.sessionRowView(session, false, columns))
 		if strings.Contains(row, "↳") || strings.Contains(row, "[subagent]") {
-			t.Fatalf("row duplicates its Session tree: %s", row)
+			t.Fatalf("row retained an obsolete subagent label: %s", row)
+		}
+		if session.ParentID != "" {
+			prefix := model.sessionTreePrefix(session)
+			if !strings.Contains(row, prefix+session.Provider) || !strings.Contains(row, want[session.ID]) {
+				t.Fatalf("provider and task trees disagree: %s", row)
+			}
 		}
 	}
 }

@@ -97,11 +97,6 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			command = cmd
 			break
 		}
-		if message.String() == "i" && !model.previewExpanded {
-			model.inspectorCollapsed = !model.inspectorCollapsed
-			model.resizeTable()
-			return model, nil
-		}
 		if message.String() == "v" {
 			model.previewExpanded = true
 			model.previewScroll = 0
@@ -244,14 +239,14 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 	if cached.edit == nil {
 		return model.emptyPreviewView(model.previewStatus(session, ok, cached), width, height, expanded)
 	}
-	return model.editPreviewView(session, cached, width, height, expanded, false)
+	return model.editPreviewView(session, cached, width, height, expanded)
 }
 
 func (model Model) editPreviewView(
 	session agent.Session,
 	cached previewEntry,
 	width, height int,
-	expanded, inspector bool,
+	expanded bool,
 ) string {
 	title := "LAST EDIT"
 	if expanded {
@@ -274,22 +269,6 @@ func (model Model) editPreviewView(
 	if expanded {
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(age, width, "…")))
 	}
-	if inspector {
-		added, removed := diffLineCounts(edit.Diff)
-		counts := runningStyle.Render(fmt.Sprintf("+%d", added)) + " " + errorStyle.Render(fmt.Sprintf("−%d", removed))
-		heading := "LATEST EDIT"
-		if strings.HasSuffix(age, " · stale") {
-			heading += " · stale"
-			age = strings.TrimSuffix(age, " · stale")
-		}
-		if edit.Truncated {
-			heading += " · truncated"
-		}
-		lines = []string{
-			alignedLine(mutedStyle.Render(heading), counts, width),
-			mutedStyle.Render(ansi.Truncate(name+" · "+age, width, "…")),
-		}
-	}
 
 	diff := strings.Split(strings.TrimSuffix(edit.Diff, "\n"), "\n")
 	if edit.Diff == "" {
@@ -305,9 +284,7 @@ func (model Model) editPreviewView(
 			}
 		}
 		if len(diff) > 0 && strings.HasPrefix(diff[0], "@@") {
-			if !inspector {
-				lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
-			}
+			lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
 			diff = diff[1:]
 		}
 		// Anchor the inline preview at the first changed line, keeping one leading
@@ -325,11 +302,7 @@ func (model Model) editPreviewView(
 	if expanded {
 		offset = min(model.previewScroll, max(0, len(diff)-max(1, height-4)))
 	}
-	footerHeight := 1
-	if inspector {
-		footerHeight = 0
-	}
-	capacity := max(0, height-len(lines)-footerHeight)
+	capacity := max(0, height-len(lines)-1)
 	end := min(len(diff), offset+capacity)
 	truncated = truncated || end < len(diff) || offset > 0
 	for _, line := range diff[offset:end] {
@@ -346,7 +319,7 @@ func (model Model) editPreviewView(
 		}
 		lines = append(lines, style.Render(ansi.Truncate(line, width, "…")))
 	}
-	if !expanded && !inspector {
+	if !expanded {
 		added, removed := diffLineCounts(edit.Diff)
 		for len(lines) < height-1 {
 			lines = append(lines, "")

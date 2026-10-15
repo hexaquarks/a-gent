@@ -19,7 +19,7 @@ const (
 	colorSecondary     = "#A7B3C5"
 	colorAccent        = "#59DFF0"
 	colorSelection     = "#183740"
-	colorAgent         = "#AC9ABF"
+	colorAgent         = "#C678FF"
 	colorRunning       = "#A3EF78"
 	colorAttention     = "#FFCA64"
 	colorError         = "#FF6D7A"
@@ -128,14 +128,14 @@ func providerStyle(provider string) lipgloss.Style {
 	switch strings.ToLower(provider) {
 	case "codex":
 	case "claude":
-		color = "#C49B8B"
+		color = "#FF997D"
 	default:
-		palette := []string{"#8CBBB7", "#97B5CA", "#91B7A6", "#BDB18D", "#BF9598"}
+		palette := []string{colorAccent, "#7DCFFF", "#73DACA", "#FFCA64", "#FF6D7A"}
 		hash := fnv.New32a()
 		_, _ = hash.Write([]byte(strings.ToLower(provider)))
 		color = palette[int(hash.Sum32())%len(palette)]
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
 }
 
 // projectStyle assigns the preferred colors first, using all project paths so
@@ -147,8 +147,8 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 	// Pink, blue, and mint come first; cyan, violet, and status colors already
 	// carry meaning elsewhere in the dashboard.
 	palette := [...]string{
-		"#C59DB5", "#93ABC9", "#8CB7A4", "#B8B0A0", "#B7A38C",
-		"#A0B3A8", "#C4A089", "#A3A8C5", "#ADB996", "#8FB7BD",
+		"#F28FC4", "#82B1FF", "#65D6AD", "#E6D9B2", "#D4A76A",
+		"#A9C4B5", "#FFA86B", "#9CA8FF", "#BEDC7F", "#63D6E6",
 	}
 	projects := model.projects()
 	slices.Sort(projects)
@@ -159,7 +159,7 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 		}
 		if project == directory {
 			return lipgloss.NewStyle().
-				Foreground(lipgloss.Color(palette[colorIndex%len(palette)]))
+				Foreground(lipgloss.Color(palette[colorIndex%len(palette)])).Bold(true)
 		}
 		colorIndex++
 	}

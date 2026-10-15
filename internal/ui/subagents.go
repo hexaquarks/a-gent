@@ -59,8 +59,13 @@ func (model Model) listSessionName(session agent.Session) string {
 	if strings.TrimSpace(safeDisplayText(name)) == "" {
 		name = "Untitled session"
 	}
+	return model.sessionTreePrefix(session) + name
+}
+
+// sessionTreePrefix keeps provider and task columns on the same ancestry tree.
+func (model Model) sessionTreePrefix(session agent.Session) string {
 	if session.ParentID == "" {
-		return name
+		return ""
 	}
 
 	visible := model.filteredSessions()
@@ -73,7 +78,7 @@ func (model Model) listSessionName(session agent.Session) string {
 	}
 
 	// Draw only visible ancestry, and bound malformed or deeply nested trees
-	// so their branches cannot consume the entire task column.
+	// so their branches cannot consume the entire column.
 	path := []agent.Session{session}
 	seen := map[string]bool{session.ID: true}
 	for len(path) < maxSessionTreeDepth {
@@ -104,7 +109,7 @@ func (model Model) listSessionName(session agent.Session) string {
 			gutter.WriteString("│  ")
 		}
 	}
-	return gutter.String() + name
+	return gutter.String()
 }
 
 func (model Model) sessionWorkspace(session agent.Session) agent.Session {

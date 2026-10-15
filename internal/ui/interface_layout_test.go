@@ -145,8 +145,9 @@ func TestDashboardInterfaceLayouts(t *testing.T) {
 							t.Fatal("Board lost its top-level work and completion summary")
 						}
 					} else if !strings.Contains(plain, "├─ Review navigation") ||
-						!strings.Contains(plain, "└─ Test keyboard traversal") {
-						t.Fatal("List did not keep subagents in a single tree gutter")
+						!strings.Contains(plain, "└─ Test keyboard traversal") ||
+						!strings.Contains(plain, "├─ codex") || !strings.Contains(plain, "└─ codex") {
+						t.Fatal("List lost its aligned subagent trees")
 					}
 				}
 				if artifacts != "" {

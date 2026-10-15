@@ -35,10 +35,7 @@ func (model Model) View() string {
 		detailContent = model.detailWithPreview()
 	}
 	main := panelStyle.Width(model.table.Width()).Render(heading + headingSpacing + sessionsView)
-	detail := ""
-	if !model.inspectorCollapsed {
-		detail = detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
-	}
+	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
 	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
 	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)

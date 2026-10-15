@@ -36,7 +36,7 @@ func (model Model) boardFocusView(width int) string {
 
 	title := sectionBar("FOCUS", 7, model.panelTitleStyle()) + " " +
 		mainTextStyle.Bold(true).Render(safeDisplayText(sessionDisplayName(session)))
-	project := model.projectStyle(session.WorkingDirectory).Bold(false).Render(
+	project := model.projectStyle(session.WorkingDirectory).Render(
 		safeDisplayText(projectName(session.WorkingDirectory)),
 	)
 	identity := providerStyle(session.Provider).Render(safeDisplayText(session.Provider)) +
