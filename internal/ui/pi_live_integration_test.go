@@ -152,13 +152,13 @@ func TestIntegrationPlainPiUpdatesDashboard(t *testing.T) {
 		if index > 1 {
 			fixture.promptLivePi()
 		}
-		fixture.waitText("Status     ● running")
+		fixture.waitProviderState("pi", "running")
 		fixture.livePi.release <- struct{}{}
 		screen := fixture.waitText(fmt.Sprintf("pi-live-completed-%d", index))
 		if strings.Contains(screen, "unavailable") {
 			t.Fatalf("plain Pi unavailable:\n%s", screen)
 		}
-		fixture.waitText("Status     ● idle")
+		fixture.waitProviderState("pi", "idle")
 	}
 	fixture.capture("plain-pi-live-output")
 }

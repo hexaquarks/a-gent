@@ -35,7 +35,10 @@ func (model Model) View() string {
 		detailContent = model.detailWithPreview()
 	}
 	main := panelStyle.Width(model.table.Width()).Render(heading + headingSpacing + sessionsView)
-	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
+	detail := ""
+	if !model.inspectorCollapsed {
+		detail = detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
+	}
 	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
 	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
@@ -63,47 +66,9 @@ func (model Model) View() string {
 	return view
 }
 
-func (model Model) detailView() string {
-	title := model.detailHeadingView()
-	selectedSession, ok := model.selectedSession()
-	if !ok {
-		if model.lastError != nil {
-			return title + "\n" + errorStyle.Render("Could not read live sessions.")
-		}
-		return title + "\n" + mutedStyle.Render("No live sessions found.")
-	}
-
-	stateText := displayState(sessionState(selectedSession))
-	if selectedSession.Stale {
-		stateText = "stale · last known data"
-	}
-
-	directory := displayDirectory(selectedSession.WorkingDirectory)
-	fields := []struct{ label, value string }{
-		{"Agent", providerStyle(selectedSession.Provider).Bold(true).Render(safeDisplayText(selectedSession.Provider))},
-		{"Status", statusStyle(sessionState(selectedSession)).Render("● " + safeDisplayText(stateText))},
-		{
-			"Project",
-			model.projectStyle(selectedSession.WorkingDirectory).Render(
-				safeDisplayText(projectName(selectedSession.WorkingDirectory)),
-			),
-		},
-		{"Directory", mutedStyle.Render(directory)},
-		{"Session", mutedStyle.Render(safeDisplayText(selectedSession.ID))},
-	}
-	lines := []string{
-		title,
-		mainTextStyle.Bold(true).Render(" " + safeDisplayText(sessionDisplayName(selectedSession))),
-	}
-	for _, field := range fields {
-		lines = append(lines, mutedStyle.Render(fmt.Sprintf(" %-11s", field.label))+field.value)
-	}
-	return strings.Join(lines, "\n")
-}
-
 func (model Model) expandedPreviewView(width, height int) string {
 	selectedSession, selected := model.selectedSession()
-	if model.boardVisible || !selected || height < 8 {
+	if !selected || height < 8 {
 		return model.previewView(width, height, true)
 	}
 
@@ -129,14 +94,6 @@ func displayDirectory(directory string) string {
 		}
 	}
 	return directory
-}
-
-func (model Model) detailHeadingView() string {
-	return model.detailHeadingAtWidth(model.table.Width() - detailStyle.GetHorizontalFrameSize())
-}
-
-func (model Model) detailHeadingAtWidth(width int) string {
-	return sectionBar(" SELECTED SESSION", width, model.panelTitleStyle())
 }
 
 func (model Model) headerView(summary sessionSummary, width int) string {

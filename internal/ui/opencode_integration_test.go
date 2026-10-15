@@ -146,7 +146,7 @@ func TestIntegrationOpenCodeStatusAndRealtimePreview(t *testing.T) {
 	fixture.key("v")
 	fixture.waitText("LIVE ACTIVITY · Esc/q")
 	fixture.key("q")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 }
 
 func TestIntegrationOpenCodeStatus(t *testing.T) {
@@ -166,7 +166,7 @@ func TestIntegrationOpenCodeStatus(t *testing.T) {
 	fixture.waitText("needs input")
 	fixture.capture("opencode-waiting")
 	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "", false))
-	fixture.waitText("Status     ● idle")
+	fixture.waitProviderState("opencode", "idle")
 	fixture.capture("opencode-idle")
 	state := openCodeFixtureState(directory, "idle", "", false)
 	state["/session/status"] = nil
@@ -174,11 +174,11 @@ func TestIntegrationOpenCodeStatus(t *testing.T) {
 	fixture.waitText("unavailable")
 	fixture.capture("opencode-unavailable")
 	fixture.writeOpenCodeState(openCodeFixtureState(directory, "idle", "", false))
-	fixture.waitText("Status     ● idle")
+	fixture.waitProviderState("opencode", "idle")
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.width, fixture.height = 80, 24
 	fixture.waitFor("narrow OpenCode layout", 4*time.Second, func(screen string) bool {
-		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "opencode · idle") &&
+		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "● idle") &&
 			!strings.Contains(screen, "│  PREVIEW")
 	})
 	fixture.capture("opencode-narrow")

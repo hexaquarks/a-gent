@@ -345,7 +345,7 @@ func TestSelectingProjectFiltersTableAndDetails(t *testing.T) {
 	if model.selectedProject != "/projects/other" {
 		t.Fatalf("selected project = %q, want /projects/other", model.selectedProject)
 	}
-	if detail := model.detailView(); !strings.Contains(detail, "other session") {
+	if detail := model.detailWithPreview(); !strings.Contains(detail, "other session") {
 		t.Fatalf("details do not use the project-filtered session:\n%s", detail)
 	}
 }
@@ -394,7 +394,7 @@ func TestUnnamedSessionHasFallbackInTableAndDetails(t *testing.T) {
 		model := NewModel(nil)
 		model.sessions = []agent.Session{{ID: "unnamed", Provider: "codex", Name: name}}
 		model.updateTableRows()
-		if !strings.Contains(model.sessionTableView(), "Untitled session") || !strings.Contains(model.detailView(), "Untitled session") {
+		if !strings.Contains(model.sessionTableView(), "Untitled session") || !strings.Contains(model.detailWithPreview(), "Untitled session") {
 			t.Fatalf("missing fallback for name %q", name)
 		}
 	}

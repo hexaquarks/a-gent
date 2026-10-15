@@ -222,15 +222,12 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 			fixture := newDashboardFixtureWithProvider(t, "opencode-live-"+mode)
 			fixture.waitText("[subagent]")
 			selectedTitle := func(screen string) string {
-				details := strings.SplitN(screen, "SELECTED SESSION", 2)
-				if len(details) != 2 {
-					return ""
+				for _, row := range strings.Split(screen, "\n") {
+					if strings.Contains(row, "v expand") {
+						return row
+					}
 				}
-				rows := strings.SplitN(details[1], "\n", 3)
-				if len(rows) < 2 {
-					return ""
-				}
-				return rows[1]
+				return ""
 			}
 			fixture.key("g")
 			screen := fixture.waitFor("first selected row", 4*time.Second, func(screen string) bool {
@@ -257,11 +254,11 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 			if !strings.Contains(selectedTitle(screen), "[subagent]") {
 				t.Fatalf("native child was not selectable:\n%s", screen)
 			}
-			fixture.waitText("Status     ● running")
+			fixture.waitProviderState("opencode", "running")
 			fixture.capture("child-running")
 			close(fixture.liveOpenCode.release)
 			fixture.waitText("CHILD_PUBLIC_OUTPUT")
-			fixture.waitText("Status     ● idle")
+			fixture.waitProviderState("opencode", "idle")
 			fixture.capture("child-idle")
 			fixture.key("k")
 			screen = fixture.waitText("PARENT_PUBLIC_OUTPUT")

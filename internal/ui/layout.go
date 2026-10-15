@@ -53,7 +53,11 @@ func (model *Model) resizeTable() {
 	tableHeight := defaultSessionRows
 	if model.height > 0 {
 		// Reserve the toolbar, table heading, and detail separator; the list gets the remaining rows.
-		tableHeight = max(1, model.bodyHeight()-model.inlinePreviewHeight()-4)
+		reservedRows := 4
+		if model.inspectorCollapsed {
+			reservedRows -= detailStyle.GetVerticalFrameSize()
+		}
+		tableHeight = max(1, model.bodyHeight()-model.inlinePreviewHeight()-reservedRows)
 	}
 	model.table.SetHeight(tableHeight + 1)
 }
@@ -100,6 +104,9 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 
 // The list keeps a short preview and gives additional terminal height to sessions.
 func (model Model) inlinePreviewHeight() int {
+	if model.inspectorCollapsed {
+		return 0
+	}
 	if model.height == 0 {
 		return 7
 	}
@@ -113,7 +120,10 @@ func (model Model) sidebarVisible() bool {
 // The board uses the space released by compact details rather than the list's
 // row limit. Very short terminals retain the selected card and expansion key.
 func (model Model) boardHeight() int {
-	detailHeight := model.boardFocusHeight() + detailStyle.GetVerticalFrameSize()
+	detailHeight := 0
+	if !model.inspectorCollapsed {
+		detailHeight = model.boardFocusHeight() + detailStyle.GetVerticalFrameSize()
+	}
 	return max(1, model.bodyHeight()-model.boardHeadingHeight()-detailHeight)
 }
 

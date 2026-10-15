@@ -17,13 +17,13 @@
 │    a-gent          2  │                                                                                             │
 │    codex-audit     1  │                                                                                             │
 │    swiftyprompt    2  │─────────────────────────────────────────────────────────────────────────────────────────────│
-│                        │  SELECTED SESSION                                        │  LAST EDIT               1m ago  │
-│                        │  Restore response navigation                             │  internal/navigation.go          │
-│                        │  Agent      codex                                        │  @@ openSession                  │
-│                        │  Status     ● idle                                       │   if session != nil {            │
-│                        │  Project    swiftyprompt                                 │  -    navigator.Open(cwd)        │
-│ ────────────────────── │  Directory  /projects/swiftyprompt                       │  +    navigator.Navigate(        │
-│ / find · p pin         │  Session    01a10404-3a82-7702-b4d9-3ae1bd0fb23e         │  +3 −1 … truncated     v expand  │
+│                        │ Restore response navigation  codex · swiftyprompt  /projects/swiftyprompt           v expand│
+│                        │ ACTIVITY                            │ LATEST EDIT                                      +3 −1│
+│                        │ Preview not supported               │ internal/navigation.go · 1m ago                       │
+│                        │                                     │  if session != nil {                                  │
+│                        │                                     │ -    navigator.Open(cwd)                              │
+│ ────────────────────── │                                     │ +    navigator.Navigate(                              │
+│ / find · p pin         │                                     │ +        ctx, session,                                │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  tab  focus    enter  open    m  layout    q  quit                                                           ?  help │
+│  tab  focus    enter  open    v  expand    i  inspector    m  layout    q  quit                              ?  help │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

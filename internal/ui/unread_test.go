@@ -52,8 +52,8 @@ func TestUnreadGutterIsConditionalAndHeadingFits(t *testing.T) {
 			if !strings.Contains(model.sessionGutter(first, true, ""), "●") {
 				t.Fatal("completion did not mark the session unread")
 			}
-			heading := ansi.Strip(model.detailHeadingView())
-			if lipgloss.Width(heading) != model.table.Width()-detailStyle.GetHorizontalFrameSize() || strings.Contains(heading, "\n") {
+			heading := strings.Split(ansi.Strip(model.detailWithPreview()), "\n")[0]
+			if lipgloss.Width(heading) > model.table.Width() || strings.Contains(heading, "\n") {
 				t.Fatalf("heading overflowed its panel: %q", heading)
 			}
 			if strings.Contains(model.sessionGutter(second, false, ""), "●") {

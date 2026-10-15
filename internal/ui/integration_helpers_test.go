@@ -298,7 +298,7 @@ func (fixture *dashboardFixture) selectProvider(provider string) {
 	fixture.waitFor("selected "+provider+" session", 4*time.Second, func(screen string) bool {
 		inDetails := false
 		for _, line := range strings.Split(screen, "\n") {
-			if strings.Contains(line, "SELECTED SESSION") || strings.Contains(line, "FOCUS") {
+			if strings.Contains(line, "v expand") || strings.Contains(line, "FOCUS") {
 				inDetails = true
 			}
 			if inDetails && strings.Contains(line, provider+" fixture") {
@@ -402,4 +402,18 @@ func (fixture *dashboardFixture) capture(name string) {
 		}
 	}
 	fixture.t.Logf("terminal capture: %s", filepath.Join(fixture.artifacts, name+".txt"))
+}
+
+// Provider status lives in the session table; the inspector shows work instead.
+func (fixture *dashboardFixture) waitProviderState(provider, state string) string {
+	fixture.t.Helper()
+	return fixture.waitFor(provider+" "+state, 4*time.Second, func(screen string) bool {
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "›") && strings.Contains(strings.ToLower(line), provider) &&
+				strings.Contains(line, "● "+state) {
+				return true
+			}
+		}
+		return false
+	})
 }

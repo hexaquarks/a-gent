@@ -81,7 +81,7 @@ func TestIntegrationBoardCompactFocus(t *testing.T) {
 	fixture.key("m")
 	screen := fixture.waitText("FOCUS")
 	if !strings.Contains(screen, "verified.go") || !strings.Contains(screen, "+1 −1") ||
-		strings.Contains(screen, "SELECTED SESSION") || strings.Contains(screen, "+verified change") {
+		strings.Contains(screen, "ACTIVITY") || strings.Contains(screen, "+verified change") {
 		t.Fatalf("board did not compact the selected edit:\n%s", screen)
 	}
 	fixture.capture("compact-idle-edit")
@@ -108,7 +108,7 @@ func TestIntegrationBoardCompactFocus(t *testing.T) {
 	})
 	fixture.capture("compact-narrow-edit")
 	fixture.key("m")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 }
 
 func TestIntegrationFeedUpdatesInRealtime(t *testing.T) {
@@ -169,7 +169,7 @@ func TestIntegrationNewAgentProviderLayout(t *testing.T) {
 	fixture.key("Left")
 	fixture.waitText("hermes")
 	fixture.key("q")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 }
 
 func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
@@ -181,12 +181,12 @@ func TestIntegrationCompletedDiffSurvivesIdleAndReadFailure(t *testing.T) {
 	if strings.Contains(screen, "failed.go") || !strings.Contains(screen, "+verified change") {
 		t.Fatalf("wrong completed edit:\n%s", screen)
 	}
-	assertPreviewHeading(t, screen, "LAST EDIT")
+	assertPreviewHeading(t, screen, "LATEST EDIT")
 	fixture.capture("idle-diff")
 	fixture.key("v")
 	fixture.waitText("EDIT PREVIEW · Esc/q")
 	fixture.key("q")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
@@ -214,12 +214,19 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
 	}
-	assertPreviewHeading(t, screen, "LIVE ACTIVITY")
+	assertPreviewHeading(t, screen, "ACTIVITY")
 	assertProjectColumn(t, screen, true)
 	fixture.capture("wide-activity")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
-	screen = fixture.waitText("v expand · Assistant:")
+	screen = fixture.waitFor("narrow activity inspector", 4*time.Second, func(screen string) bool {
+		for _, line := range strings.Split(screen, "\n") {
+			if strings.Contains(line, "Agent") && strings.Contains(line, "Age") {
+				return !strings.Contains(line, "Project") && strings.Contains(screen, "CLAUDE_ONLY")
+			}
+		}
+		return false
+	})
 	assertProjectColumn(t, screen, false)
 	fixture.capture("narrow-activity")
 	fixture.key("v")
@@ -229,7 +236,7 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	}
 	fixture.capture("expanded-activity")
 	fixture.key("q")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 	fixture.selectProvider("codex")
 	screen = fixture.waitText("CODEX_ONLY")
 	if strings.Contains(screen, "CLAUDE_ONLY") {
@@ -256,14 +263,14 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	if !strings.Contains(screen, "Codex is thinking") {
 		t.Fatal("running Codex session has no thinking indicator")
 	}
-	assertPreviewHeading(t, screen, "PREVIEW")
+	assertPreviewHeading(t, screen, "ACTIVITY")
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
 	if err := os.Rename(path, path+".hidden"); err != nil {
 		t.Fatal(err)
 	}
 	screen = fixture.waitText("Preview unavailable")
-	assertPreviewHeading(t, screen, "PREVIEW")
+	assertPreviewHeading(t, screen, "ACTIVITY")
 	for _, redundant := range []string{"Checked ", "EDIT PREVIEW", "LIVE ACTIVITY", "v: expand"} {
 		if strings.Contains(screen, redundant) {
 			t.Fatalf("unavailable preview contains redundant content %q", redundant)
@@ -278,7 +285,7 @@ func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	if strings.Contains(screen, "Codex is thinking") {
 		t.Fatal("idle session kept thinking indicator")
 	}
-	assertPreviewHeading(t, screen, "PREVIEW")
+	assertPreviewHeading(t, screen, "ACTIVITY")
 	fixture.capture("no-edits")
 }
 
@@ -318,16 +325,13 @@ func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture.capture("recent-acknowledged")
 }
 
-// Layout details live in the render tests; here we check the terminal shows
-// the correct preview state alongside the selected-session heading.
+// Layout details live in the render tests; the terminal must show both panel headings.
 func assertPreviewHeading(t *testing.T, screen, title string) {
 	t.Helper()
-	for _, line := range strings.Split(screen, "\n") {
-		if strings.Contains(line, "SELECTED SESSION") && strings.Contains(line, title) {
-			return
-		}
+	if !strings.Contains(screen, title) || !strings.Contains(screen, "ACTIVITY") ||
+		!strings.Contains(screen, "LATEST EDIT") {
+		t.Fatalf("inspector panels or heading %q missing:\n%s", title, screen)
 	}
-	t.Fatalf("preview heading %q is missing or on a different row:\n%s", title, screen)
 }
 
 func TestIntegrationNewAgentDialog(t *testing.T) {
@@ -432,7 +436,7 @@ func TestIntegrationKeyboardHelp(t *testing.T) {
 		return !strings.Contains(screen, "KEYBOARD HELP") && strings.Contains(screen, "Esc/q")
 	})
 	fixture.key("q")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 	fixture.key("?")
 	fixture.width, fixture.height = 80, 24
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
@@ -525,7 +529,7 @@ func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 		if board {
 			fixture.waitText("running · 2")
 		} else {
-			fixture.waitText("SELECTED SESSION")
+			fixture.waitText("ACTIVITY")
 		}
 
 		fixture.key("q")
@@ -543,7 +547,7 @@ func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 			fixture.waitText("running · 2")
 			fixture.capture("reopened-board")
 		} else {
-			fixture.waitText("SELECTED SESSION")
+			fixture.waitText("ACTIVITY")
 			fixture.capture("reopened-list")
 		}
 	}
@@ -600,4 +604,31 @@ func TestIntegrationBoardActivityAndObservedCompletion(t *testing.T) {
 		t.Fatal("narrow board exceeded the terminal width")
 	}
 	fixture.capture("card-narrow-waiting")
+}
+
+func TestIntegrationInspectorActivityDiffAndCollapse(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.waitText("claude fixture")
+	fixture.appendEdit("completed", "together.go")
+	fixture.appendOutput("codex", "TESTING_TOGETHER")
+	fixture.waitFor("activity alongside completed edit", 4*time.Second, func(screen string) bool {
+		return strings.Contains(screen, "TESTING_TOGETHER") && strings.Contains(screen, "+verified change") &&
+			strings.Contains(screen, "together.go")
+	})
+	fixture.capture("activity-and-diff")
+	fixture.key("i")
+	fixture.waitFor("inspector collapsed", time.Second, func(screen string) bool {
+		return strings.Contains(screen, "codex fixture") && !strings.Contains(screen, "LATEST EDIT")
+	})
+	fixture.capture("inspector-collapsed")
+	fixture.key("v")
+	fixture.waitText("LIVE ACTIVITY · Esc/q")
+	fixture.key("Escape")
+	fixture.waitFor("expanded preview returned to collapsed inspector", time.Second, func(screen string) bool {
+		return strings.Contains(screen, "codex fixture") && !strings.Contains(screen, "LATEST EDIT") &&
+			!strings.Contains(screen, "Esc/q")
+	})
+	fixture.key("i")
+	fixture.waitText("TESTING_TOGETHER")
+	fixture.waitText("together.go")
 }
