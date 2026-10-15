@@ -632,3 +632,48 @@ func TestIntegrationInspectorActivityDiffAndCollapse(t *testing.T) {
 	fixture.waitText("TESTING_TOGETHER")
 	fixture.waitText("together.go")
 }
+
+func TestIntegrationBoardInspectorKeepsActivityAndLatestEdit(t *testing.T) {
+	fixture := newDashboardFixture(t)
+	fixture.appendEdit("completed", "board.go")
+	fixture.appendOutput("codex", "BOARD_TESTING")
+	fixture.waitText("BOARD_TESTING")
+	fixture.waitText("board.go")
+	fixture.key("m")
+	fixture.waitFor("compact board activity and edit", 4*time.Second, func(screen string) bool {
+		parts := strings.SplitN(screen, "FOCUS", 2)
+		return len(parts) == 2 && strings.Contains(parts[1], "BOARD_TESTING") &&
+			strings.Contains(parts[1], "board.go") && strings.Contains(parts[1], "+1 −1")
+	})
+	fixture.capture("compact-activity-and-edit")
+	fixture.width, fixture.height = 160, 40
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "160", "-y", "40")
+	fixture.waitFor("roomy board inspector", 4*time.Second, func(screen string) bool {
+		lines := strings.Split(screen, "\n")
+		for index, line := range lines {
+			if strings.Contains(line, "FOCUS") && index+2 < len(lines) {
+				return strings.Contains(lines[index+1], "codex · codex") &&
+					strings.Contains(lines[index+2], "BOARD_TESTING") && strings.Contains(line, "board.go")
+			}
+		}
+		return false
+	})
+	fixture.capture("roomy-activity-and-edit")
+	fixture.width, fixture.height = 80, 24
+	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
+	fixture.waitFor("stacked board inspector", 4*time.Second, func(screen string) bool {
+		lines := strings.Split(screen, "\n")
+		for index, line := range lines {
+			if strings.Contains(line, "FOCUS") && index+2 < len(lines) {
+				return strings.Contains(line, "v details / diff") &&
+					strings.Contains(lines[index+1], "BOARD_TESTING") && strings.Contains(lines[index+2], "board.go")
+			}
+		}
+		return false
+	})
+	fixture.capture("narrow-activity-and-edit")
+	fixture.key("v")
+	fixture.waitText("LIVE ACTIVITY · Esc/q")
+	fixture.key("Escape")
+	fixture.waitText("FOCUS")
+}

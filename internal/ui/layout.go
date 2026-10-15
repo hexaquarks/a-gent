@@ -136,7 +136,8 @@ func (model Model) boardHeadingHeight() int {
 
 func (model Model) boardFocusHeight() int {
 	height := 2
-	if model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize() < 72 {
+	if model.height >= boardFocusRoomyMinHeight ||
+		model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize() < boardFocusColumnsMinWidth {
 		height = 3
 	}
 	return min(height, max(1, model.bodyHeight()-4))
