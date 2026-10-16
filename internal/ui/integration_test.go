@@ -311,11 +311,10 @@ func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture.key("Enter")
 	fixture.key("Tab")
 	fixture.waitText("◷  Recent")
-	screen = fixture.waitText("SESSIONS (1 of 1)")
-	if !strings.Contains(screen, "claude fixture") || strings.Contains(screen, "codex fixture") ||
-		!strings.Contains(screen, "1 unseen") {
-		t.Fatalf("Recent does not isolate the stopped session:\n%s", screen)
-	}
+	screen = fixture.waitFor("Recent stopped session", 4*time.Second, func(screen string) bool {
+		return strings.Contains(screen, "SESSIONS (1 of 1)") && strings.Contains(screen, "claude fixture") &&
+			!strings.Contains(screen, "codex fixture") && strings.Contains(screen, "1 unseen")
+	})
 	fixture.capture("recent-filter")
 	fixture.key("Enter")
 	screen = fixture.waitText("0 unseen")
