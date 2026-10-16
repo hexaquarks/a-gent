@@ -114,7 +114,6 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 > bind-key Space run-shell -b '~/.local/bin/a-gent'
 > ```
 >
-> Reload with `tmux source-file ~/.tmux.conf`.
 
 ## Local development
 
