@@ -1,0 +1,35 @@
+version: 2
+
+project_name: a-gent
+
+builds:
+  - main: ./cmd/a-gent
+    binary: a-gent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  draft: true
+  prerelease: auto
+
+changelog:
+  use: github-native

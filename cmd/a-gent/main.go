@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -20,13 +21,17 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "a-gent: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run(arguments []string, output io.Writer) error {
+	if handled, err := showCommandInfo(arguments, output); handled || err != nil {
+		return err
+	}
+
 	popupOpened, err := tmux.OpenPopupInTmux(ui.PopupWidth, ui.PopupHeight)
 	if err != nil {
 		return fmt.Errorf("open tmux popup: %w", err)
