@@ -92,7 +92,7 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 > Add this to `~/.tmux.conf` to open a-gent with prefix + Space:
 >
 > ```tmux
-> bind-key Space run-shell -b "a-gent"
+> bind-key -N "Open the a-gent dashboard" Space run-shell -b '~/.local/bin/a-gent'
 > ```
 >
 > Reload with `tmux source-file ~/.tmux.conf`.
