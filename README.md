@@ -41,16 +41,15 @@ they're doing and where I'm needed.
   <a href="https://github.com/NousResearch/hermes-agent"><img alt="Hermes" src="https://img.shields.io/badge/Hermes-F59E0B" /></a>
 </p>
 
-Install the agents you use through the links above and make their commands
-available on your `PATH`:
+To expose a particular agent on a-gent's interface, it must be locally installed and available on your `PATH`.
 
-| Adapter | Command | Notes |
-| --- | --- | --- |
-| [Codex](https://github.com/openai/codex) | `codex` | Sessions launched with `--no-daemon` are not shown. |
-| [Claude Code](https://github.com/anthropics/claude-code) | `claude` | Must support `claude agents --json`. |
-| [OpenCode](https://github.com/anomalyco/opencode) | `opencode` | — |
-| [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) | `pi` | — |
-| [Hermes](https://github.com/NousResearch/hermes-agent) | `hermes` | — |
+| Adapter | Notes |
+| --- | --- |
+| [Codex](https://github.com/openai/codex) | Sessions launched with `--no-daemon` are not shown. |
+| [Claude Code](https://github.com/anthropics/claude-code) | Must support `claude agents --json`. |
+| [OpenCode](https://github.com/anomalyco/opencode) | — |
+| [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) | — |
+| [Hermes](https://github.com/NousResearch/hermes-agent) | — |
 
 Sessions are discovered automatically, including those started from a shell.
 All five adapters support activity and edit previews, and launching a new
