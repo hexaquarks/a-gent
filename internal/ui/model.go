@@ -21,46 +21,48 @@ const (
 
 // Model holds the UI state for the application.
 type Model struct {
-	previewSources   map[string]agent.PreviewSource
-	previewCache     map[sessionIdentity]previewEntry
-	previewKey       sessionIdentity
-	previewRevision  int
-	previewCancel    context.CancelFunc
-	previewExpanded  bool
-	previewScroll    int
-	previewFrame     int
-	table            table.Model
-	boardVisible     bool
-	preferencesPath  string
-	updates          <-chan polling.Update
-	providerErrors   map[string]error
-	sessions         []agent.Session
-	navigator        SessionNavigator
-	launcher         AgentLauncher
-	newAgent         *newAgentDialog
-	launchCancel     context.CancelFunc
-	selectedView     sidebarView
-	selectedProject  string
-	selectedProvider string
-	agentsExpanded   bool
-	pinnedProjects   map[string]bool
-	projectPinsPath  string
-	projectSearching bool
-	projectQuery     string
-	sidebarFocus     bool
-	sidebarCursor    int
-	sidebarPreview   *sidebarItem
-	lastError        error
-	notice           string
-	noticeRevision   int
-	width            int
-	height           int
-	sort             sessionSort
-	tableSessionIDs  []sessionIdentity
-	unreadSessions   map[sessionIdentity]bool
-	finishedSessions map[sessionIdentity]time.Time
-	helpOpen         bool
-	helpScroll       int
+	previewSources     map[string]agent.PreviewSource
+	previewCache       map[sessionIdentity]previewEntry
+	previewKey         sessionIdentity
+	previewRevision    int
+	previewCancel      context.CancelFunc
+	previewExpanded    bool
+	previewShowsEdit   bool
+	inspectorCollapsed bool
+	previewScroll      int
+	previewFrame       int
+	table              table.Model
+	boardVisible       bool
+	preferencesPath    string
+	updates            <-chan polling.Update
+	providerErrors     map[string]error
+	sessions           []agent.Session
+	navigator          SessionNavigator
+	launcher           AgentLauncher
+	newAgent           *newAgentDialog
+	launchCancel       context.CancelFunc
+	selectedView       sidebarView
+	selectedProject    string
+	selectedProvider   string
+	agentsExpanded     bool
+	pinnedProjects     map[string]bool
+	projectPinsPath    string
+	projectSearching   bool
+	projectQuery       string
+	sidebarFocus       bool
+	sidebarCursor      int
+	sidebarPreview     *sidebarItem
+	lastError          error
+	notice             string
+	noticeRevision     int
+	width              int
+	height             int
+	sort               sessionSort
+	tableSessionIDs    []sessionIdentity
+	unreadSessions     map[sessionIdentity]bool
+	finishedSessions   map[sessionIdentity]time.Time
+	helpOpen           bool
+	helpScroll         int
 
 	readyPulses       map[sessionIdentity]time.Time
 	readyPulseTime    time.Time

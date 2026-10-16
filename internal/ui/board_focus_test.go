@@ -32,7 +32,7 @@ func TestBoardFocusUsesSelectedSessionPreview(t *testing.T) {
 
 	view := ansi.Strip(model.boardFocusView(160))
 	for _, text := range []string{
-		"FOCUS", selected.Name, "codex", "swiftyprompt", "idle", "selected.go", "+2", "−1", "v details / diff",
+		"FOCUS", selected.Name, "codex", "swiftyprompt", "selected.go", "+2", "−1", "v details / diff",
 	} {
 		if !strings.Contains(view, text) {
 			t.Errorf("selected focus is missing %q:\n%s", text, view)
@@ -49,7 +49,7 @@ func TestBoardFocusUsesSelectedSessionPreview(t *testing.T) {
 	}
 }
 
-func TestBoardFocusSwitchesFromActivityToEditWhenIdle(t *testing.T) {
+func TestBoardFocusKeepsActivityAndEditTogether(t *testing.T) {
 	model := referenceDashboard()
 	model.boardVisible = true
 	model.sessions = []agent.Session{{
@@ -67,15 +67,15 @@ func TestBoardFocusSwitchesFromActivityToEditWhenIdle(t *testing.T) {
 	}}
 
 	view := ansi.Strip(model.boardFocusView(160))
-	if !strings.Contains(view, "Checking the implementation") || strings.Contains(view, "retained.go") {
-		t.Fatalf("running session did not prioritize live activity:\n%s", view)
+	if !strings.Contains(view, "Checking the implementation") || !strings.Contains(view, "retained.go") {
+		t.Fatalf("running session did not show activity alongside its edit:\n%s", view)
 	}
 
 	model.sessions[0].State = agent.StateIdle
 	model.updateTableRows()
 	view = ansi.Strip(model.boardFocusView(160))
-	if !strings.Contains(view, "retained.go") || strings.Contains(view, "Checking the implementation") {
-		t.Fatalf("idle session did not show its retained edit:\n%s", view)
+	if !strings.Contains(view, "retained.go") || !strings.Contains(view, "Checking the implementation") {
+		t.Fatalf("idle session did not retain both public records:\n%s", view)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestBoardFocusCompactsMultilineActivity(t *testing.T) {
 }
 
 func TestBoardFocusFitsTerminalAndReturnsFromExpandedPreview(t *testing.T) {
-	for _, size := range [][2]int{{120, 28}, {80, 24}, {40, 16}, {24, 10}} {
+	for _, size := range [][2]int{{160, 40}, {120, 32}, {120, 28}, {80, 24}, {40, 16}, {24, 10}} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
 			model := referenceDashboard()
 			model.boardVisible = true
@@ -153,7 +153,7 @@ func TestBoardFocusFitsTerminalAndReturnsFromExpandedPreview(t *testing.T) {
 			model = updated.(Model)
 			selected, _ := model.selectedSession()
 			wantFocusHeight := 3
-			if size[0] == 120 {
+			if size[0] == 120 && size[1] < boardFocusRoomyMinHeight {
 				wantFocusHeight = 2
 			} else if size[1] == 10 {
 				wantFocusHeight = 1
@@ -195,5 +195,31 @@ func TestBoardFocusFitsTerminalAndReturnsFromExpandedPreview(t *testing.T) {
 				t.Fatal("returning from details changed the board layout")
 			}
 		})
+	}
+}
+
+func TestBoardFocusRoomyLayoutSeparatesIdentityAndWork(t *testing.T) {
+	model := referenceDashboard()
+	model.height = boardFocusRoomyMinHeight
+	selected, _ := model.selectedSession()
+	key := sessionIdentity{provider: selected.Provider, id: selected.ID}
+	cached := model.previewCache[key]
+	cached.activity = &agent.Activity{Label: "Testing", Text: "Keyboard navigation passes", At: time.Now()}
+	model.previewCache[key] = cached
+	view := ansi.Strip(model.boardFocusView(160))
+	lines := strings.Split(view, "\n")
+	if len(lines) != 3 || !strings.Contains(lines[0], selected.Name) ||
+		!strings.Contains(lines[1], "codex · swiftyprompt") || !strings.Contains(lines[2], "Keyboard navigation passes") ||
+		!strings.Contains(lines[0], cached.edit.Filename) || !strings.Contains(view, "+3") {
+		t.Fatalf("roomy inspector did not separate identity, activity and latest edit:\n%s", view)
+	}
+	if strings.Contains(lines[1], "idle") {
+		t.Fatal("identity repeats the status already shown by the board column")
+	}
+	cached.err = errors.New("offline")
+	model.previewCache[key] = cached
+	view = ansi.Strip(model.boardFocusView(160))
+	if strings.Count(view, "stale") != 2 {
+		t.Fatalf("both retained records must show stale signals:\n%s", view)
 	}
 }

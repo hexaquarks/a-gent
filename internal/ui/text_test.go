@@ -29,7 +29,7 @@ func TestProviderTextCannotSendTerminalCommands(t *testing.T) {
 		for name, view := range map[string]string{
 			"dashboard": model.View(),
 			"table":     model.sessionTableView(),
-			"details":   model.detailView(),
+			"details":   model.detailWithPreview(),
 			"sidebar":   model.renderSidebar(summarizeSessions(model.sessions)),
 		} {
 			for _, unsafe := range []string{"\x1b[2J", "\x1b]52;", "\x1b]0;", "cGF5bG9hZA==", "injected-title"} {
@@ -39,7 +39,7 @@ func TestProviderTextCannotSendTerminalCommands(t *testing.T) {
 				}
 			}
 		}
-		if details := ansi.Strip(model.detailView()); !strings.Contains(details, "Review next") {
+		if details := ansi.Strip(model.detailWithPreview()); !strings.Contains(details, "Review next") {
 			t.Error("session name was not kept on one line")
 		}
 	}
@@ -55,7 +55,7 @@ func TestDisplayCleanupPreservesSessionDataForNavigation(t *testing.T) {
 		State:            agent.StateIdle,
 	}
 	model.applyProviderUpdate(polling.Update{Provider: "claude", Sessions: []agent.Session{session}})
-	if !strings.Contains(ansi.Strip(model.detailView()), "Révision 🐈 rouge") {
+	if !strings.Contains(ansi.Strip(model.detailWithPreview()), "Révision 🐈 rouge") {
 		t.Fatal("display cleanup lost readable Unicode text")
 	}
 	_, command := model.Update(tea.KeyMsg{Type: tea.KeyEnter})

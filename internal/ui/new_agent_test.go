@@ -99,7 +99,7 @@ func TestQuitClosesNewAgentDialogBeforeDashboard(t *testing.T) {
 	model = updated.(Model)
 	updated, command := model.Update(runeKey('q'))
 	model = updated.(Model)
-	if command != nil || model.newAgent != nil || !strings.Contains(model.View(), "SELECTED SESSION") {
+	if command != nil || model.newAgent != nil || !strings.Contains(model.View(), "SESSIONS") {
 		t.Fatal("q did not return from the new agent dialog to the dashboard")
 	}
 

@@ -146,17 +146,17 @@ func TestIntegrationPiStatusRealtimePreviewAndBranchIsolation(t *testing.T) {
 	}
 	fixture.capture("pi-live")
 	fixture.writePiState("idle", "current")
-	fixture.waitText("Status     ● idle")
+	fixture.waitProviderState("pi", "idle")
 	fixture.waitText("verified Pi change")
 	fixture.capture("pi-idle")
 	fixture.writePiState("unknown", "current")
 	fixture.waitText("unavailable")
 	fixture.writePiState("idle", "current")
-	fixture.waitText("Status     ● idle")
+	fixture.waitProviderState("pi", "idle")
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.width, fixture.height = 80, 24
 	fixture.waitFor("narrow Pi preview", 4*time.Second, func(screen string) bool {
-		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "v: expand") &&
+		return strings.HasPrefix(screen, "╭") && strings.Contains(screen, "v expand") &&
 			strings.Contains(screen, "fixture.go") &&
 			!strings.Contains(screen, "│  LIVE ACTIVITY")
 	})
@@ -164,5 +164,5 @@ func TestIntegrationPiStatusRealtimePreviewAndBranchIsolation(t *testing.T) {
 	fixture.key("v")
 	fixture.waitText("EDIT PREVIEW · Esc/q")
 	fixture.key("q")
-	fixture.waitText("SELECTED SESSION")
+	fixture.waitText("ACTIVITY")
 }

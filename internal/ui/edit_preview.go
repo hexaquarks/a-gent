@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -32,7 +31,10 @@ type previewResult struct {
 
 type previewTick struct{}
 
-const previewInterval = time.Second
+const (
+	previewInterval   = time.Second
+	previewStaleAfter = 5 * time.Second
+)
 
 // WithPreviewSources enables optional, selected-session-only detail loading.
 func WithPreviewSources(adapters ...agent.Adapter) ModelOption {
@@ -95,9 +97,19 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			command = cmd
 			break
 		}
+		if message.String() == "i" && !model.previewExpanded {
+			model.inspectorCollapsed = !model.inspectorCollapsed
+			model.resizeTable()
+			return model, nil
+		}
 		if message.String() == "v" {
 			model.previewExpanded = true
 			model.previewScroll = 0
+
+			session, _ := model.selectedSession()
+			cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+			model.previewShowsEdit = cached.edit != nil && !model.showActivity(session, cached)
+
 			command := model.syncPreview()
 			return model, command
 		}
@@ -105,6 +117,14 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			switch message.String() {
 			case "esc", "q":
 				model.previewExpanded = false
+				return model, nil
+			case "tab":
+				session, _ := model.selectedSession()
+				cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
+				if cached.activity != nil && cached.edit != nil {
+					model.previewShowsEdit = !model.previewShowsEdit
+					model.previewScroll = 0
+				}
 				return model, nil
 			case "j", "down":
 				model.previewScroll++
@@ -214,12 +234,25 @@ func (model Model) thinkingIndicator(provider string, width int) string {
 func (model Model) previewContentView(width, height int, expanded bool) string {
 	session, ok := model.selectedSession()
 	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
-	if model.showActivity(session, cached) {
+	showActivity := model.showActivity(session, cached)
+	if expanded {
+		showActivity = cached.activity != nil && !model.previewShowsEdit
+	}
+	if showActivity {
 		return model.activityView(session, cached, width, height, expanded)
 	}
 	if cached.edit == nil {
 		return model.emptyPreviewView(model.previewStatus(session, ok, cached), width, height, expanded)
 	}
+	return model.editPreviewView(session, cached, width, height, expanded, false)
+}
+
+func (model Model) editPreviewView(
+	session agent.Session,
+	cached previewEntry,
+	width, height int,
+	expanded, inspector bool,
+) string {
 	title := "LAST EDIT"
 	if expanded {
 		title = "EDIT PREVIEW · Esc/q: return · j/k: scroll"
@@ -231,7 +264,7 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 		lines[0] += mutedStyle.Render(ansi.Truncate(" · checked "+cached.checked.Format("15:04:05"), max(0, width-lipgloss.Width(lines[0])), "…"))
 	}
 	age := formatLastActiveAt(edit.CompletedAt, time.Now())
-	if cached.err != nil || session.Stale || time.Since(cached.checked) > 5*time.Second {
+	if cached.err != nil || session.Stale || time.Since(cached.checked) > previewStaleAfter {
 		age += " · stale"
 	}
 	if !expanded {
@@ -241,6 +274,23 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 	if expanded {
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(age, width, "…")))
 	}
+	if inspector {
+		added, removed := diffLineCounts(edit.Diff)
+		counts := runningStyle.Render(fmt.Sprintf("+%d", added)) + " " + errorStyle.Render(fmt.Sprintf("−%d", removed))
+		heading := "LATEST EDIT"
+		if strings.HasSuffix(age, " · stale") {
+			heading += " · stale"
+			age = strings.TrimSuffix(age, " · stale")
+		}
+		if edit.Truncated {
+			heading += " · truncated"
+		}
+		lines = []string{
+			alignedLine(mutedStyle.Render(heading), counts, width),
+			mutedStyle.Render(ansi.Truncate(name+" · "+age, width, "…")),
+		}
+	}
+
 	diff := strings.Split(strings.TrimSuffix(edit.Diff, "\n"), "\n")
 	if edit.Diff == "" {
 		diff = []string{"Preview unavailable"}
@@ -255,7 +305,9 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 			}
 		}
 		if len(diff) > 0 && strings.HasPrefix(diff[0], "@@") {
-			lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
+			if !inspector {
+				lines = append(lines, accentStyle.Render(ansi.Truncate(diff[0], width, "…")))
+			}
 			diff = diff[1:]
 		}
 		// Anchor the inline preview at the first changed line, keeping one leading
@@ -273,7 +325,11 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 	if expanded {
 		offset = min(model.previewScroll, max(0, len(diff)-max(1, height-4)))
 	}
-	capacity := max(0, height-len(lines)-1)
+	footerHeight := 1
+	if inspector {
+		footerHeight = 0
+	}
+	capacity := max(0, height-len(lines)-footerHeight)
 	end := min(len(diff), offset+capacity)
 	truncated = truncated || end < len(diff) || offset > 0
 	for _, line := range diff[offset:end] {
@@ -290,7 +346,7 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 		}
 		lines = append(lines, style.Render(ansi.Truncate(line, width, "…")))
 	}
-	if !expanded {
+	if !expanded && !inspector {
 		added, removed := diffLineCounts(edit.Diff)
 		for len(lines) < height-1 {
 			lines = append(lines, "")
@@ -304,7 +360,7 @@ func (model Model) previewContentView(width, height int, expanded bool) string {
 			shortcut = ""
 		}
 		lines = append(lines, alignedLine(mutedStyle.Render(label), shortcut, width))
-	} else if truncated {
+	} else if expanded && truncated {
 		label := fmt.Sprintf("… truncated · lines %d–%d/%d", offset+1, end, len(diff))
 		lines = append(lines, mutedStyle.Render(ansi.Truncate(label, width, "…")))
 	}
@@ -332,73 +388,6 @@ func diffLineCounts(diff string) (added, removed int) {
 }
 
 func (model Model) detailWithPreview() string {
-	// The preview ends at the same column as the panel separator.
 	width := max(1, model.table.Width()-detailStyle.PaddingRight(0).GetHorizontalFrameSize())
-	// Below this width metadata and a readable hunk cannot share a row. Keep a
-	// one-line preview status, with the same expansion shortcut, under metadata.
-	if width < 64 {
-		session, selected := model.selectedSession()
-		cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
-		label := model.previewStatus(session, selected, cached)
-		if cached.edit != nil {
-			status := formatLastActiveAt(cached.edit.CompletedAt, time.Now())
-			if cached.err != nil || session.Stale || time.Since(cached.checked) > 5*time.Second {
-				status = "stale"
-			}
-			nameWidth := max(1, width-ansi.StringWidth(status)-16)
-			label = "v: expand · " + status + " · " + ansi.Truncate(safeDisplayText(filepath.Base(cached.edit.Filename)), nameWidth, "…")
-		}
-		if model.showActivity(session, cached) {
-			label = "v expand · " + cached.activity.Label + ": " + safeDisplayText(cached.activity.Text)
-		}
-		if selected && model.previewThinking(session, cached) {
-			indicator := model.thinkingIndicator(session.Provider, width)
-			label = alignedLine(mutedStyle.Render(ansi.Truncate(safeDisplayText(label), max(1, width-lipgloss.Width(indicator)-1), "…")), indicator, width)
-		} else {
-			label = mutedStyle.Render(ansi.Truncate(safeDisplayText(label), width, "…"))
-		}
-
-		height := model.inlinePreviewHeight()
-		metadata := strings.Split(clipLines(model.detailView(), width), "\n")
-		if selected {
-			// Combine Agent and Status so the directory, session ID, and preview all fit.
-			metadata[2] += mutedStyle.Render(" · ") +
-				statusStyle(sessionState(session)).Render(safeDisplayText(displayState(sessionState(session))))
-			metadata = append(metadata[:3], metadata[4:]...)
-		}
-
-		metadata = metadata[:min(len(metadata), height-1)]
-		return lipgloss.NewStyle().Height(height).MaxHeight(height).
-			Render(strings.Join(append(metadata, label), "\n"))
-	}
-	previewHeight := model.inlinePreviewHeight()
-	previewWidth := min(42, width*3/8)
-	metadataWidth := width - previewWidth - 2
-	metadataLines := strings.Split(model.detailView(), "\n")
-	metadataLines[0] = model.detailHeadingAtWidth(metadataWidth)
-	metadata := lipgloss.NewStyle().
-		Width(metadataWidth).
-		Height(previewHeight).
-		MaxHeight(previewHeight).
-		Render(clipLines(strings.Join(metadataLines, "\n"), metadataWidth))
-	preview := lipgloss.NewStyle().Padding(0, 1).Render(model.inlinePreviewPanel(previewWidth-2, previewHeight))
-	divider := lipgloss.NewStyle().Foreground(lipgloss.Color(colorDivider)).Render(strings.TrimSuffix(strings.Repeat("│\n", previewHeight), "\n"))
-	return lipgloss.JoinHorizontal(lipgloss.Top, metadata, " ", divider, preview)
-}
-
-// inlinePreviewPanel gives every preview state a heading aligned with metadata.
-func (model Model) inlinePreviewPanel(width, height int) string {
-	session, selected := model.selectedSession()
-	cached := model.previewCache[sessionIdentity{provider: session.Provider, id: session.ID}]
-	var lines []string
-	if selected && (cached.edit != nil || model.showActivity(session, cached)) {
-		lines = strings.Split(model.previewView(width-2, height, false), "\n")
-	} else {
-		lines = append([]string{accentStyle.Render("PREVIEW")}, strings.Split(model.previewView(width-2, height-1, false), "\n")...)
-	}
-	for index, line := range lines {
-		lines[index] = " " + line + " "
-	}
-	lines[0] = sectionBar(ansi.Strip(lines[0]), width, accentStyle)
-	return strings.Join(lines, "\n")
+	return model.inspectorView(width, model.inlinePreviewHeight())
 }
