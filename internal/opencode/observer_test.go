@@ -145,3 +145,50 @@ console.log("native bridge lifecycle passed");
 		t.Fatalf("harness: %v\n%s", err, output)
 	}
 }
+
+func TestConfigureObserverUsesConfigHomeAndRefreshesManagedPlugin(t *testing.T) {
+	for _, useConfigHome := range []bool{false, true} {
+		name := "default home"
+		if useConfigHome {
+			name = "XDG config home"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			t.Setenv("HOME", root)
+			t.Setenv("OPENCODE_CONFIG_DIR", "")
+			t.Setenv("XDG_CONFIG_HOME", "")
+			configuration := filepath.Join(root, ".config")
+			if useConfigHome {
+				configuration = filepath.Join(root, "custom config")
+				t.Setenv("XDG_CONFIG_HOME", configuration)
+			}
+			directory := filepath.Join(configuration, "opencode", "plugins")
+			if err := os.MkdirAll(directory, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(directory, "a-gent.ts")
+			if err := os.WriteFile(path, []byte("// OpenCode's plain TUI: previous observer\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := ConfigureObserver(); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || string(data) != string(observer) {
+				t.Fatalf("managed plugin not refreshed: %v", err)
+			}
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := ConfigureObserver(); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.Stat(path)
+			if err != nil || !os.SameFile(before, after) {
+				t.Fatalf("identical plugin replaced: %v", err)
+			}
+		})
+	}
+}

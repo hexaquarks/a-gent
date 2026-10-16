@@ -58,6 +58,7 @@ unknown: keep
 
 func TestEnablePluginRejectsMalformedOrDisabledConfiguration(t *testing.T) {
 	for _, original := range []string{
+		"plugins: [", "plugins:\n  disabled: nope",
 		"[not, a, mapping]", "plugins: invalid", "plugins:\n  enabled: nope", "plugins:\n  disabled: [a-gent]",
 		"plugins:\n  enabled: [1]", "plugins: {}\n---\nplugins: {}", "plugins: {enabled: [one], enabled: [two]}",
 	} {
@@ -124,5 +125,55 @@ func TestEnablePluginPreservesConfigurationSymlink(t *testing.T) {
 	data, _ := os.ReadFile(target)
 	if !strings.Contains(string(data), "a-gent") {
 		t.Fatal("did not update config target")
+	}
+}
+
+func TestHermesHomeValidatesActiveProfile(t *testing.T) {
+	for _, profile := range []string{"", "default\n", "coder\n", "../other", ".", "..", "nested/profile"} {
+		t.Run(profile, func(t *testing.T) {
+			root := t.TempDir()
+			t.Setenv("HOME", root)
+			t.Setenv("HERMES_HOME", "")
+			directory := filepath.Join(root, ".hermes")
+			if err := os.Mkdir(directory, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(directory, "active_profile"), []byte(profile), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := hermesHome()
+			if strings.Contains(profile, "/") || profile == "." || profile == ".." {
+				if got != "" || err == nil || !strings.Contains(err.Error(), "invalid Hermes active profile") {
+					t.Fatalf("home = %q, error = %v; want invalid profile", got, err)
+				}
+				return
+			}
+			if profile == "coder\n" {
+				directory = filepath.Join(directory, "profiles", "coder")
+			}
+			if err != nil || got != directory {
+				t.Fatalf("home = %q, error = %v; want %q", got, err, directory)
+			}
+		})
+	}
+}
+
+func TestConfigureObserverRespectsDisabledPlugin(t *testing.T) {
+	directory := t.TempDir()
+	t.Setenv("HERMES_HOME", directory)
+	path := filepath.Join(directory, "config.yaml")
+	const configuration = "plugins:\n  disabled: [a-gent]\n"
+	if err := os.WriteFile(path, []byte(configuration), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	observerPath, err := ConfigureObserver()
+	if observerPath != "" || err == nil || !strings.Contains(err.Error(), "enable Hermes observer:") {
+		t.Fatalf("observer = %q, error = %v; want contextual setup failure", observerPath, err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != configuration {
+		t.Fatalf("disabled configuration changed: %q, %v", data, err)
 	}
 }
