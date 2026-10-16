@@ -444,6 +444,8 @@ func TestIntegrationKeyboardHelp(t *testing.T) {
 	fixture.capture("help-narrow")
 	fixture.width, fixture.height = 40, 16
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "40", "-y", "16")
+	// Wait for the rendered frame, not text that was already visible before resizing.
+	fixture.waitText("╭" + strings.Repeat("─", fixture.width-2) + "╮")
 	fixture.waitText("↑/↓ scroll")
 	fixture.capture("help-small")
 	fixture.key("End")
