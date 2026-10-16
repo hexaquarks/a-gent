@@ -35,15 +35,17 @@ type sessionSummary struct {
 type sidebarView string
 
 const (
-	activeView sidebarView = "Active"
-	recentView sidebarView = "Recent"
-	allView    sidebarView = "All"
+	needsYouView sidebarView = "Needs you"
+	unseenView   sidebarView = "Unseen"
+	activeView   sidebarView = "Active"
+	recentView   sidebarView = "Recent"
+	allView      sidebarView = "All"
 )
 
 type sidebarItem struct {
 	// label is the user-visible name of the view or project.
 	label string
-	// view is set for a VIEWS item.
+	// view is set for a FILTERS item.
 	view sidebarView
 	// project is set for a PROJECTS item.
 	project    string
@@ -58,7 +60,7 @@ func (model Model) renderSidebar(summary sessionSummary) string {
 	if model.sidebarFocus {
 		titleStyle = accentStyle
 	}
-	lines := []string{sectionBar(" VIEWS", model.sidebarWidth(), titleStyle)}
+	lines := []string{sectionBar(" FILTERS", model.sidebarWidth(), titleStyle)}
 	for index, item := range items[:len(sidebarViews())] {
 		lines = append(lines, model.sidebarItemView(item, index, model.viewCount(item.view, summary)))
 	}
@@ -141,7 +143,7 @@ func (model Model) bodyHeight() int {
 }
 
 func sidebarViews() []sidebarView {
-	return []sidebarView{activeView, recentView, allView}
+	return []sidebarView{needsYouView, unseenView, activeView, recentView, allView}
 }
 
 func (model Model) sidebarItems() []sidebarItem {
@@ -205,6 +207,12 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	if item.provider != "" {
 		countStyle = mutedStyle
 	}
+	if item.view == needsYouView {
+		countStyle = waitingStyle
+	}
+	if item.view == unseenView {
+		countStyle = accentStyle
+	}
 	if item.view == activeView {
 		countStyle = runningStyle
 	}
@@ -220,24 +228,45 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	}
 
 	markerStyle := style
+	if item.view == needsYouView && !selected {
+		markerStyle = waitingStyle.Background(style.GetBackground())
+	}
+	if item.view == unseenView && !selected {
+		markerStyle = accentStyle.Background(style.GetBackground())
+	}
 	if item.provider != "" {
 		markerStyle = countStyle
 	}
-	return model.renderSidebarRow(item.label, marker, selectionMark, countText, style, markerStyle, countStyle)
+	return model.renderSidebarRow(item.label, marker, selectionMark, countText, "", style, markerStyle, countStyle)
 }
 
-// Every row reserves the same gutter, pin slot, and count column before
-// allocating space to the name. Larger totals widen all count cells together.
-func (model Model) renderSidebarRow(name, marker, pin, count string, style, markerStyle, countStyle lipgloss.Style) string {
+// Reserve the same name, pin, total, and attention slots on every row.
+// Waiting badges can appear without shifting names or totals.
+func (model Model) renderSidebarRow(
+	name, marker, pin, count, attention string,
+	style, markerStyle, countStyle lipgloss.Style,
+) string {
 	const pinWidth = 1
 	const nameToPinSpacing = 1
 	const rightPadding = 1
-	countWidth := max(3, len(fmt.Sprint(len(model.sessions))))
-	nameWidth := model.sidebarWidth() - sidebarGutterWidth - pinWidth - nameToPinSpacing - countWidth - rightPadding
+	const countToAttentionSpacing = 1
+	const minimumCountWidth = 2
+
+	countWidth := max(minimumCountWidth, len(fmt.Sprint(len(model.sessions))))
+	attentionWidth := len(fmt.Sprint(len(model.sessions))) + len("!")
+	attentionStyle := waitingStyle
+	if style.GetBackground() != nil {
+		attentionStyle = attentionStyle.Background(style.GetBackground())
+	}
+	reservedWidth := sidebarGutterWidth + pinWidth + nameToPinSpacing + countWidth +
+		countToAttentionSpacing + attentionWidth + rightPadding
+	nameWidth := model.sidebarWidth() - reservedWidth
 	label := sidebarLabel(name, max(0, nameWidth))
 	return markerStyle.Render(" "+sidebarLabel(marker, sidebarIconWidth)+" ") +
 		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
-		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)+strings.Repeat(" ", rightPadding))
+		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)) +
+		attentionStyle.Render(strings.Repeat(" ", countToAttentionSpacing)+fmt.Sprintf("%*s", attentionWidth, attention)) +
+		style.Render(strings.Repeat(" ", rightPadding))
 }
 
 // Pad using display cells so Unicode names share the same count column.
@@ -266,6 +295,10 @@ func sidebarProviderIcon(provider string) string {
 
 func sidebarViewIcon(view sidebarView) string {
 	switch view {
+	case needsYouView:
+		return "!"
+	case unseenView:
+		return indicatorDot
 	case activeView:
 		return "▶"
 	case recentView:
@@ -277,6 +310,14 @@ func sidebarViewIcon(view sidebarView) string {
 
 func (model Model) viewCount(view sidebarView, summary sessionSummary) int {
 	switch view {
+	case needsYouView, unseenView:
+		count := 0
+		for _, session := range model.sessions {
+			if model.matchesView(session, view) {
+				count++
+			}
+		}
+		return count
 	case activeView:
 		return summary.running
 	case recentView:
@@ -379,6 +420,20 @@ func (model *Model) clearMissingProjectFilter() {
 
 func (model Model) filteredSessions() []agent.Session {
 	view, provider, project := model.effectiveFilters()
+	attentionParents := make(map[sessionIdentity]bool)
+	if model.boardVisible && project == "" && (view == needsYouView || view == unseenView) {
+		// Board hides child rows, so surface their owning card when they need attention.
+		for _, session := range model.sessions {
+			if session.ParentID == "" || !model.matchesView(session, view) {
+				continue
+			}
+			parent := model.sessionWorkspace(session)
+			if parent.ParentID == "" {
+				attentionParents[sessionIdentity{provider: parent.Provider, id: parent.ID}] = true
+			}
+		}
+	}
+
 	filteredSessions := make([]agent.Session, 0, len(model.sessions))
 	for _, session := range model.sessions {
 		if model.boardVisible && session.ParentID != "" {
@@ -390,8 +445,11 @@ func (model Model) filteredSessions() []agent.Session {
 		if project != "" && session.WorkingDirectory != project {
 			continue
 		}
-		if project == "" && !matchesView(session, view) {
-			continue
+		if project == "" && !model.matchesView(session, view) {
+			identity := sessionIdentity{provider: session.Provider, id: session.ID}
+			if !attentionParents[identity] {
+				continue
+			}
 		}
 		filteredSessions = append(filteredSessions, session)
 	}
@@ -402,8 +460,18 @@ func (model Model) filteredSessions() []agent.Session {
 	return filteredSessions
 }
 
+func (model Model) matchesView(session agent.Session, view sidebarView) bool {
+	if view == unseenView {
+		return model.unreadSessions[sessionIdentity{provider: session.Provider, id: session.ID}]
+	}
+	return matchesView(session, view)
+}
+
 func matchesView(session agent.Session, view sidebarView) bool {
 	switch view {
+	case needsYouView:
+		state := sessionState(session)
+		return state != agent.StateRunning && state != agent.StateIdle
 	case activeView:
 		return sessionState(session) == agent.StateRunning
 	case recentView:

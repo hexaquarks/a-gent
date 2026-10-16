@@ -60,9 +60,45 @@ func (model Model) finishedThisVisit(session agent.Session, now time.Time) bool 
 }
 
 func (model *Model) markSelectedSessionRead() {
-	if session, ok := model.selectedSession(); ok {
-		identity := sessionIdentity{provider: session.Provider, id: session.ID}
-		delete(model.unreadSessions, identity)
-		delete(model.finishedSessions, identity)
+	session, ok := model.selectedSession()
+	if !ok {
+		return
 	}
+
+	identity := sessionIdentity{provider: session.Provider, id: session.ID}
+	delete(model.unreadSessions, identity)
+	delete(model.finishedSessions, identity)
+	if !model.boardVisible {
+		return
+	}
+
+	// Board opens the owning workspace for the whole visible group.
+	for _, child := range model.sessions {
+		parent := model.sessionWorkspace(child)
+		if parent.ParentID != "" || parent.Provider != session.Provider || parent.ID != session.ID {
+			continue
+		}
+		childIdentity := sessionIdentity{provider: child.Provider, id: child.ID}
+		delete(model.unreadSessions, childIdentity)
+		delete(model.finishedSessions, childIdentity)
+	}
+}
+
+// boardSessionUnread includes children because Board opens their owning workspace.
+func (model Model) boardSessionUnread(session agent.Session) bool {
+	identity := sessionIdentity{provider: session.Provider, id: session.ID}
+	if model.unreadSessions[identity] {
+		return true
+	}
+	for _, child := range model.sessions {
+		childIdentity := sessionIdentity{provider: child.Provider, id: child.ID}
+		if !model.unreadSessions[childIdentity] {
+			continue
+		}
+		parent := model.sessionWorkspace(child)
+		if parent.ParentID == "" && parent.Provider == session.Provider && parent.ID == session.ID {
+			return true
+		}
+	}
+	return false
 }

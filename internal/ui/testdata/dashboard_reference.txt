@@ -1,29 +1,29 @@
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  VIEWS                 │  SESSIONS (6 of 6)                      List  Board                         Age ↓  |  LIVE  │
-│  ▶  Active          1  │                                                                                             │
-│  ◷  Recent          5  │      Agent   Session                       Project          Status                 Age ↓    │
-│  ≡  All          ●  6  │      claude  Investigate terminal notifi…  a-gent           ● running                 2m    │
-│                        │   ●  codex   Investigate AGENTS.md overr…  codex-audit      ● needs input             3m    │
-│                        │ › ●  codex   Restore response navigation   swiftyprompt     ● idle                    4m    │
-│  AGENTS                │      codex   Align selected agent cursor   a-gent           ● idle                    5m    │
-│  ✳  claude          1  │      codex   Add Claude session discovery  mihailanghelici  ● idle                    8m    │
-│    codex           5  │      codex   Untitled session              swiftyprompt     ● idle                   13m    │
-│                        │                                                                                             │
-│                        │                                                                                             │
-│  PROJECTS (4)          │                                                                                             │
-│    mihailanghe… ★  1  │                                                                                             │
-│    a-gent          2  │                                                                                             │
-│    codex-audit     1  │                                                                                             │
-│    swiftyprompt    2  │─────────────────────────────────────────────────────────────────────────────────────────────│
-│                        │ Restore response navigation  codex · swiftyprompt  /projects/swiftyprompt           v expand│
-│                        │ ACTIVITY                            │ LATEST EDIT                                      +3 −1│
-│                        │ Preview not supported               │ internal/navigation.go · 1m ago                       │
-│                        │                                     │  if session != nil {                                  │
-│                        │                                     │ -    navigator.Open(cwd)                              │
-│ ────────────────────── │                                     │ +    navigator.Navigate(                              │
-│ / find · p pin         │                                     │ +        ctx, session,                                │
+│  FILTERS                 │  SESSIONS (6 of 6)                     List  Board                        Age ↓  |  LIVE  │
+│  !  Needs you      1     │                                                                                           │
+│  ●  Unseen         2     │      Agent   Session                      Project         Status                 Age ↓    │
+│  ▶  Active         1     │      claude  Investigate terminal notif…  a-gent          ● running                 2m    │
+│  ◷  Recent         5     │   ●  codex   Investigate AGENTS.md over…  codex-audit     ● needs input             3m    │
+│  ≡  All          ● 6     │ › ●  codex   Restore response navigation  swiftyprompt    ● idle                    4m    │
+│                          │      codex   Align selected agent cursor  a-gent          ● idle                    5m    │
+│                          │      codex   Add Claude session discove…  mihailangheli…  ● idle                    8m    │
+│  AGENTS                  │      codex   Untitled session             swiftyprompt    ● idle                   13m    │
+│  ✳  claude         1     │                                                                                           │
+│    codex          5     │                                                                                           │
+│                          │                                                                                           │
+│                          │                                                                                           │
+│  PROJECTS (4)            │                                                                                           │
+│    mihailanghe… ★ 1     │                                                                                           │
+│    a-gent         2     │───────────────────────────────────────────────────────────────────────────────────────────│
+│    codex-audit    1 !1  │ Restore response navigation  codex · swiftyprompt  /projects/swiftyprompt         v expand│
+│    swiftyprompt   2     │ ACTIVITY                           │ LATEST EDIT                                     +3 −1│
+│                          │ Preview not supported              │ internal/navigation.go · 1m ago                      │
+│                          │                                    │  if session != nil {                                 │
+│                          │                                    │ -    navigator.Open(cwd)                             │
+│ ──────────────────────── │                                    │ +    navigator.Navigate(                             │
+│ / find · p pin           │                                    │ +        ctx, session,                               │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  tab  focus    enter  open    v  expand    i  inspector    m  layout    q  quit                              ?  help │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
