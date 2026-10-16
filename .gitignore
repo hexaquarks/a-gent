@@ -2,6 +2,7 @@
 /a-gent
 *.test
 *.out
+/dist/
 
 # Local environment values and secrets
 .env
