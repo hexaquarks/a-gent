@@ -10,7 +10,7 @@
 
 a-gent is a terminal dashboard for keeping track of your favorite coding agents
 and subagents across projects. See which agents are working or waiting for you,
-preview their activity and file edits, and jump to their tmux panes.
+preview their activity and file edits, and jump to their [tmux](https://github.com/tmux/tmux/wiki) panes.
 
 <p align="center">
   <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
@@ -62,7 +62,7 @@ interactive instance in a tmux pane or window from the dashboard.
 
 ## Install
 
-Requires Go 1.24 or newer and Make:
+Requires [Go](https://go.dev/dl/) 1.24 or newer and [Make](https://www.gnu.org/software/make/):
 
 ```sh
 git clone https://github.com/hexaquarks/a-gent.git
