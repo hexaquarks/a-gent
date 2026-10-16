@@ -18,10 +18,8 @@ their activity and file edits, and jump to their tmux panes.
   <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
 </p>
 
-Switch between List and Board; a-gent remembers your last view. List shows
-subagents beneath their parent sessions for Codex, OpenCode, and Hermes, with
-activity and the latest edit side by side for the selected session. Board groups
-top-level sessions by state, with available activity and subagent summaries.
+<details>
+<summary>Other layouts</summary>
 
 **Board**
 
@@ -29,6 +27,12 @@ top-level sessions by state, with available activity and subagent summaries.
   <img src="assets/dashboard-board.png" width="1000" alt="a-gent Board view with needs you, running, and idle columns, activity and subagent summaries, and completion hints" />
 </p>
 
+</details>
+
+Switch between List and Board; a-gent remembers your last view. List shows
+subagents beneath their parent sessions for Codex, OpenCode, and Hermes, with
+activity and the latest edit side by side for the selected session. Board groups
+top-level sessions by state, with available activity and subagent summaries.
 
 ## Supported adapters
 
