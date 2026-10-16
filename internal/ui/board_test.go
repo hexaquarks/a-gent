@@ -137,7 +137,7 @@ func TestBoardCardFramesAndMetadata(t *testing.T) {
 		}
 		lines := strings.Split(ansi.Strip(view), "\n")
 		if !strings.Contains(lines[1], "Readable title") || !strings.Contains(lines[2], "codex · a-gent") ||
-			!strings.HasSuffix(lines[2], "—│") || !strings.Contains(lines[3], "running") {
+			!strings.HasSuffix(lines[2], "—│") || !strings.Contains(lines[3], "Working…") {
 			t.Fatalf("card content or aligned age changed:\n%s", ansi.Strip(view))
 		}
 		if !strings.Contains(view, "38;2;163;239;120") {
@@ -281,6 +281,63 @@ func TestBoardColumnOrder(t *testing.T) {
 	} {
 		if columns[index].title != want.title || boardColumnIndex(agent.Session{State: want.state}) != index {
 			t.Fatalf("column %d should be %s", index, want.title)
+		}
+	}
+}
+
+func TestBoardParentCardShowsLiveSubagentCounts(t *testing.T) {
+	model := NewModel(nil)
+	parent := agent.Session{ID: "parent", Provider: "codex", Name: "Parent task", State: agent.StateRunning}
+	model.sessions = []agent.Session{
+		parent,
+		{ID: "running", Provider: "codex", ParentID: parent.ID, State: agent.StateRunning},
+		{ID: "idle", Provider: "codex", ParentID: parent.ID, State: agent.StateIdle},
+		{ID: "stale", Provider: "codex", ParentID: parent.ID, State: agent.StateRunning, Stale: true},
+		{ID: "unrelated", Provider: "claude", ParentID: parent.ID, State: agent.StateRunning},
+	}
+	view := model.boardCardView(parent, true, 36)
+	if !strings.Contains(ansi.Strip(view), "3 subagents · 1 running") || lipgloss.Height(view) != 6 {
+		t.Fatalf("parent card lost live worker counts:\n%s", ansi.Strip(view))
+	}
+
+	view = model.boardCardView(model.sessions[1], false, 36)
+	if strings.Contains(ansi.Strip(view), "subagents") || lipgloss.Height(view) != 5 {
+		t.Fatalf("child without workers gained a worker row:\n%s", ansi.Strip(view))
+	}
+}
+
+func TestBoardMixedCardHeightsKeepSelectionVisible(t *testing.T) {
+	model := NewModel(nil)
+	var sessions []agent.Session
+	column := boardColumn{title: "running", color: colorRunning}
+	for index := range 6 {
+		parent := agent.Session{
+			ID: fmt.Sprintf("parent-%d", index), Provider: "codex",
+			Name: fmt.Sprintf("Parent %d", index), State: agent.StateRunning,
+		}
+		sessions = append(sessions, parent)
+		column.indexes = append(column.indexes, index)
+		model.sessions = append(model.sessions, parent)
+		if index%2 == 0 {
+			model.sessions = append(model.sessions, agent.Session{
+				ID: fmt.Sprintf("child-%d", index), Provider: "codex",
+				ParentID: parent.ID, State: agent.StateRunning,
+			})
+		}
+	}
+
+	model.updateTableRows()
+	for _, height := range []int{3, 6, 7, 8, 12, 18} {
+		for selected := range sessions {
+			model.table.SetCursor(selected)
+			view := model.boardColumnView(column, sessions, 32, height)
+			if !strings.Contains(ansi.Strip(view), sessions[selected].Name) ||
+				lipgloss.Height(view) != height || lipgloss.Width(view) != 32 {
+				t.Fatalf("height %d lost selected card %d:\n%s", height, selected, ansi.Strip(view))
+			}
+			if height >= 7 && !strings.Contains(ansi.Strip(view), "└") {
+				t.Fatalf("height %d clipped the selected card border:\n%s", height, ansi.Strip(view))
+			}
 		}
 	}
 }
