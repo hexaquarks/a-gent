@@ -8,9 +8,9 @@
   <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/hexaquarks/a-gent?logo=go" /></a>
 </p>
 
-a-gent is a small terminal dashboard for keeping track of your favorite coding
-agents across projects. See which agents are working or waiting for you, preview
-their activity and file edits, and jump to their tmux panes.
+a-gent is a terminal dashboard for keeping track of your favorite coding agents
+and subagents across projects. See which agents are working or waiting for you,
+preview their activity and file edits, and jump to their tmux panes.
 
 <p align="center">
   <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
@@ -87,6 +87,15 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 - `m` switches layout; `v` expands the preview; `Esc` returns.
 - `n` / `N` launches an agent in a pane / window.
 - `q` closes the current view or quits; `?` shows all shortcuts.
+
+> [!TIP]
+> Add this to `~/.tmux.conf` to open a-gent with prefix + Space:
+>
+> ```tmux
+> bind-key Space run-shell -b "a-gent"
+> ```
+>
+> Reload with `tmux source-file ~/.tmux.conf`.
 
 ## Local development
 
