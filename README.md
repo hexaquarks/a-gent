@@ -27,6 +27,12 @@ preview their activity and file edits, and jump to their [tmux](https://github.c
 
 </details>
 
+## Why
+
+I like running multiple coding agents across tmux windows, sometimes using
+different harnesses. I built a-gent to fit that workflow: one place to see what
+they're doing and where I'm needed, without checking every window.
+
 ## Supported adapters
 
 <p align="center">
