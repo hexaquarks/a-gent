@@ -8,17 +8,24 @@
   <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/hexaquarks/a-gent?logo=go" /></a>
 </p>
 
-a-gent is a small terminal dashboard for keeping track of your favorite coding
-agents across projects. See which agents are working or waiting for you, preview
-their activity and file edits, and jump to their tmux panes.
+a-gent is a terminal dashboard for keeping track of your favorite coding agents
+and subagents across projects. See which agents are working or waiting for you,
+preview their activity and file edits, and jump to their tmux panes.
 
 <p align="center">
-  <img src="assets/dashboard-views.svg" width="1000" alt="a-gent List view with Codex and OpenCode subagents, overlapping Board view behind it at the top right" />
+  <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
 </p>
 
-Switch between List and Board; a-gent remembers your last view. List shows
-subagents beneath their parent sessions for Codex, OpenCode, and Hermes. Board
-shows top-level sessions grouped into running, idle, and needs you.
+<details>
+<summary>Other layouts</summary>
+
+**Board**
+
+<p align="center">
+  <img src="assets/dashboard-board.png" width="1000" alt="a-gent Board view with needs you, running, and idle columns, activity and subagent summaries, and completion hints" />
+</p>
+
+</details>
 
 ## Supported adapters
 
@@ -33,7 +40,7 @@ shows top-level sessions grouped into running, idle, and needs you.
 Install the agents you use through the links above and make their commands
 available on your `PATH`:
 
-| Adapter | Command | Compatibility |
+| Adapter | Command | Notes |
 | --- | --- | --- |
 | Codex | `codex` | Sessions launched with `--no-daemon` are not shown. |
 | Claude Code | `claude` | Must support `claude agents --json`. |
@@ -76,16 +83,19 @@ a-gent
 Inside tmux, the dashboard opens in a popup. Select a session and press Enter to
 jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 
-- Press `m` to switch between List and Board. In Board, use `h`/`l` or the
-  left/right arrows to move between columns.
-- Press Tab to switch between the sidebar and sessions; use `j`/`k` or the arrow
-  keys to browse.
-- Use the sidebar to filter by project, provider, or session state. Press Enter
-  to apply a filter.
-- Press `/` to search projects and `p` to pin or unpin a project in the sidebar.
-- Press `s` to change the sort column or `S` to reverse it.
-- Press `n` to launch an agent in a new tmux pane, or `N` for a new window.
-- Press `v` to expand the preview and Escape to return; press `q` to quit.
+- `Tab` changes focus; arrows navigate; `Enter` opens a session or applies a filter.
+- `m` switches layout; `v` expands the preview; `Esc` returns.
+- `n` / `N` launches an agent in a pane / window.
+- `q` closes the current view or quits; `?` shows all shortcuts.
+
+> [!TIP]
+> Add this to `~/.tmux.conf` to open a-gent with prefix + Space:
+>
+> ```tmux
+> bind-key Space run-shell -b '~/.local/bin/a-gent'
+> ```
+>
+> Reload with `tmux source-file ~/.tmux.conf`.
 
 ## Local development
 
