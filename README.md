@@ -12,6 +12,10 @@ a-gent is a terminal dashboard for keeping track of your favorite coding agents
 and subagents across projects. See which agents are working or waiting for you,
 preview their activity and file edits, and jump to their [tmux](https://github.com/tmux/tmux/wiki) panes.
 
+I built this because I like running multiple coding agents across tmux windows, sometimes using
+different harnesses. a-gent fits that workflow: one place to see what
+they're doing and where I'm needed.
+
 <p align="center">
   <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
 </p>
@@ -26,12 +30,6 @@ preview their activity and file edits, and jump to their [tmux](https://github.c
 </p>
 
 </details>
-
-## Why
-
-I like running multiple coding agents across tmux windows, sometimes using
-different harnesses. I built a-gent to fit that workflow: one place to see what
-they're doing and where I'm needed, without checking every window.
 
 ## Supported adapters
 
@@ -48,11 +46,11 @@ available on your `PATH`:
 
 | Adapter | Command | Notes |
 | --- | --- | --- |
-| Codex | `codex` | Sessions launched with `--no-daemon` are not shown. |
-| Claude Code | `claude` | Must support `claude agents --json`. |
-| OpenCode | `opencode` | — |
-| Pi | `pi` | — |
-| Hermes | `hermes` | — |
+| [Codex](https://github.com/openai/codex) | `codex` | Sessions launched with `--no-daemon` are not shown. |
+| [Claude Code](https://github.com/anthropics/claude-code) | `claude` | Must support `claude agents --json`. |
+| [OpenCode](https://github.com/anomalyco/opencode) | `opencode` | — |
+| [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) | `pi` | — |
+| [Hermes](https://github.com/NousResearch/hermes-agent) | `hermes` | — |
 
 Sessions are discovered automatically, including those started from a shell.
 All five adapters support activity and edit previews, and launching a new
@@ -67,6 +65,21 @@ interactive instance in a tmux pane or window from the dashboard.
 > Pi shows running or idle; it cannot identify approval prompts from extensions.
 
 ## Install
+
+#### Homebrew
+
+With [Homebrew](https://brew.sh):
+
+```sh
+brew tap hexaquarks/a-gent https://github.com/hexaquarks/a-gent
+brew install --HEAD hexaquarks/a-gent/a-gent
+```
+
+#### Prebuilt binaries
+
+macOS and Linux release downloads: [GitHub Releases](https://github.com/hexaquarks/a-gent/releases).
+
+#### From source
 
 Requires [Go](https://go.dev/dl/) 1.24 or newer and [Make](https://www.gnu.org/software/make/):
 
