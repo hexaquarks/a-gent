@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,7 @@ esac
 				t.Fatal(err)
 			}
 
-			err := run()
+			err := run(nil, io.Discard)
 			if test.exit == "0" && err != nil {
 				t.Fatal(err)
 			}
