@@ -13,12 +13,22 @@ agents across projects. See which agents are working or waiting for you, preview
 their activity and file edits, and jump to their tmux panes.
 
 <p align="center">
-  <img src="assets/dashboard-views.svg" width="1000" alt="a-gent List view with Codex and OpenCode subagents, overlapping Board view behind it at the top right" />
+  <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
 </p>
 
 Switch between List and Board; a-gent remembers your last view. List shows
-subagents beneath their parent sessions for Codex, OpenCode, and Hermes. Board
-shows top-level sessions grouped into running, idle, and needs you.
+subagents beneath their parent sessions for Codex, OpenCode, and Hermes, with
+activity and the latest edit side by side for the selected session. Board groups
+top-level sessions by state, with available activity and subagent summaries.
+
+<details>
+<summary>Board view</summary>
+
+<p align="center">
+  <img src="assets/dashboard-board.png" width="1000" alt="a-gent Board view with needs you, running, and idle columns, activity and subagent summaries, and completion hints" />
+</p>
+
+</details>
 
 ## Supported adapters
 
@@ -81,11 +91,18 @@ jump to its matching tmux pane. Outside tmux, it runs directly in your terminal.
 - Press Tab to switch between the sidebar and sessions; use `j`/`k` or the arrow
   keys to browse.
 - Use the sidebar to filter by project, provider, or session state. Press Enter
-  to apply a filter.
+  to apply a filter. Needs you includes waiting sessions, errors, and unavailable
+  statuses. Unseen shows sessions that stopped running during this dashboard visit
+  and have not been opened. Amber `!` counts beside projects show how many
+  sessions are waiting for input.
+- Board briefly marks work as “Finished this visit” when it sees a session stop
+  running and become idle. Opening the session clears the hint.
 - Press `/` to search projects and `p` to pin or unpin a project in the sidebar.
 - Press `s` to change the sort column or `S` to reverse it.
 - Press `n` to launch an agent in a new tmux pane, or `N` for a new window.
-- Press `v` to expand the preview and Escape to return; press `q` to quit.
+- Press `v` to expand the preview. When activity and an edit are available, press
+  Tab inside the expanded preview to switch between them. Press Escape to return.
+  Press `q` to close the current view or quit the dashboard.
 
 ## Local development
 
