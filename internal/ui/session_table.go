@@ -95,23 +95,18 @@ func (model Model) sessionRowView(session agent.Session, selected bool, columns 
 	}
 	background = model.readyPulseBackground(session, background)
 
-	hasSessionColumn := false
-	for _, column := range columns {
-		hasSessionColumn = hasSessionColumn || column.Title == "Session"
-	}
-
 	cells := make([]string, len(columns))
 	for columnIndex, column := range columns {
 		value, style := sessionColumnValue(session, column.Title)
-		if column.Title == "Agent" && !hasSessionColumn && session.ParentID != "" {
-			value = "↳" + value
+		if column.Title == "Agent" {
+			value = model.sessionTreePrefix(session) + value
 		}
 		if column.Title == "Project" {
 			style = model.projectStyle(session.WorkingDirectory)
 		}
 		if column.Title == "Session" {
 			cells[columnIndex] = renderTableCell(
-				model.listSessionName(session), column.Width, mainTextStyle.Bold(selected), background,
+				model.listSessionName(session), column.Width, mainTextStyle.Bold(session.ParentID == ""), background,
 			)
 			continue
 		}
@@ -196,7 +191,7 @@ func (model Model) emptySessionMessage() string {
 func sessionColumnValue(session agent.Session, columnTitle string) (string, lipgloss.Style) {
 	switch columnTitle {
 	case "Agent":
-		return session.Provider, providerStyle(session.Provider).Bold(true)
+		return session.Provider, providerStyle(session.Provider)
 	case "Session":
 		return sessionDisplayName(session), mainTextStyle
 	case "Project":
@@ -209,10 +204,10 @@ func sessionColumnValue(session agent.Session, columnTitle string) (string, lipg
 		// Use the provider timestamp when available; an active session without
 		// a timestamp still has a meaningful fallback.
 		if sessionState(session) == agent.StateRunning && session.LastActiveAt.IsZero() {
-			return "Now", runningStyle
+			return "Now", mutedStyle
 		}
 		now := time.Now()
-		return strings.TrimSuffix(formatLastActiveAt(session.LastActiveAt, now), " ago"), lastActiveStyle(session.LastActiveAt, now)
+		return strings.TrimSuffix(formatLastActiveAt(session.LastActiveAt, now), " ago"), mutedStyle
 	default:
 		return "", lipgloss.NewStyle()
 	}

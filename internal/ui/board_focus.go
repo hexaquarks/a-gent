@@ -36,7 +36,7 @@ func (model Model) boardFocusView(width int) string {
 
 	title := sectionBar("FOCUS", 7, model.panelTitleStyle()) + " " +
 		mainTextStyle.Bold(true).Render(safeDisplayText(sessionDisplayName(session)))
-	project := model.projectStyle(session.WorkingDirectory).Bold(false).Render(
+	project := model.projectStyle(session.WorkingDirectory).Render(
 		safeDisplayText(projectName(session.WorkingDirectory)),
 	)
 	identity := providerStyle(session.Provider).Render(safeDisplayText(session.Provider)) +
@@ -100,7 +100,7 @@ func (model Model) boardFocusActivity(session agent.Session) string {
 		return mutedStyle.Render(message)
 	}
 
-	activity := safeDisplayText(cached.activity.Label) + " · " + safeDisplayText(cached.activity.Text)
+	activity := currentActivityLabel(*cached.activity, time.Now()) + " · " + safeDisplayText(cached.activity.Text)
 	if cached.err != nil || session.Stale || time.Since(cached.checked) > previewStaleAfter {
 		return waitingStyle.Render("stale · ") + mutedStyle.Render(activity)
 	}

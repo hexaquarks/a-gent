@@ -240,33 +240,49 @@ func (model Model) sidebarItemView(item sidebarItem, index, count int) string {
 	return model.renderSidebarRow(item.label, marker, selectionMark, countText, "", style, markerStyle, countStyle)
 }
 
-// Reserve the same name, pin, total, and attention slots on every row.
-// Waiting badges can appear without shifting names or totals.
+// Keep names and totals aligned, reserving badge space only while a project needs input.
 func (model Model) renderSidebarRow(
 	name, marker, pin, count, attention string,
 	style, markerStyle, countStyle lipgloss.Style,
 ) string {
 	const pinWidth = 1
 	const nameToPinSpacing = 1
+	const pinToCountSpacing = 1
 	const rightPadding = 1
 	const countToAttentionSpacing = 1
-	const minimumCountWidth = 2
 
-	countWidth := max(minimumCountWidth, len(fmt.Sprint(len(model.sessions))))
-	attentionWidth := len(fmt.Sprint(len(model.sessions))) + len("!")
-	attentionStyle := waitingStyle
-	if style.GetBackground() != nil {
-		attentionStyle = attentionStyle.Background(style.GetBackground())
+	countWidth := len(fmt.Sprint(len(model.sessions)))
+	attentionWidth := model.sidebarAttentionWidth()
+	attentionSuffix := ""
+	if attentionWidth > 0 {
+		attentionStyle := waitingStyle.Background(style.GetBackground())
+		attentionSuffix = attentionStyle.Render(
+			strings.Repeat(" ", countToAttentionSpacing) + fmt.Sprintf("%*s", attentionWidth, attention),
+		)
 	}
-	reservedWidth := sidebarGutterWidth + pinWidth + nameToPinSpacing + countWidth +
-		countToAttentionSpacing + attentionWidth + rightPadding
+
+	reservedWidth := sidebarGutterWidth + pinWidth + nameToPinSpacing + pinToCountSpacing +
+		countWidth + lipgloss.Width(attentionSuffix) + rightPadding
 	nameWidth := model.sidebarWidth() - reservedWidth
 	label := sidebarLabel(name, max(0, nameWidth))
 	return markerStyle.Render(" "+sidebarLabel(marker, sidebarIconWidth)+" ") +
-		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin) +
+		style.Render(label+strings.Repeat(" ", nameToPinSpacing)+pin+strings.Repeat(" ", pinToCountSpacing)) +
 		countStyle.Render(fmt.Sprintf("%*s", countWidth, count)) +
-		attentionStyle.Render(strings.Repeat(" ", countToAttentionSpacing)+fmt.Sprintf("%*s", attentionWidth, attention)) +
-		style.Render(strings.Repeat(" ", rightPadding))
+		attentionSuffix + style.Render(strings.Repeat(" ", rightPadding))
+}
+
+func (model Model) sidebarAttentionWidth() int {
+	waitingByProject := make(map[string]int)
+	width := 0
+	for _, session := range model.sessions {
+		if sessionState(session) != agent.StateWaiting {
+			continue
+		}
+		waitingByProject[session.WorkingDirectory]++
+		badgeWidth := len("!") + len(fmt.Sprint(waitingByProject[session.WorkingDirectory]))
+		width = max(width, badgeWidth)
+	}
+	return width
 }
 
 // Pad using display cells so Unicode names share the same count column.

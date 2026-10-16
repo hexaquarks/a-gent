@@ -239,10 +239,13 @@ func newDashboardFixtureWithProvider(t *testing.T, provider string) *dashboardFi
 	if provider != "" {
 		count = "3 sessions"
 	}
-	if strings.HasPrefix(provider, "opencode-live-") {
-		count = "4 sessions"
+	if provider == "codex-live" {
+		count = "2 sessions"
 	}
-	fixture.waitFor("all providers", 8*time.Second, func(screen string) bool { return strings.Contains(screen, count) })
+	expectsChild := provider == "codex-live" || strings.HasPrefix(provider, "opencode-live-")
+	fixture.waitFor("all providers", 8*time.Second, func(screen string) bool {
+		return strings.Contains(screen, count) && (!expectsChild || strings.Contains(screen, "1 subagent"))
+	})
 	if provider == "" {
 		fixture.selectProvider("codex")
 	}

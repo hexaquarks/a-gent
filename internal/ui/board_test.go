@@ -26,19 +26,17 @@ func TestBoardSelectionAndLiveStatus(t *testing.T) {
 
 	// Column navigation keeps the existing table sort and selected identity.
 	model.table.SetCursor(1)
-	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
-	model = updated.(Model)
-	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	model = updated.(Model)
 	if current, _ := model.selectedSession(); current.Provider != "claude" {
-		t.Fatalf("expected the running card to the left of Idle, got %+v", current)
+		t.Fatalf("expected the running card to the right of Needs you, got %+v", current)
 	}
 
 	model.applyProviderUpdate(polling.Update{Provider: "claude", Sessions: []agent.Session{
 		{ID: "claude-session", Name: "Changed status", State: agent.StateWaiting},
 	}})
 	current, _ := model.selectedSession()
-	if current.ID != "claude-session" || boardColumnIndex(current) != 2 {
+	if current.ID != "claude-session" || boardColumnIndex(current) != boardAttentionColumn {
 		t.Fatal("status update did not move the selected card with its session")
 	}
 	model.selectedProvider = "claude"
@@ -59,7 +57,7 @@ func TestBoardGroupsAttentionStates(t *testing.T) {
 		{State: agent.StateWaiting}, {State: agent.StateError},
 		{State: agent.StateUnavailable}, {State: agent.StateRunning, Stale: true}, {},
 	} {
-		if boardColumnIndex(session) != 2 {
+		if boardColumnIndex(session) != boardAttentionColumn {
 			t.Errorf("session requiring attention appeared outside Needs You: %+v", session)
 		}
 	}
@@ -224,11 +222,13 @@ func TestBoardCardsRemoveSelectionArrowAndReservedSpace(t *testing.T) {
 		model.unreadSessions = map[sessionIdentity]bool{{provider: session.Provider, id: session.ID}: unread}
 		for _, selected := range []bool{false, true} {
 			lines := strings.Split(ansi.Strip(model.boardCardView(session, selected, 24)), "\n")
-			prefix := "│▌"
-			if unread {
-				prefix += "● "
+			if strings.Contains(lines[1], indicatorDot) != unread {
+				t.Fatal("card unread marker does not follow session state")
 			}
-			if strings.Contains(strings.Join(lines, "\n"), "›") || !strings.HasPrefix(lines[1], prefix+"Title") ||
+			if unread && !strings.HasSuffix(lines[1], indicatorDot+"│") {
+				t.Fatal("card unread marker is not in its trailing slot")
+			}
+			if strings.Contains(strings.Join(lines, "\n"), "›") || !strings.HasPrefix(lines[1], "│▌Title") ||
 				!strings.HasPrefix(lines[2], "│▌codex") {
 				t.Fatalf("board kept its arrow or reserved left space:\n%s", strings.Join(lines, "\n"))
 			}
@@ -275,9 +275,9 @@ func TestBoardColumnOrder(t *testing.T) {
 		title string
 		state agent.State
 	}{
+		{"needs you", agent.StateWaiting},
 		{"running", agent.StateRunning},
 		{"idle", agent.StateIdle},
-		{"needs you", agent.StateWaiting},
 	} {
 		if columns[index].title != want.title || boardColumnIndex(agent.Session{State: want.state}) != index {
 			t.Fatalf("column %d should be %s", index, want.title)
@@ -296,7 +296,7 @@ func TestBoardParentCardShowsLiveSubagentCounts(t *testing.T) {
 		{ID: "unrelated", Provider: "claude", ParentID: parent.ID, State: agent.StateRunning},
 	}
 	view := model.boardCardView(parent, true, 36)
-	if !strings.Contains(ansi.Strip(view), "3 subagents · 1 running") || lipgloss.Height(view) != 6 {
+	if !strings.Contains(ansi.Strip(view), "3 subagents · 1 needs you") || lipgloss.Height(view) != 6 {
 		t.Fatalf("parent card lost live worker counts:\n%s", ansi.Strip(view))
 	}
 

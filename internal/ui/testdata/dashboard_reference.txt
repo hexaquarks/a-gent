@@ -1,5 +1,5 @@
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ a-gent  /  6 sessions   1 running    1 needs input    2 unseen                                                ● live │
+│ a-gent  /  6 sessions   1 running    1 needs you    2 unseen                                                  ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │  FILTERS                 │  SESSIONS (6 of 6)                     List  Board                        Age ↓  |  LIVE  │
 │  !  Needs you      1     │                                                                                           │
@@ -15,15 +15,15 @@
 │                          │                                                                                           │
 │                          │                                                                                           │
 │  PROJECTS (4)            │                                                                                           │
-│    mihailanghe… ★ 1     │                                                                                           │
-│    a-gent         2     │───────────────────────────────────────────────────────────────────────────────────────────│
-│    codex-audit    1 !1  │ Restore response navigation  codex · swiftyprompt  /projects/swiftyprompt         v expand│
-│    swiftyprompt   2     │ ACTIVITY                           │ LATEST EDIT                                     +3 −1│
-│                          │ Preview not supported              │ internal/navigation.go · 1m ago                      │
-│                          │                                    │  if session != nil {                                 │
-│                          │                                    │ -    navigator.Open(cwd)                             │
-│ ──────────────────────── │                                    │ +    navigator.Navigate(                             │
-│ / find · p pin           │                                    │ +        ctx, session,                               │
+│    mihailanghe… ★ 1     │───────────────────────────────────────────────────────────────────────────────────────────│
+│    a-gent         2     │ Restore response navigation  codex · swiftyprompt  /projects/swiftyprompt         v expand│
+│    codex-audit    1 !1  │                                                                                           │
+│    swiftyprompt   2     │  ACTIVITY                          │  LATEST EDIT  internal/navigation.go            +3 −1│
+│                          │ Preview not supported              │    if session != nil {                               │
+│                          │                                    │   -    navigator.Open(cwd)                           │
+│                          │                                    │   +    navigator.Navigate(                           │
+│ ──────────────────────── │                                    │   +        ctx, session,                             │
+│ / find · p pin           │                                    │   +    )                                             │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  tab  focus    enter  open    v  expand    i  inspector    m  layout    q  quit                              ?  help │
+│  tab  focus    enter  open    v  expand    m  layout    q  quit                                              ?  help │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

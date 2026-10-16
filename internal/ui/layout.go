@@ -12,6 +12,7 @@ const (
 	minimumTableWidth    = 36
 	sidebarContentWidth  = 26
 	defaultSessionRows   = 8
+	compactInspectorRows = 8
 
 	// The sidebar separator and two outer borders share the terminal width.
 	sidebarLayoutFrameWidth = 3
@@ -34,7 +35,17 @@ func (model *Model) resizeTable() {
 	}
 	tableWidth = max(tableWidth, 8)
 
-	columns := tableColumns(tableWidth, model.providers()...)
+	// Include room for a branch before provider names when children are visible.
+	providers := model.providers()
+	for _, session := range model.sessions {
+		if session.ParentID != "" {
+			for index := range providers {
+				providers[index] = "   " + providers[index]
+			}
+			break
+		}
+	}
+	columns := tableColumns(tableWidth, providers...)
 	model.table.SetWidth(tableWidth)
 	// Bubbles renders immediately on SetColumns; old rows may have more cells.
 	model.table.SetRows(nil)
@@ -57,9 +68,6 @@ func (model *Model) resizeTable() {
 	if model.height > 0 {
 		// Reserve the toolbar, table heading, and detail separator; the list gets the remaining rows.
 		reservedRows := 4
-		if model.inspectorCollapsed {
-			reservedRows -= detailStyle.GetVerticalFrameSize()
-		}
 		tableHeight = max(1, model.bodyHeight()-model.inlinePreviewHeight()-reservedRows)
 	}
 	model.table.SetHeight(tableHeight + 1)
@@ -73,17 +81,25 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	// Fit the provider names, longest status, and activity heading without
 	// reserving extra padding that would shorten session titles.
 	const (
-		statusWidth = 15
-		ageWidth    = 15
+		statusWidth         = 15
+		minimumStatusWidth  = 3
+		minimumSessionWidth = 3
+		ageWidth            = 15
 	)
 	agentWidth := 8
 	for _, provider := range providers {
 		agentWidth = max(agentWidth, min(16, ansi.StringWidth(safeDisplayText(provider))+2))
 	}
-	if tableWidth < 44 {
+	remainingSessionWidth := tableWidth - agentWidth - statusWidth - ageWidth
+	if tableWidth < 44 || remainingSessionWidth < minimumSessionWidth {
+		remainingStatusWidth := tableWidth - agentWidth - ageWidth
+		if remainingStatusWidth < minimumStatusWidth {
+			// Keep the task readable when provider trees leave no room for status.
+			return []table.Column{{Title: "Session", Width: tableWidth}}
+		}
 		return []table.Column{
 			{Title: "Agent", Width: agentWidth},
-			{Title: "Status", Width: tableWidth - agentWidth - ageWidth},
+			{Title: "Status", Width: remainingStatusWidth},
 			{Title: "Age", Width: ageWidth},
 		}
 	}
@@ -105,15 +121,12 @@ func tableColumns(tableWidth int, providers ...string) []table.Column {
 	)
 }
 
-// The list keeps a short preview and gives additional terminal height to sessions.
+// Keep the inline inspector compact; v opens the full activity or diff.
 func (model Model) inlinePreviewHeight() int {
-	if model.inspectorCollapsed {
-		return 0
-	}
 	if model.height == 0 {
-		return 7
+		return compactInspectorRows
 	}
-	return min(7, max(1, model.bodyHeight()-4))
+	return min(compactInspectorRows, max(1, model.bodyHeight()-4))
 }
 
 func (model Model) sidebarVisible() bool {
@@ -124,10 +137,7 @@ func (model Model) sidebarVisible() bool {
 // The board uses the space released by compact details rather than the list's
 // row limit. Very short terminals retain the selected card and expansion key.
 func (model Model) boardHeight() int {
-	detailHeight := 0
-	if !model.inspectorCollapsed {
-		detailHeight = model.boardFocusHeight() + detailStyle.GetVerticalFrameSize()
-	}
+	detailHeight := model.boardFocusHeight() + detailStyle.GetVerticalFrameSize()
 	return max(1, model.bodyHeight()-model.boardHeadingHeight()-detailHeight)
 }
 

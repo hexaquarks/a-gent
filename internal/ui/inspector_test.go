@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 )
 
 func TestInspectorShowsActivityAndEditTogether(t *testing.T) {
@@ -38,53 +39,16 @@ func TestInspectorShowsActivityAndEditTogether(t *testing.T) {
 	}
 }
 
-func TestInspectorCollapseReclaimsSpaceAndKeepsSelection(t *testing.T) {
-	for _, board := range []bool{false, true} {
-		model := referenceDashboard()
-		model.boardVisible = board
-		selected, _ := model.selectedSession()
-		expandedHeight := model.table.Height()
-		boardHeight := model.boardHeight()
-		updated, _ := model.Update(runeKey('i'))
-		model = updated.(Model)
-		current, _ := model.selectedSession()
-		if !model.inspectorCollapsed || selected.ID != current.ID || model.table.Height() <= expandedHeight {
-			t.Fatal("collapsing inspector did not reclaim rows while keeping selection")
-		}
-		if board && model.boardHeight() <= boardHeight {
-			t.Fatal("collapsing inspector did not reclaim board rows")
-		}
-		updated, _ = model.Update(runeKey('v'))
-		model = updated.(Model)
-		if !model.previewExpanded {
-			t.Fatal("collapsed inspector could not expand")
-		}
-		updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
-		model = updated.(Model)
-		if !model.inspectorCollapsed || model.previewExpanded {
-			t.Fatal("returning from expansion changed collapsed state")
-		}
-		updated, _ = model.Update(runeKey('i'))
-		model = updated.(Model)
-		if model.inspectorCollapsed || model.table.Height() != expandedHeight {
-			t.Fatal("reopening inspector did not restore rows")
-		}
-	}
-}
-
 func TestInspectorFitsResizedTerminals(t *testing.T) {
 	for _, size := range [][2]int{{24, 10}, {40, 15}, {64, 21}, {80, 24}, {120, 29}, {160, 45}} {
-		for _, collapsed := range []bool{false, true} {
-			model := referenceDashboard()
-			model.inspectorCollapsed = collapsed
-			updated, _ := model.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
-			model = updated.(Model)
-			for _, board := range []bool{false, true} {
-				model.boardVisible = board
-				view := model.View()
-				if lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
-					t.Fatalf("%v collapsed=%t board=%t overflows", size, collapsed, board)
-				}
+		model := referenceDashboard()
+		updated, _ := model.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		model = updated.(Model)
+		for _, board := range []bool{false, true} {
+			model.boardVisible = board
+			view := model.View()
+			if lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
+				t.Fatalf("%v board=%t overflows", size, board)
 			}
 		}
 	}
@@ -157,5 +121,144 @@ func TestInspectorDistinguishesEmptyFilterFromNoLiveSessions(t *testing.T) {
 	model.updateTableRows()
 	if !strings.Contains(ansi.Strip(model.detailWithPreview()), "No live sessions found.") {
 		t.Fatal("empty dashboard lost its no-live-sessions message")
+	}
+}
+
+func TestInspectorDiffKeepsProviderLineNumbersAcrossHunks(t *testing.T) {
+	diff := "diff --git a/main.go b/main.go\n--- a/main.go\n+++ b/main.go\n" +
+		"@@ -42,2 +42,3 @@\n-old\n+new\n+extra\n context\n" +
+		"@@ -100 +101 @@\n-second old\n+second new"
+	rows := inspectorDiffRows(diff)
+	expected := []int{42, 42, 43, 44, 100, 101}
+	if len(rows) != len(expected) {
+		t.Fatalf("got %d numbered rows, want %d", len(rows), len(expected))
+	}
+	for index, row := range rows {
+		if !row.numberKnown || row.number != expected[index] {
+			t.Fatalf("row %d number=%d known=%t, want%d", index, row.number, row.numberKnown, expected[index])
+		}
+	}
+	for _, raw := range []string{"-old\n+new", "@@ unknown\n-old\n+new", "@@ -bad +42 @@\n+new"} {
+		for _, row := range inspectorDiffRows(raw) {
+			if row.numberKnown {
+				t.Fatalf("raw or malformed diff invented a line number: %+v", row)
+			}
+		}
+	}
+}
+
+func TestInspectorDiffUsesFullWidthBackgroundsAndSingleHeader(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+	model := referenceDashboard()
+	selected, _ := model.selectedSession()
+	cached := previewEntry{loaded: true, checked: time.Now(), edit: &agent.Edit{
+		Filename: "sidebar.go", Diff: "@@ -42 +42 @@\n-old\n+new",
+	}}
+	const width = 70
+	view := model.inspectorEdit(selected, cached, width, 8)
+	lines := strings.Split(view, "\n")
+	header := ansi.Strip(lines[0])
+	for _, text := range []string{"LATEST EDIT", "sidebar.go", "+1", "−1"} {
+		if !strings.Contains(header, text) {
+			t.Fatalf("single header omitted %q: %s", text, header)
+		}
+	}
+	for _, line := range lines {
+		plain := ansi.Strip(line)
+		if strings.Contains(plain, "-old") || strings.Contains(plain, "+new") {
+			if lipgloss.Width(line) != width || !strings.Contains(plain, "42 ") {
+				t.Fatalf("diff row lost its number or full width: %q", plain)
+			}
+			background := "48;2;59;32;32"
+			if strings.Contains(plain, "+new") {
+				background = "48;2;25;58;38"
+			}
+			if !strings.Contains(line, background) {
+				t.Fatalf("changed row has no soft background: %q", line)
+			}
+		}
+	}
+}
+
+func TestInspectorActivityAnchorsWorkerSummaryInsteadOfThinking(t *testing.T) {
+	model := referenceDashboard()
+	selected, _ := model.selectedSession()
+	model.sessions = append(model.sessions,
+		agent.Session{ID: "worker-running", Provider: selected.Provider, ParentID: selected.ID, State: agent.StateRunning},
+		agent.Session{ID: "worker-idle", Provider: selected.Provider, ParentID: selected.ID, State: agent.StateIdle},
+		agent.Session{ID: "other-provider", Provider: "claude", ParentID: selected.ID, State: agent.StateRunning},
+	)
+	cached := previewEntry{loaded: true, checked: time.Now(), activity: &agent.Activity{
+		Label: "Testing", Text: "Keyboard navigation passes.\nReviewing focus changes.", At: time.Now(),
+	}}
+	view := ansi.Strip(model.inspectorActivity(selected, cached, 60, 9))
+	lines := strings.Split(view, "\n")
+	if !strings.Contains(lines[2], "● ") || !strings.Contains(lines[len(lines)-1], "2 subagents · 1 running") ||
+		strings.Contains(view, "is thinking") {
+		t.Fatalf("activity lost its status dot or bottom worker summary:\n%s", view)
+	}
+}
+
+func TestExpandedInspectorFallsBackWhenSelectedEditDisappears(t *testing.T) {
+	model := referenceDashboard()
+	selected, _ := model.selectedSession()
+	key := sessionIdentity{provider: selected.Provider, id: selected.ID}
+	cached := model.previewCache[key]
+	cached.activity = &agent.Activity{Label: "Assistant", Text: "Retained public output", At: time.Now()}
+	model.previewCache[key] = cached
+	model.previewKey = key
+	model.previewExpanded = true
+	model.previewShowsEdit = true
+	if !strings.Contains(ansi.Strip(model.View()), "EDIT PREVIEW") {
+		t.Fatal("test did not start on the expanded edit")
+	}
+	updated, _ := model.Update(previewResult{
+		key: model.previewKey, revision: model.previewRevision, activity: cached.activity,
+	})
+	model = updated.(Model)
+	view := ansi.Strip(model.View())
+	if !strings.Contains(view, "Retained public output") || !strings.Contains(view, "LIVE ACTIVITY") ||
+		strings.Contains(view, "Tab switch") {
+		t.Fatalf("expanded edit did not fall back to the available activity after a reset:\n%s", view)
+	}
+}
+
+func TestInspectorsDoNotPresentOldRecordedActionsAsCurrent(t *testing.T) {
+	now := time.Now()
+	for _, test := range []struct {
+		name string
+		at   time.Time
+		want string
+	}{
+		{name: "recent", at: now, want: "Testing"},
+		{name: "old", at: now.Add(-time.Minute), want: "Last output"},
+		{name: "future", at: now.Add(time.Minute), want: "Last output"},
+		{name: "missing time", want: "Last output"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			model := referenceDashboard()
+			model.sessions[2].State = agent.StateRunning
+			selected, _ := model.selectedSession()
+			key := sessionIdentity{provider: selected.Provider, id: selected.ID}
+			model.previewKey = key
+			cached := previewEntry{loaded: true, checked: now, activity: &agent.Activity{
+				Label: "Testing", Text: "Navigation checks complete", At: test.at,
+			}}
+			model.previewCache[key] = cached
+			views := []string{
+				model.inspectorActivity(selected, cached, 60, 9),
+				model.boardFocusActivity(selected),
+				model.boardActivitySummary(selected, now),
+			}
+			for _, view := range views {
+				text := ansi.Strip(view)
+				if !strings.Contains(text, test.want) || !strings.Contains(text, "Navigation checks complete") ||
+					(test.want == "Last output" && strings.Contains(text, "Testing")) {
+					t.Fatalf("fresh cache read misrepresented the recorded action:\n%s", text)
+				}
+			}
+		})
 	}
 }

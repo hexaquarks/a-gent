@@ -15,6 +15,13 @@ const (
 	boardColumnHeadingRows = 2
 	boardCardContentRows   = 3
 	boardCardBorderRows    = 2
+	boardUnreadMarkerWidth = 2
+)
+
+const (
+	boardAttentionColumn = iota
+	boardRunningColumn
+	boardIdleColumn
 )
 
 type boardColumn struct {
@@ -26,20 +33,20 @@ type boardColumn struct {
 func boardColumnIndex(session agent.Session) int {
 	switch sessionState(session) {
 	case agent.StateRunning:
-		return 0
+		return boardRunningColumn
 	case agent.StateIdle:
-		return 1
+		return boardIdleColumn
 	default:
 		// Errors and unreadable states need attention rather than appearing idle.
-		return 2
+		return boardAttentionColumn
 	}
 }
 
 func (model Model) boardColumns() []boardColumn {
 	columns := []boardColumn{
+		{title: "needs you", color: colorAttention},
 		{title: "running", color: colorRunning},
 		{title: "idle", color: colorSecondary},
-		{title: "needs you", color: colorAttention},
 	}
 
 	for index, session := range model.filteredSessions() {
@@ -209,16 +216,21 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	if selected {
 		background = lipgloss.Color(colorSelection)
 	}
-	marker := ""
-	if model.boardSessionUnread(session) {
-		marker = accentStyle.Background(background).Render(indicatorDot + " ")
-	}
-
-	// Reserve the outer frame and the colored status bar.
+	// Reserve a trailing unread slot so acknowledging a card never moves its title.
 	contentWidth := max(1, width-3)
-	title := mainTextStyle.Bold(true).Background(background).Render(
-		clipLines(safeDisplayText(sessionDisplayName(session)), contentWidth-lipgloss.Width(marker)),
-	)
+	markerWidth := min(boardUnreadMarkerWidth, contentWidth)
+	marker := " "
+	if model.boardSessionUnread(session) {
+		marker = indicatorDot
+	}
+	marker = accentStyle.Background(background).Width(markerWidth).Align(lipgloss.Right).Render(marker)
+	titleWidth := contentWidth - markerWidth
+	title := ""
+	if titleWidth > 0 {
+		title = mainTextStyle.Bold(true).Background(background).Width(titleWidth).Render(
+			clipLines(safeDisplayText(sessionDisplayName(session)), titleWidth),
+		)
+	}
 	provider := providerStyle(session.Provider).Background(background).Render(safeDisplayText(session.Provider))
 	project := model.projectStyle(session.WorkingDirectory).Background(background).Render(
 		safeDisplayText(projectName(session.WorkingDirectory)),
@@ -248,14 +260,21 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 	edge := statusStyle(sessionState(session)).Background(background).Render("▌")
 	lineStyle := lipgloss.NewStyle().Width(contentWidth).Background(background)
 	lines := []string{
-		edge + lineStyle.Render(marker+title),
+		edge + lineStyle.Render(title+marker),
 		edge + lineStyle.Render(metadata),
 		edge + lineStyle.Render(clipLines(summary, contentWidth)),
 	}
-	workers, running := model.boardWorkerCounts(session)
+	workers, running, needsAttention := model.boardWorkerCounts(session)
 	if workers > 0 {
-		workerSummary := mutedStyle.Background(background).Render(fmt.Sprintf("%d subagents · ", workers)) +
-			runningStyle.Background(background).Render(fmt.Sprintf("%d running", running))
+		label := "subagents"
+		if workers == 1 {
+			label = "subagent"
+		}
+		workerStatus := runningStyle.Background(background).Render(fmt.Sprintf("%d running", running))
+		if needsAttention > 0 {
+			workerStatus = waitingStyle.Background(background).Render(fmt.Sprintf("%d needs you", needsAttention))
+		}
+		workerSummary := mutedStyle.Background(background).Render(fmt.Sprintf("%d %s · ", workers, label)) + workerStatus
 		lines = append(lines, edge+lineStyle.Render(clipLines(workerSummary, contentWidth)))
 	}
 
@@ -269,26 +288,43 @@ func (model Model) boardCardView(session agent.Session, selected bool, width int
 		Render(strings.Join(lines, "\n"))
 }
 
-func (model Model) boardWorkerCounts(session agent.Session) (total, running int) {
+func (model Model) boardWorkerCounts(session agent.Session) (total, running, needsAttention int) {
 	if session.ID == "" {
-		return 0, 0
+		return 0, 0, 0
 	}
 
+	children := make(map[string][]agent.Session)
 	for _, candidate := range model.sessions {
-		if candidate.Provider != session.Provider || candidate.ParentID != session.ID {
+		if candidate.Provider == session.Provider && candidate.ParentID != "" {
+			children[candidate.ParentID] = append(children[candidate.ParentID], candidate)
+		}
+	}
+
+	// Board hides every descendant, including nested workers. Count the whole
+	// tree so attention inside a child cannot disappear behind its parent card.
+	seen := map[string]bool{session.ID: true}
+	pending := append([]agent.Session(nil), children[session.ID]...)
+	for len(pending) > 0 {
+		candidate := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if seen[candidate.ID] {
 			continue
 		}
+		seen[candidate.ID] = true
 		total++
 		if sessionState(candidate) == agent.StateRunning {
 			running++
+		} else if matchesView(candidate, needsYouView) {
+			needsAttention++
 		}
+		pending = append(pending, children[candidate.ID]...)
 	}
-	return total, running
+	return total, running, needsAttention
 }
 
 func (model Model) boardCardHeight(session agent.Session) int {
 	height := boardCardContentRows + boardCardBorderRows
-	if total, _ := model.boardWorkerCounts(session); total > 0 {
+	if total, _, _ := model.boardWorkerCounts(session); total > 0 {
 		height++
 	}
 	return height

@@ -305,7 +305,7 @@ func TestIntegrationPlainHermesSubagents(t *testing.T) {
 	fixture.key("g")
 	fixture.waitText("│  Hermes ")
 	fixture.sendHermesInput("Delegate the child fixture task.")
-	fixture.waitText("[subagent] Hermes child")
+	fixture.waitText("└─ Hermes child")
 	fixture.key("j")
 	fixture.waitProviderState("hermes", "running")
 	fixture.capture("hermes-child-running")
@@ -327,6 +327,6 @@ func TestIntegrationPlainHermesSubagents(t *testing.T) {
 	})
 	fixture.tmux("send-keys", "-t", "hermes:0", "1", "Enter")
 	fixture.waitFor("new parent clears old child", 4*time.Second, func(screen string) bool {
-		return !strings.Contains(screen, "[subagent]")
+		return !strings.Contains(screen, "subagent") && !strings.Contains(screen, "└─ Hermes child")
 	})
 }

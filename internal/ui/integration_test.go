@@ -32,7 +32,7 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.appendOutput("claude", "CLAUDE_OUTPUT")
 	fixture.key("j")
 	fixture.waitText("BOARD_OUTPUT")
-	fixture.key("h")
+	fixture.key("l")
 	fixture.waitFor("focused Claude card", 4*time.Second, func(screen string) bool {
 		for _, line := range strings.Split(screen, "\n") {
 			if strings.Contains(line, "FOCUS") && strings.Contains(line, "claude fixture") {
@@ -57,13 +57,13 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "80", "-y", "24")
 	fixture.waitText("running · 1")
 	fixture.capture("board-narrow")
-	fixture.key("Right")
+	fixture.key("Left")
 	screen = fixture.waitText("BOARD_OUTP")
 	if !strings.Contains(screen, "needs you · 1") || strings.Contains(screen, "CLAUDE_OUTP") {
 		t.Fatal("narrow navigation did not follow the selected column and preview")
 	}
 	fixture.capture("board-narrow-codex")
-	fixture.key("Left")
+	fixture.key("Right")
 	fixture.waitText("CLAUDE_OUTPUT")
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")
@@ -205,11 +205,11 @@ func TestIntegrationSessionSwitchExpansionAndLayout(t *testing.T) {
 	fixture.waitText("CODEX_ONLY")
 	fixture.selectProvider("claude")
 	screen := fixture.waitText("CLAUDE_ONLY")
-	if !strings.Contains(screen, "Claude is thinking") {
-		t.Fatal("running Claude session has no thinking indicator")
+	if !strings.Contains(screen, "● Assistant") {
+		t.Fatal("running activity has no status dot and label")
 	}
 	if strings.Contains(screen, "LIVE ACTIVITY · v") || !strings.Contains(screen, "v expand") {
-		t.Fatal("live activity shortcut is not at the bottom of the preview")
+		t.Fatal("activity expansion shortcut is missing from the identity bar")
 	}
 	if strings.Contains(screen, "CODEX_ONLY") {
 		t.Fatal("session switch retained another provider's output")
@@ -263,9 +263,6 @@ func assertProjectColumn(t *testing.T, screen string, visible bool) {
 func TestIntegrationEmptyPreviewStates(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	screen := fixture.waitText("Waiting for output")
-	if !strings.Contains(screen, "Codex is thinking") {
-		t.Fatal("running Codex session has no thinking indicator")
-	}
 	assertPreviewHeading(t, screen, "ACTIVITY")
 	fixture.capture("waiting-for-output")
 	path := fixture.transcripts["codex"]
@@ -297,7 +294,7 @@ func TestIntegrationAttentionFilters(t *testing.T) {
 	fixture.waitText("claude fixture")
 	fixture.waitText("codex fixture")
 	fixture.setState("claude", agent.StateWaiting)
-	fixture.waitText("1 needs input")
+	fixture.waitText("1 needs you")
 	fixture.waitText("1 unseen")
 
 	fixture.key("Tab")
@@ -332,7 +329,7 @@ func TestIntegrationLiveOrderAndRecent(t *testing.T) {
 	fixture.setState("claude", agent.StateWaiting)
 	screen := fixture.waitFor("live activity order", 4*time.Second, func(screen string) bool {
 		codexRow, claudeRow := strings.Index(screen, "codex fixture"), strings.Index(screen, "claude fixture")
-		return strings.Contains(screen, "1 needs input") && strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
+		return strings.Contains(screen, "1 needs you") && strings.Contains(screen, "|  LIVE") && claudeRow >= 0 && codexRow > claudeRow
 	})
 	if !strings.Contains(screen, "LIVE_OUTPUT") {
 		t.Fatal("reordering sessions lost the selected preview")
@@ -641,7 +638,7 @@ func TestIntegrationBoardActivityAndObservedCompletion(t *testing.T) {
 	fixture.capture("card-narrow-waiting")
 }
 
-func TestIntegrationInspectorActivityDiffAndCollapse(t *testing.T) {
+func TestIntegrationInspectorActivityAndDiff(t *testing.T) {
 	fixture := newDashboardFixture(t)
 	fixture.waitText("claude fixture")
 	fixture.appendEdit("completed", "together.go")
@@ -651,19 +648,9 @@ func TestIntegrationInspectorActivityDiffAndCollapse(t *testing.T) {
 			strings.Contains(screen, "together.go")
 	})
 	fixture.capture("activity-and-diff")
-	fixture.key("i")
-	fixture.waitFor("inspector collapsed", time.Second, func(screen string) bool {
-		return strings.Contains(screen, "codex fixture") && !strings.Contains(screen, "LATEST EDIT")
-	})
-	fixture.capture("inspector-collapsed")
 	fixture.key("v")
 	fixture.waitText("LIVE ACTIVITY · Esc/q")
 	fixture.key("Escape")
-	fixture.waitFor("expanded preview returned to collapsed inspector", time.Second, func(screen string) bool {
-		return strings.Contains(screen, "codex fixture") && !strings.Contains(screen, "LATEST EDIT") &&
-			!strings.Contains(screen, "Esc/q")
-	})
-	fixture.key("i")
 	fixture.waitText("TESTING_TOGETHER")
 	fixture.waitText("together.go")
 }

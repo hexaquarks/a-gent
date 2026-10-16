@@ -310,7 +310,7 @@ func TestIntegrationCodexSubagents(t *testing.T) {
 		t.Skip("set A_GENT_LIVE_CODEX_TESTS=1 to test installed Codex subagents")
 	}
 	fixture := newDashboardFixtureWithProvider(t, "codex-live")
-	fixture.waitText("↳")
+	fixture.waitText("└─")
 	fixture.capture("child-running")
 	fixture.key("g")
 	fixture.key("j")
@@ -328,7 +328,7 @@ func TestIntegrationCodexSubagents(t *testing.T) {
 	fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "70", "-y", "25")
 	fixture.key("j")
 	fixture.waitText("CHILD_PUBLIC_OUTPUT")
-	fixture.waitText("↳codex")
+	fixture.waitText("└─ codex")
 	fixture.capture("child-narrow")
 
 	loaded := fixture.codexRequest("thread/loaded/list", map[string]any{})
@@ -359,7 +359,8 @@ func TestIntegrationCodexSubagents(t *testing.T) {
 	}
 	fixture.codexRequest("thread/archive", map[string]any{"threadId": childID})
 	fixture.waitFor("closed child disappears", 5*time.Second, func(screen string) bool {
-		return strings.Contains(screen, "2 sessions") && !strings.Contains(screen, "↳")
+		return strings.Contains(screen, "2 sessions") &&
+			!strings.Contains(screen, "subagent") && !strings.Contains(screen, "↳")
 	})
 	fixture.capture("child-closed")
 }

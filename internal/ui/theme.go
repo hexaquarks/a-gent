@@ -14,18 +14,19 @@ import (
 const (
 	indicatorDot = "●"
 
-	colorBackground  = "#0C1112"
-	colorMainText    = "#EDF2F4"
-	colorSecondary   = "#A7B3C5"
-	colorAccent      = "#59DFF0"
-	colorSelection   = "#183740"
-	colorAgent       = "#BC80FF"
-	colorRunning     = "#A3EF78"
-	colorAttention   = "#FFCA64"
-	colorError       = "#FF6D7A"
-	colorSection     = "#202B2D"
-	colorTableHeader = "#2D3B3E"
-	colorDivider     = "#354548"
+	colorBackground    = "#0C1112"
+	colorMainText      = "#EDF2F4"
+	colorSecondary     = "#A7B3C5"
+	colorAccent        = "#59DFF0"
+	colorSelection     = "#183740"
+	colorAgent         = "#C678FF"
+	colorRunning       = "#A3EF78"
+	colorAttention     = "#FFCA64"
+	colorError         = "#FF6D7A"
+	colorSection       = "#202B2D"
+	colorTableHeader   = "#1B292C"
+	colorSectionHeader = "#172224"
+	colorDivider       = "#354548"
 )
 
 var (
@@ -63,7 +64,7 @@ var (
 			Foreground(lipgloss.Color(colorSecondary))
 	sectionStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(colorMainText))
+			Foreground(lipgloss.Color(colorSecondary))
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(colorAccent))
@@ -134,7 +135,7 @@ func providerStyle(provider string) lipgloss.Style {
 		_, _ = hash.Write([]byte(strings.ToLower(provider)))
 		color = palette[int(hash.Sum32())%len(palette)]
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
 }
 
 // projectStyle assigns the preferred colors first, using all project paths so
@@ -158,8 +159,7 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 		}
 		if project == directory {
 			return lipgloss.NewStyle().
-				Foreground(lipgloss.Color(palette[colorIndex%len(palette)])).
-				Bold(true)
+				Foreground(lipgloss.Color(palette[colorIndex%len(palette)])).Bold(true)
 		}
 		colorIndex++
 	}
@@ -168,5 +168,5 @@ func (model Model) projectStyle(directory string) lipgloss.Style {
 
 // Section bars fill their panel, including the space after the heading.
 func sectionBar(text string, width int, style lipgloss.Style) string {
-	return style.Background(lipgloss.Color(colorSection)).Width(width).MaxWidth(width).Render(ansi.Truncate(text, max(1, width), "…"))
+	return style.Background(lipgloss.Color(colorSectionHeader)).Width(width).MaxWidth(width).Render(ansi.Truncate(text, max(1, width), "…"))
 }
