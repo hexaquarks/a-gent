@@ -12,6 +12,8 @@ a-gent is a small terminal dashboard for keeping track of your favorite coding
 agents across projects. See which agents are working or waiting for you, preview
 their activity and file edits, and jump to their tmux panes.
 
+**List**
+
 <p align="center">
   <img src="assets/dashboard.png" width="1000" alt="a-gent List view with subagents, attention filters, activity, and the latest edit" />
 </p>
@@ -21,14 +23,12 @@ subagents beneath their parent sessions for Codex, OpenCode, and Hermes, with
 activity and the latest edit side by side for the selected session. Board groups
 top-level sessions by state, with available activity and subagent summaries.
 
-<details>
-<summary>Board view</summary>
+**Board**
 
 <p align="center">
   <img src="assets/dashboard-board.png" width="1000" alt="a-gent Board view with needs you, running, and idle columns, activity and subagent summaries, and completion hints" />
 </p>
 
-</details>
 
 ## Supported adapters
 
