@@ -32,6 +32,11 @@ type Model struct {
 	previewFrame     int
 	table            table.Model
 	boardVisible     bool
+	graphVisible     bool
+
+	graphProjectDirectory string
+	graphProjectOpen      bool
+
 	preferencesPath  string
 	updates          <-chan polling.Update
 	providerErrors   map[string]error
