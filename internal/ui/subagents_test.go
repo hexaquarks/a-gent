@@ -69,6 +69,12 @@ func TestSubagentRowsStayWithParentsAndRemainSelectable(t *testing.T) {
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
 	model = updated.(Model)
 	selected, _ = model.selectedSession()
+	if selected.ID != "parent" || len(model.filteredSessions()) != 2 {
+		t.Fatal("Graph should retain the parent without child nodes")
+	}
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	model = updated.(Model)
+	selected, _ = model.selectedSession()
 	if selected.ID != "parent" || len(model.filteredSessions()) != len(sessions) {
 		t.Fatal("returning to List lost parent selection or subagents")
 	}

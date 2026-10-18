@@ -274,6 +274,8 @@ func TestIntegrationOpenCodeSubagents(t *testing.T) {
 				t.Fatalf("Board includes a subagent:\n%s", screen)
 			}
 			fixture.key("m")
+			fixture.waitText("Auto fit")
+			fixture.key("m")
 			fixture.tmux("resize-window", "-t", "dashboard:0", "-x", "70", "-y", "25")
 			fixture.width, fixture.height = 70, 25
 			fixture.key("j")

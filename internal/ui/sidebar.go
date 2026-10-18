@@ -437,8 +437,9 @@ func (model *Model) clearMissingProjectFilter() {
 func (model Model) filteredSessions() []agent.Session {
 	view, provider, project := model.effectiveFilters()
 	attentionParents := make(map[sessionIdentity]bool)
-	if model.boardVisible && project == "" && (view == needsYouView || view == unseenView) {
-		// Board hides child rows, so surface their owning card when they need attention.
+	parentsOnly := model.boardVisible || model.graphVisible
+	if parentsOnly && project == "" && (view == needsYouView || view == unseenView) {
+		// Card views hide child rows, so surface their parent when they need attention.
 		for _, session := range model.sessions {
 			if session.ParentID == "" || !model.matchesView(session, view) {
 				continue
@@ -452,7 +453,10 @@ func (model Model) filteredSessions() []agent.Session {
 
 	filteredSessions := make([]agent.Session, 0, len(model.sessions))
 	for _, session := range model.sessions {
-		if model.boardVisible && session.ParentID != "" {
+		if model.graphVisible && model.graphProjectOpen && session.WorkingDirectory != model.graphProjectDirectory {
+			continue
+		}
+		if parentsOnly && session.ParentID != "" {
 			continue
 		}
 		if provider != "" && session.Provider != provider {
@@ -470,7 +474,7 @@ func (model Model) filteredSessions() []agent.Session {
 		filteredSessions = append(filteredSessions, session)
 	}
 	model.sortSessions(filteredSessions)
-	if !model.boardVisible {
+	if !parentsOnly {
 		return groupSubagents(filteredSessions)
 	}
 	return filteredSessions
