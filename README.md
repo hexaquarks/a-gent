@@ -29,6 +29,12 @@ they're doing and where I'm needed.
   <img src="assets/dashboard-board.png" width="1000" alt="a-gent Board view with needs you, running, and idle columns, activity and subagent summaries, and completion hints" />
 </p>
 
+**Graph**
+
+<p align="center">
+  <img src="assets/dashboard-graph.png" width="1000" alt="a-gent Graph view with project cards around a central hub, agent statuses, and worker totals" />
+</p>
+
 </details>
 
 ## Supported adapters
