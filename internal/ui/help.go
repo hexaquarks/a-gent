@@ -9,11 +9,15 @@ import (
 
 func helpLines(width int) []string {
 	bindings := [][2]string{
-		{"j/k · ↑/↓", "Move selection / Board card"},
-		{"h/l · ←/→", "Move Board column"},
+		{"j/k · ↑/↓", "Move selection / Board card / Graph node"},
+		{"h/l · ←/→", "Move Board column / Graph node"},
 		{"Tab", "Switch sidebar / sessions"},
 		{"Enter", "Open / select"},
-		{"m", "Switch List / Board layout"},
+		{"m", "Switch List / Board / Graph"},
+		{"1–9", "Select numbered Graph agent"},
+		{"q/Esc (Graph)", "Return to projects"},
+		{"Click", "Open Graph project / select agent"},
+		{"[ / ]", "Previous / next Graph page"},
 		{"/", "Find project"},
 		{"p", "Pin / unpin project"},
 		{"s", "Change sort column"},

@@ -24,12 +24,13 @@ func WithDashboardPreferences(path string) ModelOption {
 		if err == nil {
 			err = json.Unmarshal(data, &preferences)
 		}
-		if err != nil || (preferences.Layout != "list" && preferences.Layout != "board") {
+		if err != nil || (preferences.Layout != "list" && preferences.Layout != "board" && preferences.Layout != "graph") {
 			model.notice = "Could not load saved layout"
 			return
 		}
 
 		model.boardVisible = preferences.Layout == "board"
+		model.graphVisible = preferences.Layout == "graph"
 	}
 }
 
@@ -41,6 +42,9 @@ func (model Model) saveDashboardPreferences() error {
 	preferences := dashboardPreferences{Layout: "list"}
 	if model.boardVisible {
 		preferences.Layout = "board"
+	}
+	if model.graphVisible {
+		preferences.Layout = "graph"
 	}
 	data, err := json.Marshal(preferences)
 	if err != nil {

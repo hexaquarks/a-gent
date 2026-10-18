@@ -98,6 +98,11 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			break
 		}
 		if message.String() == "v" {
+			if model.graphVisible && !model.graphProjectOpen {
+				model.openGraphProject()
+				return model, model.syncPreview()
+			}
+
 			model.previewExpanded = true
 			model.previewScroll = 0
 
@@ -132,6 +137,10 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 		}
+		if message.String() == "q" && model.graphVisible && model.graphProjectOpen {
+			model.closeGraphProject()
+			return model, model.syncPreview()
+		}
 		if message.String() == "q" || message.String() == "ctrl+c" {
 			if model.previewCancel != nil {
 				model.previewCancel()
@@ -153,6 +162,10 @@ func (model Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 func (model *Model) syncPreview() tea.Cmd {
 	session, ok := model.selectedSession()
 	key := sessionIdentity{provider: session.Provider, id: session.ID}
+	if model.graphVisible && !model.graphProjectOpen && !model.previewExpanded {
+		key = sessionIdentity{}
+		ok = false
+	}
 	if key != model.previewKey {
 		if model.previewCancel != nil {
 			model.previewCancel()

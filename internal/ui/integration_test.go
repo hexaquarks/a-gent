@@ -67,6 +67,8 @@ func TestIntegrationBoardLayout(t *testing.T) {
 	fixture.waitText("CLAUDE_OUTPUT")
 	fixture.capture("board-narrow-claude")
 	fixture.key("m")
+	fixture.waitText("2 projects ·")
+	fixture.key("m")
 	fixture.waitFor("returned to list", 4*time.Second, func(screen string) bool {
 		return strings.Contains(screen, "Age") && !strings.Contains(screen, "running ·")
 	})
@@ -107,6 +109,8 @@ func TestIntegrationBoardCompactFocus(t *testing.T) {
 			strings.Contains(screen, "FOCUS") && strings.Contains(screen, "stale") && strings.Contains(screen, "v details / diff")
 	})
 	fixture.capture("compact-narrow-edit")
+	fixture.key("m")
+	fixture.waitText("2 projects ·")
 	fixture.key("m")
 	fixture.waitText("ACTIVITY")
 }
@@ -556,13 +560,15 @@ func TestIntegrationBoardCardStyling(t *testing.T) {
 
 func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 	fixture := newDashboardFixture(t)
-	for _, board := range []bool{true, false} {
+	for _, layout := range []string{"board", "graph", "list"} {
 		fixture.key("m")
-		if board {
-			fixture.waitText("running · 2")
-		} else {
-			fixture.waitText("ACTIVITY")
+		marker := "ACTIVITY"
+		if layout == "board" {
+			marker = "running · 2"
+		} else if layout == "graph" {
+			marker = "2 projects ·"
 		}
+		fixture.waitText(marker)
 
 		fixture.key("q")
 		exitPath := filepath.Join(fixture.root, "exit-status")
@@ -575,13 +581,8 @@ func TestIntegrationDashboardRemembersLayout(t *testing.T) {
 		}
 		fixture.tmux("respawn-pane", "-t", "dashboard:0.0", fixture.launchCommand)
 		fixture.waitText("2 sessions")
-		if board {
-			fixture.waitText("running · 2")
-			fixture.capture("reopened-board")
-		} else {
-			fixture.waitText("ACTIVITY")
-			fixture.capture("reopened-list")
-		}
+		fixture.waitText(marker)
+		fixture.capture("reopened-" + layout)
 	}
 }
 

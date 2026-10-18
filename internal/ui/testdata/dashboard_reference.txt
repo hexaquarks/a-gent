@@ -1,7 +1,7 @@
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ a-gent  /  6 sessions   1 running    1 needs you    2 unseen                                                  ● live │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│  FILTERS                 │  SESSIONS (6 of 6)                     List  Board                        Age ↓  |  LIVE  │
+│  FILTERS                 │  SESSIONS (6 of 6)                 List  Board  Graph                     Age ↓  |  LIVE  │
 │  !  Needs you      1     │                                                                                           │
 │  ●  Unseen         2     │      Agent   Session                      Project         Status                 Age ↓    │
 │  ▶  Active         1     │      claude  Investigate terminal notif…  a-gent          ● running                 2m    │

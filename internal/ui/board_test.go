@@ -48,7 +48,7 @@ func TestBoardSelectionAndLiveStatus(t *testing.T) {
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
 	model = updated.(Model)
 	if current, _ := model.selectedSession(); current.ID != "claude-session" || model.boardVisible {
-		t.Fatal("returning to List lost selection")
+		t.Fatal("switching from Board lost selection")
 	}
 }
 

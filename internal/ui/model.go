@@ -120,10 +120,14 @@ func NewModel(updates <-chan polling.Update, options ...ModelOption) Model {
 
 // Init waits for the first provider update.
 func (model Model) Init() tea.Cmd {
-	if len(model.previewSources) == 0 {
-		return awaitProviderUpdate(model.updates)
+	commands := []tea.Cmd{awaitProviderUpdate(model.updates)}
+	if len(model.previewSources) > 0 {
+		commands = append(commands, previewTimer())
 	}
-	return tea.Batch(awaitProviderUpdate(model.updates), previewTimer())
+	if model.graphVisible {
+		commands = append(commands, tea.EnableMouseCellMotion)
+	}
+	return tea.Batch(commands...)
 }
 
 // update handles dashboard events; Update also synchronizes the selected preview.
@@ -135,19 +139,27 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 		model.resizeTable()
 		return model, nil
 	case tea.MouseMsg:
-		// Pointer movement never acknowledges a session's unseen state change.
-		return model, nil
+		return model.handleGraphClick(message), nil
 	case tea.KeyMsg:
 		if model.projectSearching {
 			return model.updateProjectSearch(message)
 		}
 		switch message.String() {
-		case "q", "ctrl+c":
+		case "q":
+			if model.graphVisible && model.graphProjectOpen {
+				model.closeGraphProject()
+				return model, nil
+			}
+			model.cancelNavigation()
+			return model, tea.Quit
+		case "ctrl+c":
 			model.cancelNavigation()
 			return model, tea.Quit
 		case "n", "N":
 			return model.openNewAgent(message.String() == "N")
 		case "/":
+			model.graphProjectDirectory = ""
+			model.graphProjectOpen = false
 			model.sidebarPreview = nil
 			model.updateTableRows()
 			model.projectSearching = true
@@ -181,6 +193,8 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return model, nil
 		case "tab":
+			model.graphProjectDirectory = ""
+			model.graphProjectOpen = false
 			model.sidebarFocus = !model.sidebarFocus
 			model.sidebarPreview = nil
 			if model.sidebarFocus {
@@ -193,9 +207,19 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return model, nil
 		case "m":
 			selected, hasSelection := model.selectedSession()
-			model.boardVisible = !model.boardVisible
+			model.graphProjectDirectory = ""
+			model.graphProjectOpen = false
+			switch {
+			case model.boardVisible:
+				model.boardVisible = false
+				model.graphVisible = true
+			case model.graphVisible:
+				model.graphVisible = false
+			default:
+				model.boardVisible = true
+			}
 			model.updateTableRows()
-			if model.boardVisible && hasSelection && selected.ParentID != "" {
+			if (model.boardVisible || model.graphVisible) && hasSelection && selected.ParentID != "" {
 				parent := model.sessionWorkspace(selected)
 				for index, identity := range model.tableSessionIDs {
 					if identity.provider == parent.Provider && identity.id == parent.ID {
@@ -204,10 +228,28 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+			mouseCommand := tea.Cmd(tea.DisableMouse)
+			if model.graphVisible {
+				mouseCommand = tea.EnableMouseCellMotion
+			}
 			if err := model.saveDashboardPreferences(); err != nil {
 				model.notice = safeDisplayText(fmt.Sprintf("Could not save layout: %v", err))
 				model.noticeRevision++
-				return model, clearNotice(model.noticeRevision)
+				return model, tea.Batch(mouseCommand, clearNotice(model.noticeRevision))
+			}
+			return model, mouseCommand
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			if model.graphVisible && model.graphProjectOpen && !model.sidebarFocus {
+				model.selectGraphNumber(int(message.Runes[0] - '1'))
+			}
+			return model, nil
+		case "[", "]":
+			if model.graphVisible && !model.sidebarFocus {
+				direction := 1
+				if message.String() == "[" {
+					direction = -1
+				}
+				model.moveGraphPage(direction)
 			}
 			return model, nil
 		case "S":
@@ -215,16 +257,28 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 			model.updateTableRows()
 			return model, nil
 		case "h", "left":
+			if model.graphVisible && !model.sidebarFocus {
+				model.moveGraphCursor(-1, 0)
+				return model, nil
+			}
 			if model.boardVisible && !model.sidebarFocus {
 				model.moveBoardColumn(-1)
 				return model, nil
 			}
 		case "l", "right":
+			if model.graphVisible && !model.sidebarFocus {
+				model.moveGraphCursor(1, 0)
+				return model, nil
+			}
 			if model.boardVisible && !model.sidebarFocus {
 				model.moveBoardColumn(1)
 				return model, nil
 			}
 		case "j", "down":
+			if model.graphVisible && !model.sidebarFocus {
+				model.moveGraphCursor(0, 1)
+				return model, nil
+			}
 			if model.sidebarFocus {
 				model.moveSidebarCursor(1)
 				return model, nil
@@ -234,6 +288,10 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 		case "k", "up":
+			if model.graphVisible && !model.sidebarFocus {
+				model.moveGraphCursor(0, -1)
+				return model, nil
+			}
 			if model.sidebarFocus {
 				model.moveSidebarCursor(-1)
 				return model, nil
@@ -242,7 +300,16 @@ func (model Model) update(message tea.Msg) (tea.Model, tea.Cmd) {
 				model.moveBoardCursor(-1)
 				return model, nil
 			}
+		case "esc":
+			if model.graphVisible && model.graphProjectOpen {
+				model.closeGraphProject()
+			}
+			return model, nil
 		case "enter":
+			if model.graphVisible && !model.sidebarFocus && !model.graphProjectOpen {
+				model.openGraphProject()
+				return model, nil
+			}
 			if model.sidebarFocus {
 				items := model.sidebarItems()
 				if model.sidebarCursor >= 0 && model.sidebarCursor < len(items) {

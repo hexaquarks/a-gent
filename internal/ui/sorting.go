@@ -107,24 +107,40 @@ func (model *Model) cycleSortColumn() {
 func (model Model) sessionHeadingView() string {
 	width := model.table.Width() - panelStyle.GetHorizontalFrameSize()
 	sortLabel := model.sort.column + " " + model.sort.arrow()
+	if model.graphVisible {
+		sortLabel = "Auto fit"
+	}
 	indicator := sectionBar(sortLabel, lipgloss.Width(sortLabel), accentStyle) +
 		sectionBar("  |  ", 5, mutedStyle) +
 		sectionBar("LIVE ", 5, accentStyle)
 	title := " " + model.sessionTitle()
-	if model.boardVisible {
+	if model.boardVisible || model.graphVisible {
 		title = " SESSIONS"
 	}
-	if width < 48 {
+	if model.graphVisible {
+		title = " PROJECT MAP"
+		if model.graphProjectOpen {
+			title = " a-gent / " + safeDisplayText(projectName(model.graphProjectDirectory))
+		}
+	}
+	const layoutTabsMinimumWidth = 58
+	if width < layoutTabsMinimumWidth {
+		if model.graphVisible {
+			title = " GRAPH"
+		}
 		return sectionBar(title, max(1, width-lipgloss.Width(indicator)), model.panelTitleStyle()) + indicator
 	}
 
 	inactive := mutedStyle.Background(lipgloss.Color(colorSection)).Padding(0, 1)
 	active := inactive.Foreground(lipgloss.Color(colorBackground)).Background(lipgloss.Color(colorAccent))
-	listStyle, boardStyle := active, inactive
+	listStyle, boardStyle, graphStyle := active, inactive, inactive
 	if model.boardVisible {
 		listStyle, boardStyle = inactive, active
 	}
-	tabs := listStyle.Render("List") + boardStyle.Render("Board")
+	if model.graphVisible {
+		listStyle, graphStyle = inactive, active
+	}
+	tabs := listStyle.Render("List") + boardStyle.Render("Board") + graphStyle.Render("Graph")
 
 	// Center the tabs in the sessions bar, leaving room for sorting on the right.
 	tabsWidth := lipgloss.Width(tabs)

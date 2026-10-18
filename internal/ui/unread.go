@@ -68,11 +68,11 @@ func (model *Model) markSelectedSessionRead() {
 	identity := sessionIdentity{provider: session.Provider, id: session.ID}
 	delete(model.unreadSessions, identity)
 	delete(model.finishedSessions, identity)
-	if !model.boardVisible {
+	if !model.boardVisible && !model.graphVisible {
 		return
 	}
 
-	// Board opens the owning workspace for the whole visible group.
+	// Card views open the owning workspace for the whole visible group.
 	for _, child := range model.sessions {
 		parent := model.sessionWorkspace(child)
 		if parent.ParentID != "" || parent.Provider != session.Provider || parent.ID != session.ID {

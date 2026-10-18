@@ -20,23 +20,7 @@ func (model Model) View() string {
 		return view
 	}
 	summary := summarizeSessions(model.sessions)
-	var sessionsView, detailContent string
-	heading := model.sessionHeadingView()
-	headingSpacing := "\n\n"
-	if model.boardVisible {
-		heading = clipLines(heading, model.table.Width()-panelStyle.GetHorizontalFrameSize())
-		sessionsView = model.boardView()
-		headingSpacing = strings.Repeat("\n", model.boardHeadingHeight())
-		detailContent = model.boardFocusView(
-			model.table.Width() - detailStyle.PaddingRight(0).GetHorizontalFrameSize(),
-		)
-	} else {
-		sessionsView = model.sessionTableView()
-		detailContent = model.detailWithPreview()
-	}
-	main := panelStyle.Width(model.table.Width()).Render(heading + headingSpacing + sessionsView)
-	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
-	rightColumn := lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
+	rightColumn := model.sessionColumnView()
 	sidebar := sidebarStyle.Height(model.bodyHeight()).Render(model.renderSidebar(summary))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightColumn)
 	if !model.sidebarVisible() {
@@ -167,4 +151,30 @@ func (model Model) overlayPanel(background, box string) string {
 		rows[y+index] = ansi.Cut(row, 0, x) + line + ansi.Cut(row, x+lipgloss.Width(box), model.width)
 	}
 	return clipLines(strings.Join(rows[:height], "\n"), max(1, model.width))
+}
+
+func (model Model) sessionColumnView() string {
+	if model.graphVisible {
+		return model.graphDashboardView()
+	}
+
+	var sessionsView, detailContent string
+	heading := model.sessionHeadingView()
+	headingSpacing := "\n\n"
+	if model.boardVisible {
+		heading = clipLines(heading, model.table.Width()-panelStyle.GetHorizontalFrameSize())
+		sessionsView = model.boardView()
+		headingSpacing = strings.Repeat("\n", model.boardHeadingHeight())
+		detailContent = model.boardFocusView(
+			model.table.Width() - detailStyle.PaddingRight(0).GetHorizontalFrameSize(),
+		)
+	} else {
+		sessionsView = model.sessionTableView()
+		detailContent = model.detailWithPreview()
+	}
+
+	main := panelStyle.Width(model.table.Width()).Render(heading + headingSpacing + sessionsView)
+	detail := detailStyle.PaddingRight(0).Width(model.table.Width()).Render(detailContent)
+	return lipgloss.NewStyle().Height(model.bodyHeight()).MaxHeight(model.bodyHeight()).
+		Render(lipgloss.JoinVertical(lipgloss.Left, main, detail))
 }

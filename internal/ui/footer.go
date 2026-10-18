@@ -21,10 +21,21 @@ func (model Model) footerText() string {
 		return strings.Join([]string{shortcut("enter", "select project"), shortcut("esc", "cancel"), shortcut("↑/↓", "browse")}, "   ")
 	}
 	parts := []string{shortcut("tab", "focus")}
-	if model.navigator != nil {
+	if model.graphVisible && !model.graphProjectOpen {
+		parts = append(parts, shortcut("enter", "view agents"))
+	} else if model.navigator != nil {
 		parts = append(parts, shortcut("enter", "open"))
 	}
-	parts = append(parts, shortcut("v", "expand"), shortcut("m", "layout"), shortcut("q", "quit"))
+	if model.graphVisible && model.graphProjectOpen {
+		parts = append(parts, shortcut("q/esc", "projects"))
+	}
+	if !model.graphVisible || model.graphProjectOpen {
+		parts = append(parts, shortcut("v", "expand"))
+	}
+	parts = append(parts, shortcut("m", "layout"))
+	if !model.graphVisible || !model.graphProjectOpen {
+		parts = append(parts, shortcut("q", "quit"))
+	}
 	left := strings.Join(parts, "   ")
 	right := shortcut("?", "help")
 	width := model.width - appStyle.GetHorizontalFrameSize() - footerStyle.GetHorizontalFrameSize()
